@@ -1,0 +1,451 @@
+/* ───────────────────────── Интро PlayOS ─────────────────────────
+   Тайминги совпадают с константами в Intro.tsx:
+   искра 120 мс → кольцо рисуется 260–1120 → POWER 1120 (Play, вспышка, волны, сияние) → название с 1650. */
+
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #020308;
+}
+
+.intro > .intro-lockup,
+.intro > .intro-welcome {
+  grid-area: 1 / 1;
+}
+
+.intro-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Сияние в цветах ваших игр: загорается в момент «включения» и медленно переливается */
+.intro-aurora {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: aurora-on 1.8s 1.1s var(--ease-out) forwards;
+}
+
+.intro-aurora i {
+  position: absolute;
+  width: 92rem;
+  height: 58rem;
+  border-radius: 50%;
+  filter: blur(9rem);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+}
+
+.intro-aurora i:nth-child(1) {
+  left: calc(50% - 82rem);
+  top: calc(50% - 44rem);
+  background: radial-gradient(closest-side, var(--a1), transparent);
+  animation: aurora-a 9s ease-in-out infinite alternate;
+}
+
+.intro-aurora i:nth-child(2) {
+  left: calc(50% - 6rem);
+  top: calc(50% - 30rem);
+  background: radial-gradient(closest-side, var(--a2), transparent);
+  animation: aurora-b 11s ease-in-out infinite alternate;
+}
+
+.intro-aurora i:nth-child(3) {
+  left: calc(50% - 46rem);
+  top: calc(50% + 4rem);
+  background: radial-gradient(closest-side, var(--a3), transparent);
+  opacity: 0.32;
+  animation: aurora-a 13s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes aurora-on {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes aurora-a {
+  to {
+    transform: translate3d(8rem, 5rem, 0) scale(1.15);
+  }
+}
+
+@keyframes aurora-b {
+  to {
+    transform: translate3d(-9rem, 6rem, 0) scale(0.92);
+  }
+}
+
+.intro-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(75% 75% at 50% 50%, transparent 40%, rgba(2, 3, 8, 0.85) 100%);
+  pointer-events: none;
+}
+
+/* ── Логотип ── */
+.intro-lockup {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Проблеск: мягкая полоса света проходит по логотипу, когда название уже на месте */
+.intro-lockup::after {
+  content: '';
+  position: absolute;
+  inset: -4rem -8rem;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.22) 50%, transparent 62%);
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
+  opacity: 0;
+  animation: sweep 1.2s 2.35s var(--ease-in-out) forwards;
+}
+
+@keyframes sweep {
+  0% {
+    opacity: 1;
+    background-position: 130% 0;
+  }
+  100% {
+    opacity: 1;
+    background-position: -30% 0;
+  }
+}
+
+.intro-mark-wrap {
+  position: relative;
+  width: 13rem;
+  height: 13rem;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.intro-mark {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 1.2rem rgba(170, 200, 255, 0.45));
+  animation: mark-glow 1.6s 1.1s var(--ease-out) forwards;
+}
+
+@keyframes mark-glow {
+  0% {
+    filter: drop-shadow(0 0 1.2rem rgba(170, 200, 255, 0.45));
+  }
+  18% {
+    filter: drop-shadow(0 0 4.5rem rgba(220, 235, 255, 1));
+  }
+  100% {
+    filter: drop-shadow(0 0 2.2rem color-mix(in oklch, var(--a1) 70%, white));
+  }
+}
+
+/* Искра на конце разрыва — с неё начинается кольцо */
+.intro-spark {
+  fill: #fff;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spark 0.6s 0.12s var(--ease-out) forwards;
+}
+
+@keyframes spark {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.intro-ring,
+.intro-comet {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.intro-ring {
+  stroke: #fff;
+  stroke-width: 3.4;
+  /* промежуток длиннее кольца — до начала рисования не видно точек от скруглённых концов */
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1.02;
+  animation: ring-draw 0.86s 0.26s var(--ease-in-out) forwards;
+}
+
+/* Яркая «голова» кометы бежит вместе с фронтом рисования */
+.intro-comet {
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-dasharray: 0.06 2;
+  stroke-dashoffset: 0.06;
+  opacity: 0;
+  filter: blur(0.6px);
+  animation:
+    comet-run 0.86s 0.26s var(--ease-in-out) forwards,
+    comet-fade 0.86s 0.26s linear forwards;
+}
+
+@keyframes ring-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes comet-run {
+  to {
+    stroke-dashoffset: -0.94;
+  }
+}
+
+@keyframes comet-fade {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Play «включается»: поворот и пружинка */
+.intro-play {
+  fill: #fff;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 40% 50%;
+  animation: play-on 0.75s 1.06s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes play-on {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-90deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Вспышка и две ударные волны в момент включения */
+.intro-flash {
+  position: absolute;
+  inset: -6rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, color-mix(in oklch, var(--a1) 60%, transparent) 30%, transparent 65%);
+  opacity: 0;
+  animation: flash 0.9s 1.1s var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+@keyframes flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.intro-wave {
+  position: absolute;
+  inset: 1.4rem;
+  border-radius: 50%;
+  border: 0.25rem solid color-mix(in oklch, var(--a1) 50%, white);
+  opacity: 0;
+  animation: wave 1.3s 1.12s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+.intro-wave.is-second {
+  border-color: color-mix(in oklch, var(--a2) 55%, white);
+  animation-delay: 1.32s;
+}
+
+@keyframes wave {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(7);
+  }
+}
+
+/* ── Название ── */
+.intro-word-clip {
+  overflow: hidden;
+  /* место под выносные элементы букв */
+  padding: 1rem 0 2rem;
+  margin: -1rem 0 -2rem;
+}
+
+.intro-word {
+  display: flex;
+  padding-left: 3.6rem;
+  font-size: 9.2rem;
+  font-weight: 620;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: #eef2fb;
+  white-space: nowrap;
+}
+
+.intro-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(105%);
+}
+
+.intro-word.is-on .intro-letter {
+  animation: letter-rise 0.8s var(--ease-out) forwards;
+}
+
+.intro-letter.is-os {
+  font-weight: 260;
+  letter-spacing: 0;
+  background: linear-gradient(160deg, #fff 10%, color-mix(in oklch, var(--a2) 60%, white) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Небольшой воздух между «Play» и «OS» */
+.intro-letter:nth-child(5) {
+  margin-left: 0.08em;
+}
+
+@keyframes letter-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(105%);
+    filter: blur(6px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* ── Приветствие ── */
+.intro-welcome {
+  position: relative;
+  margin-top: 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.intro-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3.2rem;
+}
+
+.intro-avatar-ring {
+  position: absolute;
+  inset: -1.1rem;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--a1), var(--a2), var(--a3), var(--a1));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 0.45rem), #000 calc(100% - 0.4rem));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 0.45rem), #000 calc(100% - 0.4rem));
+  animation: spin 5s linear infinite;
+}
+
+.intro-greet {
+  font-size: 2.4rem;
+  color: var(--mist);
+}
+
+.intro-name {
+  margin-top: 0.6rem;
+  font-size: 6.6rem;
+  font-weight: 450;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.intro-sub {
+  margin-top: 1.8rem;
+  font-size: 2rem;
+  color: var(--mist);
+}
+
+/* ── Логотип в оверлее ── */
+.ov-brand .wordmark-os,
+.wordmark-os {
+  font-weight: 300;
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-aurora,
+  .intro-aurora i,
+  .intro-mark,
+  .intro-avatar-ring,
+  .intro-lockup::after {
+    animation: none;
+  }
+
+  .intro-aurora {
+    opacity: 1;
+  }
+
+  .intro-ring {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .intro-play,
+  .intro-word.is-on .intro-letter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .intro-spark,
+  .intro-comet,
+  .intro-flash,
+  .intro-wave {
+    display: none;
+  }
+}

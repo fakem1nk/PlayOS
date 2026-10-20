@@ -1,0 +1,367 @@
+/* ───────────────────────── Аутро: выход из PlayOS и выключение ПК ───────────────────────── */
+
+.outro {
+  position: absolute;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(80% 70% at 50% 50%, rgba(8, 12, 26, 0.86), rgba(2, 3, 8, 0.97));
+  backdrop-filter: blur(1.6rem);
+}
+
+.outro-aurora {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.9s ease;
+}
+
+.outro-aurora i {
+  position: absolute;
+  width: 80rem;
+  height: 52rem;
+  border-radius: 50%;
+  filter: blur(9rem);
+  mix-blend-mode: screen;
+  opacity: 0.38;
+}
+
+.outro-aurora i:nth-child(1) {
+  left: calc(50% - 70rem);
+  top: calc(50% - 38rem);
+  background: radial-gradient(closest-side, var(--a1), transparent);
+}
+
+.outro-aurora i:nth-child(2) {
+  left: calc(50% - 8rem);
+  top: calc(50% - 12rem);
+  background: radial-gradient(closest-side, var(--a2), transparent);
+}
+
+.outro.is-off .outro-aurora,
+.outro.is-done .outro-aurora {
+  opacity: 0;
+}
+
+.outro-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4.4rem;
+}
+
+.outro-lockup {
+  display: flex;
+  align-items: center;
+  gap: 3.6rem;
+}
+
+.outro-mark {
+  width: 12rem;
+  height: 12rem;
+  overflow: visible;
+  filter: drop-shadow(0 0 2.2rem color-mix(in oklch, var(--a1) 70%, white));
+  transition: filter 0.8s ease;
+}
+
+.outro-shutdown .outro-mark,
+.outro-restart .outro-mark {
+  width: 10rem;
+  height: 10rem;
+}
+
+.outro-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  /* промежуток длиннее кольца — после втягивания не остаётся точек от скруглённых концов */
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 0;
+}
+
+.outro-play {
+  fill: #fff;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: 40% 50%;
+}
+
+.outro-spark {
+  fill: #fff;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Выход: Play выключается, кольцо втягивается обратно к разрыву, в конце вспыхивает и гаснет искра */
+.outro-quit.is-off .outro-play,
+.outro-quit.is-done .outro-play {
+  animation: play-off 0.45s var(--ease-in-out) forwards;
+}
+
+.outro-quit.is-off .outro-ring,
+.outro-quit.is-done .outro-ring {
+  animation: ring-undraw 0.75s 0.12s var(--ease-in-out) forwards;
+}
+
+.outro-quit.is-off .outro-spark,
+.outro-quit.is-done .outro-spark {
+  animation: spark-out 0.5s 0.8s var(--ease-out) forwards;
+}
+
+.outro-quit.is-off .outro-mark,
+.outro-quit.is-done .outro-mark {
+  filter: drop-shadow(0 0 1rem rgba(170, 200, 255, 0.4));
+}
+
+/* Выключение ПК: кольцо втягивается медленно — как обратный отсчёт до «гашения» экрана */
+.outro-shutdown .outro-ring,
+.outro-restart .outro-ring {
+  animation: ring-undraw 1.6s linear forwards;
+}
+
+.outro-shutdown .outro-play,
+.outro-restart .outro-play {
+  animation: play-dim 1.6s ease-in forwards;
+}
+
+/* Перезагрузка: Play поворачивается по кругу, как стрелка «повторить» */
+.outro-restart .outro-play {
+  animation: play-spin 1.6s var(--ease-in-out) forwards;
+}
+
+@keyframes ring-undraw {
+  to {
+    stroke-dashoffset: 1.02;
+  }
+}
+
+@keyframes play-off {
+  to {
+    opacity: 0;
+    transform: scale(0.2) rotate(-90deg);
+  }
+}
+
+@keyframes play-dim {
+  to {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes play-spin {
+  to {
+    opacity: 0.4;
+    transform: rotate(360deg) scale(0.85);
+  }
+}
+
+@keyframes spark-out {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+/* Название опускается под маску — с последней буквы, обратно интро */
+.outro-word {
+  display: flex;
+  overflow: hidden;
+  padding: 1rem 0 2rem;
+  margin: -1rem 0 -2rem;
+  font-size: 8.4rem;
+  font-weight: 620;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: #eef2fb;
+}
+
+.outro-letter {
+  display: inline-block;
+}
+
+.outro-letter.is-os {
+  font-weight: 260;
+  letter-spacing: 0;
+  background: linear-gradient(160deg, #fff 10%, color-mix(in oklch, var(--a2) 60%, white) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.outro-letter:nth-child(5) {
+  margin-left: 0.08em;
+}
+
+.outro.is-off .outro-letter,
+.outro.is-done .outro-letter {
+  animation: letter-drop 0.55s var(--ease-in-out) forwards;
+}
+
+@keyframes letter-drop {
+  to {
+    opacity: 0;
+    transform: translateY(105%);
+    filter: blur(6px);
+  }
+}
+
+.outro-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  text-align: center;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s var(--ease-out);
+}
+
+.outro-quit.is-off .outro-text,
+.outro-quit.is-done .outro-text {
+  opacity: 0;
+  transform: translateY(1.2rem);
+}
+
+.outro-title {
+  font-size: 4.4rem;
+  font-weight: 450;
+  letter-spacing: -0.02em;
+}
+
+.outro-sub {
+  max-width: 90rem;
+  font-size: 2.1rem;
+  line-height: 1.45;
+  color: var(--mist);
+}
+
+.outro-hints {
+  position: absolute;
+  bottom: 4rem;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+/* Сон: луна и подпись, затем чёрный экран */
+.outro-moon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  font-size: 3.2rem;
+  color: var(--mist);
+  transition: opacity 0.6s ease;
+}
+
+.outro-moon svg {
+  font-size: 7rem;
+  color: #fff;
+}
+
+.outro-sleep .outro-aurora {
+  display: none;
+}
+
+.outro-sleep.is-off .outro-moon,
+.outro-sleep.is-done .outro-moon {
+  opacity: 0;
+}
+
+.outro-sleep.is-off,
+.outro-sleep.is-done {
+  background: #000;
+}
+
+/* ── Экран гаснет как кинескоп: интерфейс сжимается в яркую линию, затем в точку ── */
+html.is-powering-off,
+html.is-powering-off body,
+html.is-powering-off #root {
+  background: #000;
+}
+
+html.is-powering-off .app {
+  transform-origin: 50% 50%;
+  animation: crt-off 0.95s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+html.is-powering-off .app::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: crt-flash 0.95s linear forwards;
+}
+
+@keyframes crt-off {
+  0% {
+    transform: scale(1, 1);
+    filter: brightness(1);
+    opacity: 1;
+  }
+  45% {
+    transform: scale(1, 0.004);
+    filter: brightness(2.2);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(0.18, 0.004);
+    filter: brightness(3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0, 0.004);
+    filter: brightness(3);
+    opacity: 0;
+  }
+}
+
+/* Пока экран сжимается в линию, она раскаляется добела */
+@keyframes crt-flash {
+  0%,
+  36% {
+    opacity: 0;
+  }
+  47%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outro-ring,
+  .outro-play,
+  .outro-letter,
+  .outro-spark {
+    animation: none !important;
+  }
+
+  html.is-powering-off .app {
+    animation: none;
+    opacity: 0;
+  }
+
+  html.is-powering-off .app::after {
+    display: none;
+  }
+}

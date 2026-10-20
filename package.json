@@ -1,0 +1,92 @@
+{
+  "name": "playos",
+  "productName": "PlayOS",
+  "version": "0.9.0",
+  "description": "Лаунчер в стиле PlayStation для PC, PS2 и PS3 игр с управлением геймпадом",
+  "main": "out/main/index.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dist": "electron-vite build && electron-builder --win dir",
+    "dist:portable": "electron-vite build && electron-builder --win portable",
+    "install:e": "npm run dist && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1 -Target E:\\PlayOS",
+    "web": "vite --config vite.web.config.ts",
+    "build:helper": "powershell -NoProfile -Command \"& \\\"$env:WINDIR\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe\\\" -nologo -optimize -target:exe -out:resources\\PlayOSHelper.exe -r:System.Management.dll native\\SystemHelper.cs\"",
+    "dist:setup": "electron-vite build && electron-builder --win nsis --publish never",
+    "release": "node scripts/release-draft.mjs && electron-vite build && electron-builder --win nsis --publish always"
+  },
+  "build": {
+    "appId": "com.playos.app",
+    "productName": "PlayOS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**",
+      "node_modules/node-hid/**"
+    ],
+    "portable": {
+      "artifactName": "PlayOS-${version}-portable.exe"
+    },
+    "extraResources": [
+      {
+        "from": "resources/PlayOSHelper.exe",
+        "to": "PlayOSHelper.exe"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PlayOS",
+      "artifactName": "PlayOS-Setup-${version}.${ext}",
+      "uninstallDisplayName": "PlayOS",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "fakem1nk",
+        "repo": "PlayOS",
+        "releaseType": "draft"
+      }
+    ]
+  },
+  "dependencies": {
+    "@fontsource-variable/onest": "^5.3.1",
+    "electron-updater": "^6.8.9",
+    "koffi": "^3.3.3",
+    "motion": "^14.3.0",
+    "node-hid": "^3.4.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  },
+  "license": "GPL-3.0-only",
+  "repository": "github:fakem1nk/PlayOS"
+}

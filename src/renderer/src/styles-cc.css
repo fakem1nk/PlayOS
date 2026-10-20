@@ -1,0 +1,350 @@
+/* ───────────────────────── Оверлей: компактнее, чтобы влез пункт управления ───────────────────────── */
+.ov-bottom {
+  gap: 2.4rem;
+}
+
+.ov-cover {
+  width: 9rem;
+}
+
+.ov-card {
+  height: 11rem;
+  padding: 2rem;
+}
+
+.ov-slot {
+  width: 17rem;
+}
+
+/* ───────────────────────── Пункт управления ───────────────────────── */
+.cc {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  opacity: 0.72;
+  transition: opacity 0.2s ease;
+}
+
+.cc.is-zone {
+  opacity: 1;
+}
+
+.cc-row {
+  display: flex;
+  gap: 1.6rem;
+}
+
+.cc-slot {
+  position: relative;
+}
+
+.cc-card {
+  --r: 1.8rem;
+  position: relative;
+  width: 27rem;
+  height: 9rem;
+  padding: 1.6rem 2rem;
+  border-radius: var(--r);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(24, 30, 48, 0.55);
+  backdrop-filter: blur(2rem) saturate(1.3);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  column-gap: 1.4rem;
+  text-align: left;
+  transition: transform 160ms var(--ease-out);
+}
+
+.cc-card:active {
+  transform: scale(0.97);
+}
+
+.cc-icon {
+  grid-row: 1 / span 2;
+  font-size: 3rem;
+  display: grid;
+}
+
+.cc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.cc-label {
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+
+.cc-value {
+  font-size: 1.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-bar {
+  grid-column: 2;
+  height: 0.5rem;
+  margin-top: 0.8rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.cc-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transition: width 0.15s ease;
+}
+
+/* Список (выход звука, геймпады) раскрывается над карточкой */
+.cc-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 1.2rem);
+  z-index: 5;
+  min-width: 42rem;
+  max-height: 44rem;
+  overflow: auto;
+  padding: 0.8rem;
+  border-radius: 1.8rem;
+  background: rgba(18, 23, 38, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.5);
+  transform-origin: bottom left;
+}
+
+.cc-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 1.2rem;
+  font-size: 1.8rem;
+  cursor: pointer;
+}
+
+.cc-option.is-focused {
+  background: rgba(255, 255, 255, 0.12);
+  outline: 0.25rem solid #fff;
+  outline-offset: -0.25rem;
+}
+
+.cc-option.is-current .cc-option-name::after {
+  content: ' ✓';
+  color: var(--live);
+}
+
+.cc-option-name {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.cc-option-name svg {
+  font-size: 2.2rem;
+}
+
+.cc-option-detail {
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+
+/* ───────────────────────── Трофей поверх игры ───────────────────────── */
+.ov-trophies {
+  position: fixed;
+  top: 4.4rem;
+  right: var(--pad-x);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  width: 48rem;
+  pointer-events: none;
+}
+
+.ov-trophy {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.4rem 2rem 1.4rem 1.4rem;
+  border-radius: 1.8rem;
+  background: rgba(16, 20, 34, 0.95);
+  border: 1px solid color-mix(in oklab, var(--tier) 45%, transparent);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.5);
+}
+
+.ov-trophy-icon {
+  flex: none;
+  width: 6.4rem;
+  height: 6.4rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-size: 3.6rem;
+  color: var(--tier);
+  background: radial-gradient(circle, color-mix(in oklab, var(--tier) 28%, transparent), transparent 70%);
+}
+
+.ov-trophy-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ov-trophy-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ov-trophy-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.3rem;
+  color: var(--tier);
+}
+
+.ov-trophy-title {
+  font-size: 1.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ov-trophy-game {
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+
+.cc-card.is-adjusting {
+  background: rgba(255, 255, 255, 0.92);
+  color: #000;
+}
+
+.cc-card.is-adjusting .cc-label {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.cc-card.is-adjusting .cc-bar {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.cc-card.is-adjusting .cc-bar span {
+  background: var(--accent);
+}
+
+/* ───────────────────────── Ожидание в редакторе: загрузка арта ───────────────────────── */
+.busy-card {
+  width: 58rem;
+  padding: 3.2rem 3.6rem;
+  border-radius: 2.4rem;
+  background: rgba(18, 23, 38, 0.97);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 3rem 8rem rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.busy-title {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  font-size: 2.2rem;
+  font-weight: 500;
+}
+
+.busy-bar {
+  height: 0.6rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.busy-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transition: width 0.2s ease;
+}
+
+.busy-bar.is-indeterminate span {
+  width: 35%;
+  animation: indeterminate 1.2s var(--ease-in-out) infinite;
+}
+
+.busy-meta {
+  font-size: 1.6rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.busy-slow {
+  font-size: 1.6rem;
+  line-height: 1.45;
+  color: #ffc46b;
+}
+
+.busy-cancel {
+  align-self: flex-start;
+  margin-top: 0.4rem;
+}
+
+/* Анимированная обложка поверх статичной — плавно проявляется, когда загрузилась */
+.cover-anim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cover-anim.is-ready {
+  opacity: 1;
+}
+
+/* Превью анимации в окне поиска и пометки */
+.result-art {
+  position: relative;
+}
+
+.result-anim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-badge.is-anim {
+  top: auto;
+  bottom: 4.6rem;
+  background: rgba(61, 139, 255, 0.85);
+}
+
+.art-preview .art-anim-badge {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 0.8rem;
+  background: rgba(61, 139, 255, 0.9);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 600;
+}

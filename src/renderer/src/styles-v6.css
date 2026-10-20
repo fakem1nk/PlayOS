@@ -1,0 +1,1811 @@
+/* ───────────────────────── Живой фон ───────────────────────── */
+.bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 60% 30%;
+  opacity: 0;
+  transition: opacity 1.4s var(--ease-out);
+  pointer-events: none;
+}
+
+.bg-video.is-ready {
+  opacity: 1;
+}
+
+/* Под трейлером арт больше не «дышит» — иначе края видео и картинки разъезжаются */
+.bg-art:has(.bg-video.is-ready) img {
+  animation-play-state: paused;
+}
+
+/* ───────────────────────── Страница игры ───────────────────────── */
+.game-page {
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.gp-hero {
+  position: absolute;
+  inset: 0 0 auto 0;
+  width: 100%;
+  height: 62%;
+  object-fit: cover;
+  object-position: 60% 25%;
+}
+
+.gp-hero.is-blur {
+  filter: blur(6rem) saturate(1.4) brightness(0.65);
+  transform: scale(1.3);
+}
+
+.gp-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(4, 6, 12, 0.2) 0%, rgba(4, 6, 12, 0.55) 30%, var(--bg) 60%),
+    linear-gradient(90deg, rgba(4, 6, 12, 0.85) 0%, rgba(4, 6, 12, 0.2) 60%);
+}
+
+.gp-inner {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  padding: 4.4rem var(--pad-x) 3.2rem;
+}
+
+.gp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 3rem;
+  min-height: 18rem;
+}
+
+.gp-title-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 1.8rem;
+  min-height: 18rem;
+}
+
+.gp-logo {
+  max-width: 52rem;
+  max-height: 14rem;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 0.8rem 2.4rem rgba(0, 0, 0, 0.5));
+}
+
+.gp-title {
+  font-size: 5.6rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  max-width: 100rem;
+  text-wrap: balance;
+}
+
+.gp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.gp-meta span {
+  padding: 0.6rem 1.4rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(1.6rem);
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.gp-actions {
+  display: flex;
+  gap: 1.6rem;
+  margin: 2.8rem 0 3.2rem;
+}
+
+.gp-body {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 2.4rem;
+  align-items: start;
+  /* место под фокус-рамку */
+  padding: 0.8rem;
+  margin: -0.8rem;
+}
+
+.gp-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+}
+
+.gp-card {
+  --r: 2.2rem;
+  position: relative;
+  padding: 2.8rem 3.2rem;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  outline: none;
+}
+
+.gp-card:focus::after,
+.gp-session:focus::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: calc(var(--r) + 0.55rem);
+  border: 0.3rem solid #fff;
+  pointer-events: none;
+  animation: ring-in 120ms ease-out;
+}
+
+.gp-card-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 2.1rem;
+  font-weight: 600;
+  margin-bottom: 1.8rem;
+}
+
+.gp-card-title svg {
+  font-size: 2.4rem;
+  color: var(--mist);
+}
+
+.gp-card-sub {
+  margin-left: auto;
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.gp-desc {
+  font-size: 1.9rem;
+  line-height: 1.6;
+  color: rgba(244, 246, 251, 0.86);
+  max-width: 78ch;
+}
+
+.gp-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.6rem 2.4rem;
+  margin: 2.4rem 0 0;
+}
+
+.gp-facts dt,
+.gp-stats dt {
+  font-size: 1.45rem;
+  color: var(--faint);
+  margin-bottom: 0.4rem;
+}
+
+.gp-facts dd,
+.gp-stats dd {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.gp-source {
+  margin-top: 2rem;
+  font-size: 1.4rem;
+  color: var(--faint);
+}
+
+.gp-empty {
+  font-size: 1.7rem;
+  line-height: 1.5;
+  color: var(--mist);
+}
+
+.gp-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.gp-skeleton span {
+  height: 1.8rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.05) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.gp-skeleton span:nth-child(2) {
+  width: 86%;
+}
+
+.gp-skeleton span:nth-child(3) {
+  width: 62%;
+}
+
+/* Время прохождения */
+.hltb {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.4rem;
+}
+
+.hltb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.8rem 2rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hltb-value {
+  font-size: 3rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hltb-label {
+  font-size: 1.5rem;
+  color: var(--mist);
+}
+
+.hltb-progress {
+  margin-top: 2.2rem;
+}
+
+.hltb-track {
+  position: relative;
+  height: 0.8rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hltb-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.8s var(--ease-out);
+}
+
+/* Отметка «сюжет пройден» */
+.hltb-mark {
+  position: absolute;
+  top: -0.6rem;
+  bottom: -0.6rem;
+  width: 0.3rem;
+  margin-left: -0.15rem;
+  border-radius: 0.2rem;
+  background: #fff;
+}
+
+.hltb-verdict {
+  margin-top: 1.4rem;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+/* Активность: столбики по дням */
+.gp-chart {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+  height: 17rem;
+}
+
+.gp-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.gp-bar-track {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gp-bar-fill {
+  width: 100%;
+  border-radius: 0.4rem 0.4rem 0 0;
+  background: rgba(61, 139, 255, 0.75);
+  transition: height 0.6s var(--ease-out);
+}
+
+.gp-bar.is-today .gp-bar-fill {
+  background: var(--accent);
+}
+
+/* Подпись только у самого длинного дня — сидит вверху его дорожки */
+.gp-bar-value {
+  position: absolute;
+  top: 0.6rem;
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.gp-bar-day {
+  text-align: center;
+  font-size: 1.3rem;
+  color: var(--faint);
+}
+
+.gp-bar.is-today .gp-bar-day {
+  color: var(--ink);
+}
+
+.gp-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.6rem;
+  margin: 2.6rem 0 0;
+}
+
+/* История сессий */
+.gp-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.gp-session {
+  --r: 1.2rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 2.4rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--r);
+  font-size: 1.7rem;
+  outline: none;
+}
+
+.gp-session:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.gp-session-time {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.gp-session-len {
+  min-width: 11rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────── Импорт Steam ───────────────────────── */
+.steam-import {
+  width: min(110rem, 92%);
+  max-height: 88%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 2.4rem;
+  padding: 3.6rem 4rem 3rem;
+  border-radius: 2.8rem;
+  background: rgba(16, 21, 36, 0.96);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 4rem 10rem rgba(0, 0, 0, 0.6);
+}
+
+.steam-import-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.steam-import-sub {
+  font-size: 1.7rem;
+  line-height: 1.5;
+  color: var(--mist);
+}
+
+.steam-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.8rem;
+  margin: -0.8rem;
+}
+
+.steam-row {
+  --r: 1.4rem;
+  position: relative;
+  flex: none;
+  display: grid;
+  grid-template-columns: 3.2rem 12.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2rem;
+  min-height: 7.2rem;
+  padding: 1rem 2rem 1rem 1.6rem;
+  border: 0;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.05);
+  text-align: left;
+  transition:
+    background-color 0.2s ease,
+    transform 160ms var(--ease-out);
+}
+
+.steam-row:active {
+  transform: scale(0.99);
+}
+
+.steam-row:focus::after {
+  content: '';
+  position: absolute;
+  inset: -0.5rem;
+  border-radius: calc(var(--r) + 0.5rem);
+  border: 0.3rem solid #fff;
+  pointer-events: none;
+}
+
+.steam-row.is-on {
+  background: rgba(61, 139, 255, 0.14);
+}
+
+.steam-row.is-added {
+  opacity: 0.5;
+}
+
+.steam-row.is-skeleton {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.04) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.steam-check {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 0.9rem;
+  border: 0.2rem solid rgba(255, 255, 255, 0.35);
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.steam-row.is-on .steam-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.steam-capsule {
+  width: 12.4rem;
+  aspect-ratio: 231 / 87;
+  border-radius: 0.6rem;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.steam-name {
+  font-size: 1.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steam-size {
+  font-size: 1.5rem;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.steam-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  padding: 2rem 0;
+}
+
+/* ───────────────────────── Экранная клавиатура ───────────────────────── */
+.osk {
+  position: absolute;
+  left: 50%;
+  bottom: 3.2rem;
+  z-index: 80;
+  width: min(124rem, 94%);
+  margin-left: max(-62rem, -47%);
+  padding: 2.4rem 2.6rem 1.8rem;
+  border-radius: 2.8rem;
+  background: rgba(14, 18, 32, 0.97);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 3rem 9rem rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.osk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.4rem 2rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.osk-label {
+  font-size: 1.4rem;
+  color: var(--faint);
+}
+
+.osk-text {
+  min-height: 3.2rem;
+  font-size: 2.4rem;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.osk-placeholder {
+  color: var(--faint);
+}
+
+.osk-caret {
+  display: inline-block;
+  width: 0.25rem;
+  height: 2.8rem;
+  margin: 0 0.1rem -0.5rem;
+  background: var(--accent);
+  animation: caret 1s steps(1) infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.osk-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.osk-row {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.osk-key {
+  --r: 1.2rem;
+  position: relative;
+  flex: 1 1 0;
+  height: 6.4rem;
+  border: 0;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 2.3rem;
+  display: grid;
+  place-items: center;
+  transition:
+    background-color 0.12s ease,
+    transform 120ms var(--ease-out);
+}
+
+.osk-key svg {
+  font-size: 2.8rem;
+}
+
+.osk-key:active {
+  transform: scale(0.95);
+}
+
+.osk-key.is-focused {
+  background: #fff;
+  color: #000;
+}
+
+.osk-key.is-on {
+  background: rgba(61, 139, 255, 0.45);
+}
+
+.osk-key.is-done {
+  background: var(--accent);
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.osk-key.is-done.is-focused {
+  background: #fff;
+}
+
+.osk-hints {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  font-size: 1.5rem;
+  color: var(--mist);
+}
+
+/* ───────────────────────── Заставка ───────────────────────── */
+.saver {
+  position: absolute;
+  inset: 0;
+  z-index: 95;
+  background: #000;
+  cursor: none;
+}
+
+.saver-slide {
+  position: absolute;
+  inset: 0;
+}
+
+.saver-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: saver-pan 13s linear both;
+}
+
+.saver-slide.pan-left img {
+  animation-name: saver-pan-left;
+}
+
+.saver-slide.is-blur img {
+  filter: blur(5rem) saturate(1.4) brightness(0.7);
+}
+
+@keyframes saver-pan {
+  from {
+    transform: scale(1.04) translate3d(1.5%, 0, 0);
+  }
+  to {
+    transform: scale(1.16) translate3d(-1.5%, -1%, 0);
+  }
+}
+
+@keyframes saver-pan-left {
+  from {
+    transform: scale(1.16) translate3d(-1.5%, 1%, 0);
+  }
+  to {
+    transform: scale(1.04) translate3d(1.5%, 0, 0);
+  }
+}
+
+.saver-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0) 45%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 30%);
+}
+
+.saver-clock {
+  position: absolute;
+  top: 6rem;
+  right: 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  transition:
+    left 2s var(--ease-in-out),
+    right 2s var(--ease-in-out);
+}
+
+.saver-clock.is-left {
+  right: auto;
+  left: 8rem;
+  align-items: flex-start;
+}
+
+.saver-time {
+  font-size: 11rem;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.saver-date {
+  font-size: 2.2rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.saver-game {
+  position: absolute;
+  left: 8rem;
+  bottom: 7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  max-width: 70rem;
+}
+
+.saver-game.is-right {
+  left: auto;
+  right: 8rem;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.saver-logo {
+  max-width: 44rem;
+  max-height: 14rem;
+  object-fit: contain;
+  object-position: left bottom;
+}
+
+.saver-game.is-right .saver-logo {
+  object-position: right bottom;
+}
+
+.saver-title {
+  font-size: 5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.saver-meta {
+  font-size: 1.9rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ───────────────────────── Разряд геймпада поверх игры ───────────────────────── */
+.ov-notice {
+  --tier: #ff5b6e;
+}
+
+.ov-notice .ov-trophy-icon {
+  font-size: 4rem;
+  animation: notice-pulse 1.1s ease-in-out infinite;
+}
+
+.ov-notice .ov-trophy-game {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+@keyframes notice-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ───────────────────────── Настройки: плавные мелочи ───────────────────────── */
+.section-btn.is-active {
+  background: transparent;
+}
+
+.section-pill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--glass-hi);
+}
+
+.section-btn {
+  isolation: isolate;
+}
+
+/* Переключатель: пружинящий бегунок, при нажатии слегка вытягивается, включённый — светится */
+.switch {
+  transition:
+    background-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.switch.is-on {
+  box-shadow: 0 0 1.6rem color-mix(in oklch, var(--accent) 45%, transparent);
+}
+
+.switch-knob {
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.45, 0.64, 1),
+    width 0.18s var(--ease-out);
+}
+
+.setting:active .switch-knob {
+  width: 3.2rem;
+}
+
+.setting:active .switch.is-on .switch-knob {
+  transform: translateX(2rem);
+}
+
+/* Значение в переключателе вариантов выезжает со стороны нажатой стрелки */
+.cycler-value {
+  overflow: hidden;
+}
+
+.cycler-text {
+  display: inline-block;
+  animation: cycler-in 0.24s var(--ease-out);
+}
+
+.cycler-text.from-left {
+  animation-name: cycler-in-left;
+}
+
+@keyframes cycler-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.6rem);
+  }
+}
+
+@keyframes cycler-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-1.6rem);
+  }
+}
+
+/* Стрелки переключателя оживают, когда пункт в фокусе */
+.setting:focus .cycler svg {
+  opacity: 0.9;
+}
+
+/* Фокус ушёл на вкладки — рамка остаётся только там, в содержимом её не рисуем */
+.app.is-tabs-zone .content :focus::after,
+.app.is-tabs-zone .content .is-focused::after {
+  display: none;
+}
+
+/* Восемь разделов настроек помещаются на экран целиком */
+.sections {
+  gap: 0.4rem;
+}
+
+.section-btn {
+  padding: 1.25rem 2.2rem;
+}
+
+.section-label {
+  font-size: 1.9rem;
+}
+
+.section-hint {
+  font-size: 1.35rem;
+}
+
+/* ───────────────────────── О системе ───────────────────────── */
+.sysinfo {
+  width: min(96rem, 92%);
+  max-height: 88%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sysinfo-body {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2.6rem;
+  margin: 1rem 0 3rem;
+}
+
+.sysinfo-group-title {
+  margin: 0 0 1rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--mist);
+}
+
+.sysinfo-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 1.4rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sysinfo-rows > div {
+  display: grid;
+  grid-template-columns: 26rem minmax(0, 1fr);
+  gap: 2rem;
+  padding: 1.2rem 1.8rem;
+  font-size: 1.8rem;
+}
+
+.sysinfo-rows > div + div {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sysinfo-rows dt {
+  color: var(--mist);
+}
+
+.sysinfo-rows dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ───────────────────────── О системе (карточки) ───────────────────────── */
+.si {
+  position: relative;
+  width: min(132rem, 94%);
+  max-height: 90%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 2.6rem;
+  padding: 3.6rem 4rem 3rem;
+  border-radius: 3rem;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 50% at 0% 0%, color-mix(in oklch, var(--accent) 22%, transparent), transparent 70%),
+    rgba(14, 19, 34, 0.97);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 4rem 12rem rgba(0, 0, 0, 0.6);
+}
+
+.si-head {
+  display: flex;
+  align-items: center;
+  gap: 2.4rem;
+}
+
+.si-logo {
+  width: 7.2rem;
+  height: 7.2rem;
+  color: #fff;
+  filter: drop-shadow(0 0 2rem color-mix(in oklch, var(--accent) 70%, transparent));
+}
+
+.si-title h2 {
+  margin: 0;
+  font-size: 4.4rem;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.si-title h2 span {
+  font-weight: 260;
+  opacity: 0.8;
+}
+
+.si-title p {
+  margin-top: 0.8rem;
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.si-chips {
+  margin-left: auto;
+  display: flex;
+  gap: 0.8rem;
+}
+
+.si-chips span {
+  padding: 0.6rem 1.4rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1.5rem;
+  color: var(--mist);
+}
+
+.si-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.si-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.8rem;
+}
+
+.si-card {
+  padding: 2.4rem 2.8rem;
+  border-radius: 2.2rem;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  min-width: 0;
+}
+
+.si-card.is-wide {
+  grid-column: 1 / -1;
+}
+
+.si-card.is-skeleton {
+  height: 22rem;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.si-card h3 {
+  margin: 0 0 1.8rem;
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--mist);
+}
+
+.si-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.si-list > div {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  gap: 1.6rem;
+  font-size: 1.8rem;
+}
+
+.si-list dt {
+  color: var(--faint);
+}
+
+.si-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.si-faint {
+  color: var(--faint);
+  margin-left: 0.4rem;
+}
+
+.si-big {
+  display: flex;
+  align-items: baseline;
+  gap: 1.4rem;
+  font-size: 4.2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.si-big span {
+  font-size: 1.7rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--mist);
+}
+
+.si-meter {
+  margin-top: 2rem;
+  height: 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.si-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in oklch, var(--accent) 55%, white));
+  animation: si-grow 0.9s var(--ease-out) both;
+  transform-origin: left;
+}
+
+@keyframes si-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.si-caption {
+  margin-top: 1.2rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.si-path {
+  overflow-wrap: anywhere;
+  color: var(--faint);
+}
+
+/* Экраны в настоящих пропорциях */
+.si-screens {
+  display: flex;
+  align-items: flex-end;
+  gap: 4rem;
+  flex-wrap: wrap;
+}
+
+.si-screen-shape {
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  border: 0.25rem solid rgba(255, 255, 255, 0.28);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+}
+
+.si-screen.is-current .si-screen-shape {
+  border-color: var(--accent);
+  background: radial-gradient(circle, color-mix(in oklch, var(--accent) 30%, transparent), transparent 75%);
+  box-shadow: 0 0 3rem color-mix(in oklch, var(--accent) 35%, transparent);
+}
+
+.si-screen-logo {
+  width: 3.6rem;
+  height: 3.6rem;
+  color: #fff;
+}
+
+.si-screen-name {
+  margin-top: 1.2rem;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.si-screen-meta {
+  margin-top: 0.3rem;
+  font-size: 1.5rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.si-badges {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  min-height: 2.6rem;
+}
+
+.si-badges span {
+  padding: 0.3rem 1rem;
+  border-radius: 1rem;
+  font-size: 1.3rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mist);
+}
+
+.si-badges .is-accent {
+  background: color-mix(in oklch, var(--accent) 30%, transparent);
+  color: var(--ink);
+}
+
+/* Геймпады */
+.si-pads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.si-pads li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.6rem;
+  font-size: 1.8rem;
+}
+
+.si-pad-icon {
+  display: grid;
+  place-items: center;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 2.8rem;
+}
+
+.si-pad-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.si-pad-text .si-faint {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.si-pad-battery {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.7rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.si-pad-battery svg {
+  font-size: 2.6rem;
+}
+
+/* Место на диске: составная полоса с промежутками и легенда */
+.si-stack {
+  display: flex;
+  gap: 0.3rem;
+  height: 1rem;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.si-stack span {
+  min-width: 0.6rem;
+}
+
+.si-stack .is-art,
+.si-legend .is-art {
+  background: var(--accent);
+}
+
+.si-stack .is-video,
+.si-legend .is-video {
+  background: #a78bfa;
+}
+
+.si-stack .is-other,
+.si-legend .is-other {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.si-legend {
+  list-style: none;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.si-legend li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.si-legend i {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 0.3rem;
+}
+
+.si-legend b {
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.si-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.si-actions-buttons {
+  display: flex;
+  gap: 1.4rem;
+}
+
+/* ───────────────────────── Мастер первого запуска ───────────────────────── */
+.wiz {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  overflow: hidden;
+  background: #04060c;
+}
+
+.wiz-aurora i {
+  position: absolute;
+  width: 90rem;
+  height: 60rem;
+  border-radius: 50%;
+  filter: blur(10rem);
+  opacity: 0.38;
+  mix-blend-mode: screen;
+}
+
+.wiz-aurora i:nth-child(1) {
+  left: -20rem;
+  top: -18rem;
+  background: radial-gradient(closest-side, var(--a1), transparent);
+  animation: aurora-a 14s ease-in-out infinite alternate;
+}
+
+.wiz-aurora i:nth-child(2) {
+  right: -24rem;
+  top: 20rem;
+  background: radial-gradient(closest-side, var(--a2), transparent);
+  animation: aurora-b 16s ease-in-out infinite alternate;
+}
+
+.wiz-aurora i:nth-child(3) {
+  left: 40rem;
+  bottom: -36rem;
+  background: radial-gradient(closest-side, var(--a3), transparent);
+  opacity: 0.22;
+  animation: aurora-a 18s ease-in-out infinite alternate-reverse;
+}
+
+.wiz-frame {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 4.4rem var(--pad-x) 4rem;
+}
+
+.wiz-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wiz-brand {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  font-size: 2.4rem;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+}
+
+.wiz-brand b {
+  font-weight: 260;
+  opacity: 0.8;
+}
+
+.wiz-brand-logo {
+  width: 3.8rem;
+  height: 3.8rem;
+  color: #fff;
+}
+
+.wiz-counter {
+  font-size: 1.8rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.wiz-stage {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8rem;
+  align-items: center;
+}
+
+.wiz-visual {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.wiz-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 0.8rem;
+  margin: -0.8rem;
+}
+
+.wiz-title {
+  font-size: 6rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.wiz-text {
+  margin-top: 1.8rem;
+  max-width: 66rem;
+  font-size: 2.1rem;
+  line-height: 1.5;
+  color: var(--mist);
+}
+
+.wiz-controls {
+  margin-top: 3.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.wiz-note {
+  max-width: 64rem;
+  font-size: 1.9rem;
+  line-height: 1.55;
+  color: var(--mist);
+}
+
+/* Шаги: полоски с подписями, текущая заполняется */
+.wiz-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4rem;
+}
+
+.wiz-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 1.6rem;
+  flex: 1;
+  max-width: 96rem;
+}
+
+.wiz-steps li {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 1.6rem;
+  color: var(--faint);
+  transition: color 0.3s ease;
+}
+
+.wiz-steps li.is-current {
+  color: var(--ink);
+}
+
+.wiz-steps li.is-done {
+  color: var(--mist);
+}
+
+.wiz-step-bar {
+  height: 0.6rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.wiz-step-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: #fff;
+  transition: width 0.6s var(--ease-out);
+}
+
+.wiz-steps li.is-done .wiz-step-bar span {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.wiz-steps li.is-current .wiz-step-bar span {
+  width: 100%;
+  box-shadow: 0 0 1.2rem rgba(255, 255, 255, 0.5);
+}
+
+.wiz-buttons {
+  display: flex;
+  gap: 1.4rem;
+}
+
+/* Знакомство */
+.wiz-hello {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.wiz-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3.6rem;
+}
+
+.wiz-avatar .avatar-xl {
+  width: 24rem;
+  height: 24rem;
+  font-size: 10rem;
+}
+
+.wiz-avatar-ring {
+  position: absolute;
+  inset: -1.6rem;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--a1), var(--a2), var(--a3), var(--a1));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 0.55rem), #000 calc(100% - 0.5rem));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 0.55rem), #000 calc(100% - 0.5rem));
+  filter: drop-shadow(0 0 1.6rem color-mix(in oklch, var(--a1) 60%, transparent));
+  animation: spin 6s linear infinite;
+}
+
+.wiz-hello-greet {
+  font-size: 2.6rem;
+  color: var(--mist);
+}
+
+.wiz-hello-name {
+  margin-top: 0.6rem;
+  font-size: 6.4rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  max-width: 64rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Игры: веер обложек */
+.wiz-games {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5rem;
+}
+
+.wiz-fan {
+  position: relative;
+  width: 64rem;
+  height: 30rem;
+  display: grid;
+  place-items: center;
+}
+
+.wiz-fan-card {
+  position: absolute;
+  width: 18rem;
+  aspect-ratio: 3 / 4;
+  border-radius: 1.6rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 2.4rem 5rem rgba(0, 0, 0, 0.55),
+    0 0 4rem color-mix(in oklch, var(--glow, var(--a1)) 30%, transparent);
+  animation: fan-in 0.7s var(--ease-out) both;
+}
+
+.wiz-fan-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wiz-fan-blank {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 3.6rem;
+  font-weight: 600;
+  color: var(--mist);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+}
+
+@keyframes fan-in {
+  from {
+    opacity: 0;
+    translate: 0 4rem;
+  }
+}
+
+.wiz-games-count {
+  font-size: 3.2rem;
+  font-weight: 500;
+}
+
+/* Эмуляторы: диски */
+.wiz-emus {
+  display: flex;
+  gap: 3rem;
+}
+
+.wiz-disc {
+  width: 26rem;
+  padding: 3.4rem 2.8rem;
+  border-radius: 2.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+}
+
+.wiz-disc-icon {
+  font-size: 11rem;
+  color: var(--faint);
+  display: grid;
+  margin-bottom: 1.6rem;
+}
+
+.wiz-disc.is-ok .wiz-disc-icon {
+  color: #fff;
+  filter: drop-shadow(0 0 2rem color-mix(in oklch, var(--a1) 70%, transparent));
+  animation: spin 4s linear infinite;
+}
+
+.wiz-disc-label {
+  font-size: 2.2rem;
+  font-weight: 500;
+}
+
+.wiz-disc-emu {
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.wiz-disc-status {
+  margin-top: 1.4rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 1.4rem;
+  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mist);
+}
+
+.wiz-disc-status.is-ok {
+  background: color-mix(in oklch, var(--live) 22%, transparent);
+  color: var(--live);
+}
+
+/* Экран: телевизор с уменьшенным интерфейсом */
+.wiz-tv {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wiz-tv-screen {
+  width: 60rem;
+  aspect-ratio: 16 / 9;
+  border-radius: 1.6rem;
+  border: 0.6rem solid #1a1f2c;
+  background:
+    radial-gradient(80% 70% at 75% 15%, color-mix(in oklch, var(--a1) 40%, transparent), transparent 70%),
+    #070b16;
+  overflow: hidden;
+  box-shadow: 0 3rem 6rem rgba(0, 0, 0, 0.5);
+}
+
+.wiz-tv-ui {
+  width: 100%;
+  height: 100%;
+  padding: 2.4rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2rem;
+  transform-origin: 0 0;
+  transition: transform 0.45s var(--ease-out);
+}
+
+.wiz-tv-bar {
+  width: 40%;
+  height: 1.2rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.wiz-tv-row {
+  display: flex;
+  gap: 1.2rem;
+  margin-top: 2rem;
+}
+
+.wiz-tv-row i {
+  width: 7rem;
+  aspect-ratio: 3 / 4;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wiz-tv-row i.is-focus {
+  width: 9rem;
+  background: rgba(255, 255, 255, 0.28);
+  outline: 0.3rem solid #fff;
+  outline-offset: 0.3rem;
+}
+
+.wiz-tv-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.wiz-tv-lines i {
+  width: 28rem;
+  height: 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wiz-tv-lines i + i {
+  width: 18rem;
+}
+
+.wiz-tv-stand {
+  width: 14rem;
+  height: 1.6rem;
+  margin-top: 1.2rem;
+  border-radius: 0.8rem;
+  background: #1a1f2c;
+}
+
+.wiz-tv-label {
+  margin-top: 2rem;
+  font-size: 2.6rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Готово: кнопки карточками */
+.wiz-keys {
+  display: grid;
+  grid-template-columns: repeat(2, 26rem);
+  gap: 1.6rem;
+}
+
+.wiz-key {
+  display: flex;
+  align-items: center;
+  gap: 1.8rem;
+  padding: 2rem 2.2rem;
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.wiz-key-glyph {
+  display: grid;
+  place-items: center;
+  width: 6.4rem;
+  height: 6.4rem;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 3rem;
+}
+
+.wiz-key-glyph .glyph {
+  transform: scale(1.5);
+}
+
+.wiz-ps {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.wiz-key-label {
+  font-size: 1.9rem;
+  line-height: 1.3;
+}

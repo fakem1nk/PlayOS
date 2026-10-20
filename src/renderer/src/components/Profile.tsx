@@ -1,0 +1,253 @@
+import { useMemo, useRef, useState } from 'react'
+import type { AchievementSummaryItem, AppState, Game } from '@shared/types'
+import { api } from '../lib/api'
+import { gamesCount, playtime } from '../lib/format'
+import { useSpatialNav } from '../lib/nav'
+import { toast } from '../lib/state'
+import { earnedNow, TIER_NAMES, TROPHIES, type Tier } from '../lib/trophies'
+import { Avatar } from './Avatar'
+import { IconImage, IconTrophy } from './Icons'
+import { Cover } from './Tile'
+
+const DAYS = 14
+const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' })
+const dayMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
+
+interface Props {
+  state: AppState
+  active: boolean
+  onExitTop: () => void
+  onOpenGame: (g: Game) => void
+  trophies: Record<string, AchievementSummaryItem>
+  onOpenTrophies: (g: Game) => void
+}
+
+export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpenTrophies }: Props) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { games, settings } = state
+  const [focusedTrophy, setFocusedTrophy] = useState<string | null>(null)
+  const [hoverDay, setHoverDay] = useState<number | null>(null)
+
+  useSpatialNav(ref, {
+    priority: 0,
+    active,
+    onBack: onExitTop,
+    onEdge: (dir) => dir === 'up' && onExitTop(),
+    autoFocus: '.profile-avatar-btn'
+  })
+
+  const stats = useMemo(() => {
+    const total = games.reduce((a, g) => a + g.playtime, 0)
+    const sessions = games.reduce((a, g) => a + g.sessions.length, 0)
+    const since = games.length ? Math.min(...games.map((g) => g.addedAt)) : Date.now()
+    // Часы по дням за последние две недели (сессия засчитывается в день начала)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const days = Array.from({ length: DAYS }, (_, i) => {
+      const d = new Date(today)
+      d.setDate(d.getDate() - (DAYS - 1 - i))
+      return { date: d.getTime(), seconds: 0 }
+    })
+    for (const g of games) {
+      for (const s of g.sessions) {
+        const d = new Date(s.start)
+        d.setHours(0, 0, 0, 0)
+        const slot = days.find((x) => x.date === d.getTime())
+        if (slot) slot.seconds += s.duration
+      }
+    }
+    const top = [...games].filter((g) => g.playtime > 0).sort((a, b) => b.playtime - a.playtime).slice(0, 5)
+    return { total, sessions, since, days, top }
+  }, [games])
+
+  const earned = earnedNow(state)
+  const maxDay = Math.max(3600, ...stats.days.map((d) => d.seconds))
+  const twoWeeks = stats.days.reduce((a, d) => a + d.seconds, 0)
+  const shownDay = stats.days[hoverDay ?? DAYS - 1]
+  const trophy = TROPHIES.find((t) => t.id === focusedTrophy)
+
+  const pickAvatar = async () => {
+    const p = await api.pickFile('image')
+    if (!p) return
+    await api.saveSettings({ avatar: p })
+    toast({ title: 'Аватар обновлён', image: p, tone: 'success' })
+  }
+
+  return (
+    <div className="profile-page" ref={ref}>
+      <section className="profile-card">
+        <button data-nav className="profile-avatar-btn" onClick={pickAvatar} aria-label="Сменить аватар">
+          <Avatar name={settings.userName} src={settings.avatar} className="avatar-xl" />
+          <span className="profile-avatar-edit">
+            <IconImage />
+          </span>
+        </button>
+        <h1 className="profile-title">{settings.userName}</h1>
+        <p className="profile-since">В PlayOS с {dayMonth.format(stats.since)}</p>
+
+        <div className="profile-hero">
+          <span className="profile-hero-value">{stats.total ? playtime(stats.total) : '0 мин'}</span>
+          <span className="profile-hero-label">наиграно всего</span>
+        </div>
+        <dl className="profile-stats">
+          <div>
+            <dt>Библиотека</dt>
+            <dd>{gamesCount(games.length)}</dd>
+          </div>
+          <div>
+            <dt>Сессий</dt>
+            <dd>{stats.sessions}</dd>
+          </div>
+          <div>
+            <dt>Трофеи</dt>
+            <dd>
+              {earned.size} из {TROPHIES.length}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <div className="profile-main">
+        <section className="profile-block">
+          <header className="block-head">
+            <h2 className="block-title">Активность за две недели</h2>
+            <span className="block-meta">{twoWeeks ? `Всего ${playtime(twoWeeks).toLowerCase()}` : 'Пока без игр'}</span>
+          </header>
+          <div className="activity" onMouseLeave={() => setHoverDay(null)}>
+            <div className="activity-bars" role="img" aria-label="Часы игры по дням за последние 14 дней">
+              {stats.days.map((d, i) => {
+                const isToday = i === DAYS - 1
+                const h = d.seconds ? Math.max(4, (d.seconds / maxDay) * 100) : 0
+                return (
+                  <div
+                    key={d.date}
+                    className={`activity-col ${hoverDay === i ? 'is-hover' : ''} ${isToday ? 'is-today' : ''}`}
+                    onMouseEnter={() => setHoverDay(i)}
+                  >
+                    <div className="activity-track">
+                      {h > 0 ? <span className="activity-bar" style={{ height: `${h}%` }} /> : <span className="activity-empty" />}
+                    </div>
+                    <span className="activity-day">{isToday ? 'сег.' : weekday.format(d.date)}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="activity-caption">
+              {hoverDay === null || hoverDay === DAYS - 1 ? 'Сегодня' : dayMonth.format(shownDay.date)}:{' '}
+              <strong>{shownDay.seconds ? playtime(shownDay.seconds).toLowerCase() : 'не играли'}</strong>
+            </p>
+          </div>
+        </section>
+
+        <section className="profile-block" data-reveal>
+          <header className="block-head">
+            <h2 className="block-title">Больше всего играли</h2>
+          </header>
+          {stats.top.length ? (
+            <div className="top-list">
+              {stats.top.map((g) => (
+                <button key={g.id} data-nav className="top-item" onClick={() => onOpenGame(g)}>
+                  <span className="top-cover">
+                    <Cover game={g} />
+                  </span>
+                  <span className="top-body">
+                    <span className="top-title">{g.title}</span>
+                    <span className="top-track">
+                      <span className="top-fill" style={{ width: `${(g.playtime / stats.top[0].playtime) * 100}%` }} />
+                    </span>
+                  </span>
+                  <span className="top-time">{playtime(g.playtime)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="block-empty">Здесь появятся игры, в которые вы играете чаще всего.</p>
+          )}
+        </section>
+
+        <GameTrophies games={games} trophies={trophies} onOpen={onOpenTrophies} />
+
+        <section className="profile-block" data-reveal>
+          <header className="block-head">
+            <h2 className="block-title">Трофеи PlayOS</h2>
+            <span className="block-meta">
+              {earned.size} из {TROPHIES.length}
+            </span>
+          </header>
+          <div className="trophies">
+            {TROPHIES.map((t) => {
+              const got = earned.has(t.id)
+              return (
+                <button
+                  key={t.id}
+                  data-nav
+                  className={`trophy trophy-${t.tier} ${got ? 'is-earned' : ''}`}
+                  onFocus={() => setFocusedTrophy(t.id)}
+                  onMouseEnter={() => setFocusedTrophy(t.id)}
+                  aria-label={`${t.title}: ${t.desc}`}
+                >
+                  <IconTrophy />
+                </button>
+              )
+            })}
+          </div>
+          <p className="trophy-detail">
+            {trophy ? (
+              <>
+                <strong>{trophy.title}</strong> <TierBadge tier={trophy.tier} /> {trophy.desc}
+                {earned.has(trophy.id) && settings.trophies[trophy.id] && <span className="trophy-date">, получен {dayMonth.format(settings.trophies[trophy.id])}</span>}
+              </>
+            ) : (
+              'Выберите трофей, чтобы узнать условие'
+            )}
+          </p>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function TierBadge({ tier }: { tier: Tier }) {
+  return <span className={`tier-badge tier-${tier}`}>{TIER_NAMES[tier]}</span>
+}
+
+/** Трофеи настоящих игр (RetroAchievements и Steam): прогресс по каждой */
+function GameTrophies({ games, trophies, onOpen }: { games: Game[]; trophies: Record<string, AchievementSummaryItem>; onOpen: (g: Game) => void }) {
+  const list = games
+    .filter((g) => trophies[g.id]?.total)
+    .map((g) => ({ g, t: trophies[g.id] }))
+    .sort((a, b) => b.t.earned / b.t.total - a.t.earned / a.t.total)
+  const earned = list.reduce((s, x) => s + x.t.earned, 0)
+  return (
+    <section className="profile-block" data-reveal>
+      <header className="block-head">
+        <h2 className="block-title">Трофеи игр</h2>
+        {list.length > 0 && <span className="block-meta">Получено {earned}</span>}
+      </header>
+      {list.length ? (
+        <div className="top-list">
+          {list.map(({ g, t }) => (
+            <button key={g.id} data-nav className="top-item" onClick={() => onOpen(g)}>
+              <span className="top-cover">
+                <Cover game={g} />
+              </span>
+              <span className="top-body">
+                <span className="top-title">{g.title}</span>
+                <span className="top-track">
+                  <span className="top-fill" style={{ width: `${(t.earned / t.total) * 100}%` }} />
+                </span>
+              </span>
+              <span className="top-time">
+                {t.earned} из {t.total}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="block-empty">
+          Подключите RetroAchievements (PS2) и Steam в настройках, затем откройте трофеи игры через △ — прогресс появится здесь.
+        </p>
+      )}
+    </section>
+  )
+}
