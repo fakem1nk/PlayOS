@@ -99,7 +99,7 @@ function createMockApi(): PcsApi {
     },
     running: null,
     dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\pcstation',
-    version: '0.1.0-demo'
+    version: '0.9.0'
   }
   const subs = { state: new Set<(s: AppState) => void>(), end: new Set<(e: { gameId: string; duration: number }) => void>() }
   const set = (patch: Partial<AppState>) => {
@@ -202,7 +202,7 @@ function createMockApi(): PcsApi {
       slots: Array.from({ length: 10 }, (_, i) => ({
         slot: i + 1,
         time: i < 3 ? Date.now() - i * 5400000 : undefined,
-        thumb: i < 3 ? steam([12200, 12120, 1174180][i], 'header.jpg') : undefined
+        thumb: i < 3 ? steam(12200, ['header.jpg', 'library_hero.jpg', 'capsule_616x353.jpg'][i]) : undefined
       }))
     }),
     saveState: async (slot) => ({ ok: true, message: `Сохранено в слот ${slot}` }),
@@ -249,7 +249,7 @@ function createMockApi(): PcsApi {
     },
     onPowerResume: noop,
     systemInfo: async () => ({
-      app: { version: '0.8.1', electron: '44.9.0', chrome: '152.0', installDir: 'E:\\PlayOS', dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS', packaged: true },
+      app: { version: '0.9.0', electron: '44.9.0', chrome: '152.0', installDir: 'E:\\PlayOS', dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS', packaged: true },
       os: { name: 'Windows 11 Pro', build: '10.0.26300', uptimeMin: 446 },
       cpu: { model: 'AMD Ryzen 5 5600X 6-Core Processor', threads: 12 },
       gpu: 'NVIDIA GeForce RTX 3060 Ti',
@@ -259,7 +259,7 @@ function createMockApi(): PcsApi {
         { name: 'Q27B3MA', width: 2560, height: 1440, hz: 60, primary: false, current: false }
       ],
       pads: [{ name: 'DualSense', kind: 'dualsense', via: 'DSX, Bluetooth', percent: 90, battery: 'full' }],
-      library: { games: 11, hours: 5.8, artBytes: 48_000_000, videoBytes: 31_000_000, totalBytes: 142_000_000 }
+      library: { games: 9, hours: 325.2, artBytes: 48_000_000, videoBytes: 31_000_000, totalBytes: 142_000_000 }
     }),
     pathExists: async (p) => /pcsx2/i.test(p),
     updateState: async () => ({ phase: 'idle', current: '0.9.0' }),
@@ -284,6 +284,18 @@ function createMockApi(): PcsApi {
     gameDetails: async (gameId) => {
       await new Promise((r) => setTimeout(r, 500))
       const g = state.games.find((x) => x.id === gameId)
+      if (g?.title === 'Red Dead Redemption 2') {
+        return {
+          description:
+            'Америка, 1899 год. Эпоха Дикого Запада подходит к концу. После неудачного ограбления Артур Морган и банда Датча ван дер Линде вынуждены бежать: по их следу идут федеральные агенты и лучшие охотники за головами.',
+          developer: 'Rockstar Games',
+          publisher: 'Rockstar Games',
+          released: '5 дек. 2019 г.',
+          genres: ['Экшены', 'Приключенческие игры'],
+          source: 'steam',
+          hltb: { main: 181800, plus: 295200, full: 633600, title: 'Red Dead Redemption 2' }
+        }
+      }
       return {
         description:
           'Джимми Хопкинс, 15-летний бунтарь, попадает в академию Буллворт — самую неблагополучную школу в стране. Чтобы выжить, ему предстоит постоять за себя перед хулиганами, качками, зубрилами и мажорами, а заодно разобраться с учителями.',

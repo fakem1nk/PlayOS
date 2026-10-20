@@ -130,7 +130,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
                     <dd>{info.gpu}</dd>
                   </div>
                   <div>
-                    <dt>Без перезагрузки</dt>
+                    <dt>Включён</dt>
                     <dd>{uptime(info.os.uptimeMin)}</dd>
                   </div>
                 </dl>
@@ -148,27 +148,6 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
                 <p className="si-caption">
                   Занято {gb(used)}, свободно {gb(info.memory.free)}
                 </p>
-              </section>
-
-              <section className="si-card is-wide">
-                <h3>Экраны</h3>
-                <div className="si-screens">
-                  {info.displays.map((d) => (
-                    <div key={d.name + d.width} className={`si-screen ${d.current ? 'is-current' : ''}`}>
-                      <div className="si-screen-shape" style={{ width: `${(d.width / maxW) * 22}rem`, aspectRatio: `${d.width} / ${d.height}` }}>
-                        {d.current && <LogoMark className="si-screen-logo" />}
-                      </div>
-                      <div className="si-screen-name">{d.name}</div>
-                      <div className="si-screen-meta">
-                        {d.width}×{d.height}, {d.hz} Гц
-                      </div>
-                      <div className="si-badges">
-                        {d.primary && <span>Основной</span>}
-                        {d.current && <span className="is-accent">Здесь PlayOS</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </section>
 
               <section className="si-card">
@@ -198,6 +177,27 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
                 ) : (
                   <p className="si-caption">Геймпады не подключены</p>
                 )}
+              </section>
+
+              <section className="si-card is-wide">
+                <h3>Экраны</h3>
+                <div className="si-screens">
+                  {info.displays.map((d) => (
+                    <div key={d.name + d.width} className={`si-screen ${d.current ? 'is-current' : ''}`}>
+                      <div className="si-screen-shape" style={{ width: `${(d.width / maxW) * 22}rem`, aspectRatio: `${d.width} / ${d.height}` }}>
+                        {d.current && <LogoMark className="si-screen-logo" />}
+                      </div>
+                      <div className="si-screen-name">{d.name}</div>
+                      <div className="si-screen-meta">
+                        {d.width}×{d.height}, {d.hz} Гц
+                      </div>
+                      <div className="si-badges">
+                        {d.primary && <span>Основной</span>}
+                        {d.current && <span className="is-accent">Здесь PlayOS</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <section className="si-card">
