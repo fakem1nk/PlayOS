@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import type { AppState, DisplayInfo, Pcsx2Info, Settings as SettingsT, UpdateState } from '@shared/types'
+import { createPortal } from 'react-dom'
+import type { AppState, BackupInfo, DisplayInfo, Pcsx2Info, Settings as SettingsT, UpdateState } from '@shared/types'
 import { api } from '../lib/api'
 import { focusEl, useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
@@ -8,6 +9,8 @@ import { play, previewVolume } from '../lib/sound'
 import { Avatar } from './Avatar'
 import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
 import { SystemInfoDialog } from './SystemInfoDialog'
+import { ConfirmDialog } from './Menus'
+import { gamesCount } from '../lib/format'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
 
 type Section = 'profile' | 'library' | 'emulators' | 'display' | 'sound' | 'gamepad' | 'trophies' | 'system'
@@ -440,6 +443,10 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               <ActionRow label="Папка с данными" hint={state.dataDir} button="Открыть" icon={<IconFolder />} onClick={() => api.openFolder(state.dataDir)} />
               <ReportRow />
               <h2 className="panel-title">
+                <IconDownload /> Перенос на другой компьютер
+              </h2>
+              <BackupRows />
+              <h2 className="panel-title">
                 <IconInfo /> О PlayOS
               </h2>
               <SystemInfoRow version={state.version} />
@@ -535,6 +542,93 @@ function ReportRow() {
     }
   }
   return <ActionRow label="Сохранить отчёт об ошибках" hint={hint} button={busy ? 'Сохраняем…' : 'Сохранить'} onClick={make} />
+}
+
+/**
+ * Копия данных одним файлом .playos: библиотека, время и сессии, трофеи, настройки с ключами API, аватар и обложки.
+ * На новом компьютере — «Восстановить из копии», PlayOS перезапустится уже со всем этим.
+ */
+function BackupRows() {
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState('')
+  const [pending, setPending] = useState<{ file: string; info: BackupInfo } | null>(null)
+
+  const save = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const file = await api.exportData()
+      setSaved(file)
+      play('select')
+      toast({ title: 'Копия сохранена', message: file, tone: 'success' })
+    } catch (e) {
+      toast({ title: 'Не удалось сохранить копию', message: (e as Error).message, tone: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const pick = async () => {
+    const file = await api.pickFile('backup')
+    if (!file) return
+    try {
+      setPending({ file, info: await api.inspectBackup(file) })
+    } catch (e) {
+      play('error')
+      toast({ title: 'Не получилось открыть копию', message: (e as Error).message, tone: 'error' })
+    }
+  }
+
+  const restore = async () => {
+    if (!pending) return
+    const { file } = pending
+    setPending(null)
+    try {
+      play('launch')
+      await api.importData(file)
+    } catch (e) {
+      toast({ title: 'Не удалось восстановить данные', message: (e as Error).message, tone: 'error' })
+    }
+  }
+
+  const date = (t: number) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+  return (
+    <>
+      <ActionRow
+        label="Сохранить копию данных"
+        hint={
+          saved
+            ? `Сохранено: ${saved}`
+            : 'Библиотека, время в играх, трофеи, настройки и обложки — одним файлом на рабочий стол. В файле есть ключи API, не публикуйте его.'
+        }
+        button={busy ? 'Сохраняем…' : 'Сохранить'}
+        icon={<IconDownload />}
+        onClick={save}
+      />
+      <ActionRow
+        label="Восстановить из копии"
+        hint="Выберите файл .playos с другого компьютера. Текущие данные PlayOS заменятся, но сначала сохранятся в папку backups."
+        button="Выбрать файл"
+        icon={<IconFolder />}
+        onClick={pick}
+      />
+      {createPortal(
+        <AnimatePresence>
+          {pending && (
+            <ConfirmDialog
+              key="restore"
+              title="Восстановить из копии?"
+              text={`Копия от ${date(pending.info.createdAt)}, PlayOS ${pending.info.version}, ${gamesCount(pending.info.games)}. Текущие данные заменятся, и PlayOS перезапустится.`}
+              button="Восстановить"
+              onCancel={() => setPending(null)}
+              onConfirm={restore}
+            />
+          )}
+        </AnimatePresence>,
+        document.querySelector('.app') ?? document.body
+      )}
+    </>
+  )
 }
 
 /** Экран для PlayOS: окно сразу переезжает, выбор запоминается и для следующих запусков */

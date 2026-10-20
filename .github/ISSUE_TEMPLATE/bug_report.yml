@@ -1,0 +1,70 @@
+name: Ошибка
+description: Что-то работает не так, как должно
+labels: [ошибка]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что сообщаете! Перед отправкой проверьте, что стоит последняя версия PlayOS, и поищите похожую задачу среди открытых.
+  - type: input
+    id: version
+    attributes:
+      label: Версия PlayOS
+      description: Настройки → Система → «О системе»
+      placeholder: '0.9.0'
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Что произошло
+      description: Коротко опишите проблему и что вы ожидали увидеть вместо неё.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      description: Шаги по порядку, начиная с запуска PlayOS.
+      placeholder: |
+        1. Открыть библиотеку
+        2. Выбрать игру PS2
+        3. Нажать ✕
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Где проблема
+      options:
+        - Интерфейс PlayOS
+        - Игры PC или Steam
+        - Игры PS2 (PCSX2)
+        - Игры PS3 (RPCS3)
+        - Меню поверх игры
+        - Геймпад или подсветка DualSense
+        - Трофеи
+        - Обновления или установка
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: gamepad
+    attributes:
+      label: Геймпад
+      description: Модель и подключение, если проблема с управлением
+      placeholder: DualSense по Bluetooth, через DSX
+  - type: textarea
+    id: report
+    attributes:
+      label: Отчёт об ошибках
+      description: |
+        Настройки → Система → «Сохранить отчёт об ошибках» — перетащите сюда файл с рабочего стола. Ключей API в нём нет.
+        Если PlayOS не запускается, приложите %APPDATA%\PlayOS\logs\playos.log.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Скриншоты и подробности
+      description: Скриншот, короткое видео, название игры, версия эмулятора — всё, что может помочь.

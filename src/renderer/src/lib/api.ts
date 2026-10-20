@@ -149,7 +149,7 @@ function createMockApi(): PcsApi {
     },
     resumeGame: async () => {},
     hideOverlay: async () => {},
-    pickFile: async (kind) => (kind === 'image' ? null : 'C:\\Games\\Demo Game\\DemoGame.exe'),
+    pickFile: async (kind) => (kind === 'image' ? null : kind === 'backup' ? 'C:\\Users\\demo\\Desktop\\PlayOS-копия.playos' : 'C:\\Games\\Demo Game\\DemoGame.exe'),
     inspect: async () => ({ title: 'Demo Game' }),
     searchArt: async (query) => {
       await new Promise((r) => setTimeout(r, 700))
@@ -270,6 +270,9 @@ function createMockApi(): PcsApi {
     installUpdate: async () => true,
     onUpdateState: () => () => {},
     saveReport: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-отчёт.txt',
+    exportData: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-копия-2026-10-21_12-00.playos',
+    inspectBackup: async () => ({ version: '0.9.0', createdAt: Date.now() - 86400_000, games: 9 }),
+    importData: async () => true,
     displays: async () => ({
       list: [
         { id: 1, name: 'Q27B3MA', width: 2560, height: 1440, primary: true },

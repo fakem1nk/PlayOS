@@ -1,0 +1,16 @@
+name: Идея
+description: Предложить новую возможность или улучшение
+labels: [идея]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Что хочется
+      description: Опишите идею и в какой ситуации она пригодится.
+    validations:
+      required: true
+  - type: textarea
+    id: now
+    attributes:
+      label: Как сейчас
+      description: Как вы решаете эту задачу сейчас и что в этом неудобно.

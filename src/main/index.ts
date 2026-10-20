@@ -35,6 +35,7 @@ import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam } from './steam'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, startUpdater, updateState } from './updater'
+import { exportData, importData, inspectBackup } from './backup'
 import { dsxStatus, flashLightbar, holdLightbar, lightbarReady, pulseLightbar, startDsx, testLightbar } from './dsx'
 import { hidControllers, hidStatus, startHid } from './hid'
 import * as launcher from './launcher'
@@ -740,7 +741,8 @@ const PICK_FILTERS: Record<PickKind, Electron.OpenDialogOptions> = {
   ps3folder: { title: 'Папка игры PS3', properties: ['openDirectory'] },
   image: { title: 'Изображение', filters: [{ name: 'Изображения', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }] },
   emulator: { title: 'Исполняемый файл эмулятора', filters: [{ name: 'Программы', extensions: ['exe'] }] },
-  folder: { title: 'Папка', properties: ['openDirectory'] }
+  folder: { title: 'Папка', properties: ['openDirectory'] },
+  backup: { title: 'Копия данных PlayOS', filters: [{ name: 'Копия PlayOS', extensions: ['playos'] }] }
 }
 
 /** Видео для живого фона: отдаём кусками по Range, иначе <video> не умеет перематывать и зацикливать */
@@ -1101,6 +1103,26 @@ function registerIpc() {
   ipcMain.handle('sys:info', () => systemInfo())
   ipcMain.handle('fs:exists', (_e, p: string) => !!p && fs.existsSync(p))
   ipcMain.handle('log:report', () => saveReport(getDb().settings as unknown as Record<string, unknown>, getDb().games.length))
+  // Перенос на другой компьютер: копия данных одним файлом и восстановление из неё
+  ipcMain.handle('data:export', () => {
+    saveDbNow()
+    const file = exportData(dataDir(), getDb().games.length)
+    log('INFO', 'Копия данных сохранена:', file)
+    return file
+  })
+  ipcMain.handle('data:inspect', (_e, file: string) => inspectBackup(file))
+  ipcMain.handle('data:import', (_e, file: string) => {
+    if (launcher.running()) launcher.endSession()
+    saveDbNow()
+    const safety = importData(file, dataDir(), getDb().games.length)
+    log('INFO', 'Данные восстановлены из', file, '— прежние сохранены в', safety)
+    // Перезапуск без before-quit: иначе PlayOS записал бы старую библиотеку поверх восстановленной
+    stopHelper()
+    fs.rmSync(path.join(dataDir(), 'running.lock'), { force: true })
+    app.relaunch()
+    setTimeout(() => app.exit(0), 300)
+    return true
+  })
   ipcMain.handle('sys:displays', () => ({
     list: listDisplays(),
     current: win ? screen.getDisplayMatching(win.getBounds()).id : screen.getPrimaryDisplay().id

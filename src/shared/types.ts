@@ -236,7 +236,7 @@ export interface OverlayEvent {
   backdrop?: string
 }
 
-export type PickKind = 'exe' | 'ps2' | 'ps3' | 'ps3folder' | 'image' | 'emulator' | 'folder'
+export type PickKind = 'exe' | 'ps2' | 'ps3' | 'ps3folder' | 'image' | 'emulator' | 'folder' | 'backup'
 
 export type PadAction =
   | 'up'
@@ -340,6 +340,11 @@ export interface PcsApi {
   // ── Журнал ──
   /** Сохраняет отчёт об ошибках на рабочий стол, возвращает путь к файлу */
   saveReport(): Promise<string>
+  /** Копия данных для переноса на другой ПК: путь к файлу .playos на рабочем столе */
+  exportData(): Promise<string>
+  inspectBackup(file: string): Promise<BackupInfo>
+  /** Восстанавливает данные из копии и перезапускает PlayOS */
+  importData(file: string): Promise<boolean>
   // ── Экран ──
   displays(): Promise<{ list: DisplayInfo[]; current: number }>
   onOverlayNotice(cb: (n: SystemNotice) => void): () => void
@@ -476,4 +481,10 @@ export interface AchievementNotice {
   gameId: string
   gameTitle: string
   items: Achievement[]
+}
+
+export interface BackupInfo {
+  version: string
+  createdAt: number
+  games: number
 }

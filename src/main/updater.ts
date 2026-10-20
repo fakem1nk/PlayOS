@@ -44,6 +44,8 @@ export function startUpdater(onChange: (s: UpdateState) => void) {
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
+  // Пока PlayOS выходит ранними версиями (pre-release на GitHub) — без этого они не видны
+  autoUpdater.allowPrerelease = true
   autoUpdater.logger = {
     info: (m: unknown) => log('INFO', '[обновления]', m),
     warn: (m: unknown) => log('WARN', '[обновления]', m),
