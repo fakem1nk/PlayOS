@@ -15,7 +15,7 @@ const timeFmt = new Intl.DateTimeFormat(locale(), { hour: '2-digit', minute: '2-
 const DAYS = 14
 
 /** Часы с одним знаком после запятой: 14,6 ч */
-const hours = (sec: number) => t('{v} ч', { v: (sec / 3600).toLocaleString('ru-RU', { maximumFractionDigits: sec < 36000 ? 1 : 0 }) })
+const hours = (sec: number) => t('{v} ч', { v: (sec / 3600).toLocaleString(locale(), { maximumFractionDigits: sec < 36000 ? 1 : 0 }) })
 
 interface Props {
   game: Game

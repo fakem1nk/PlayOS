@@ -11,7 +11,7 @@ import { ArtSearch } from './ArtSearch'
 import { Field } from './Controls'
 import { Glyph, Hint } from './Glyph'
 import { IconClose, IconDisc, IconFolder, IconImage, IconMonitor, IconSearch } from './Icons'
-import { t } from '@shared/i18n'
+import { t, locale } from '@shared/i18n'
 
 const PLATFORMS: { id: Platform; title: string; text: string; icon: React.ReactNode }[] = [
   { id: 'pc', title: t('Игра для PC'), text: t('EXE, ярлык .lnk или .bat с компьютера'), icon: <IconMonitor /> },
@@ -446,7 +446,7 @@ const ART_WORD: Record<SaveProgress['field'], string> = {
 }
 
 function size(bytes: number) {
-  return bytes >= 1048576 ? t('{v} МБ', { v: (bytes / 1048576).toFixed(1).replace('.', ',') }) : t('{v} КБ', { v: Math.max(1, Math.round(bytes / 1024)) })
+  return bytes >= 1048576 ? t('{v} МБ', { v: (bytes / 1048576).toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }) : t('{v} КБ', { v: Math.max(1, Math.round(bytes / 1024)) })
 }
 
 /** Экран ожидания: что качаем, прогресс и отмена по ○ */

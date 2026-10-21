@@ -8,11 +8,11 @@ import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconCheck } from './Icons'
-import { t } from '@shared/i18n'
+import { t, locale } from '@shared/i18n'
 
 const header = (appId: number) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/capsule_231x87.jpg`
 const size = (bytes: number) =>
-  bytes >= 1e9 ? t('{v} ГБ', { v: (bytes / 1e9).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) }) : t('{v} МБ', { v: Math.max(1, Math.round(bytes / 1e6)) })
+  bytes >= 1e9 ? t('{v} ГБ', { v: (bytes / 1e9).toLocaleString(locale(), { maximumFractionDigits: 1 }) }) : t('{v} МБ', { v: Math.max(1, Math.round(bytes / 1e6)) })
 
 /** Импорт установленных игр Steam: список с галочками, затем добавление с артом из Steam. */
 export function SteamImport({ onClose }: { onClose: () => void }) {

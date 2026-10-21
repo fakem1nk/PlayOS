@@ -13,7 +13,7 @@ import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
 import { gamesCount } from '../lib/format'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
-import { getLang, t } from '@shared/i18n'
+import { getLang, locale, t } from '@shared/i18n'
 
 type Section = 'profile' | 'library' | 'emulators' | 'display' | 'sound' | 'gamepad' | 'trophies' | 'system'
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
@@ -602,7 +602,7 @@ function BackupRows() {
     }
   }
 
-  const date = (ts: number) => new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+  const date = (ts: number) => new Date(ts).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
   return (
     <>
       <ActionRow
@@ -656,6 +656,7 @@ function LanguageRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) 
       onChange={(v) => {
         try {
           sessionStorage.setItem('playos-skip-intro', '1')
+          sessionStorage.setItem('playos-open-settings', '1')
         } catch {
           /* без хранилища просто покажем интро ещё раз */
         }

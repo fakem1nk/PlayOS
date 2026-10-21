@@ -53,7 +53,18 @@ export function App() {
     }
     return true
   })
-  const [tab, setTab] = useState<Tab>('home')
+  // После смены языка возвращаемся в настройки, где его и меняли
+  const [tab, setTab] = useState<Tab>(() => {
+    try {
+      if (sessionStorage.getItem('playos-open-settings')) {
+        sessionStorage.removeItem('playos-open-settings')
+        return 'settings'
+      }
+    } catch {
+      /* хранилище недоступно */
+    }
+    return 'home'
+  })
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
   const [editor, setEditor] = useState<{ game?: Game } | null>(null)

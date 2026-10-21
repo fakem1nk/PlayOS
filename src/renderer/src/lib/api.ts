@@ -1,4 +1,5 @@
 import type { AchievementSet, AppState, ArtCandidate, Game, ImportProgress, PcsApi, SaveProgress, SteamLibraryGame, SystemState } from '@shared/types'
+import { getLang } from '@shared/i18n'
 
 declare global {
   interface Window {
@@ -64,7 +65,7 @@ function createMockApi(): PcsApi {
       { ...demo('9', 'Demon’s Souls', 'ps3', 0, 7, 100), cover: undefined, hero: undefined, logo: undefined }
     ],
     settings: {
-      userName: 'Игрок',
+      userName: getLang() === 'en' ? 'Player' : 'Игрок',
       pcsx2Path: 'C:\\Program Files\\PCSX2\\pcsx2-qt.exe',
       pcsx2Args: '-fullscreen -batch -- "{rom}"',
       rpcs3Path: '',
@@ -302,6 +303,20 @@ function createMockApi(): PcsApi {
     gameDetails: async (gameId) => {
       await new Promise((r) => setTimeout(r, 500))
       const g = state.games.find((x) => x.id === gameId)
+      // Демо-описания на языке интерфейса, как у настоящего Steam
+      const en = getLang() === 'en'
+      if (g?.title === 'Red Dead Redemption 2' && en) {
+        return {
+          description:
+            'America, 1899. The end of the Wild West era has begun. After a robbery goes badly wrong, Arthur Morgan and the Van der Linde gang are forced to flee, with federal agents and the best bounty hunters in the nation on their heels.',
+          developer: 'Rockstar Games',
+          publisher: 'Rockstar Games',
+          released: 'Dec 5, 2019',
+          genres: ['Action', 'Adventure'],
+          source: 'steam',
+          hltb: { main: 181800, plus: 295200, full: 633600, title: 'Red Dead Redemption 2' }
+        }
+      }
       if (g?.title === 'Red Dead Redemption 2') {
         return {
           description:
@@ -312,6 +327,18 @@ function createMockApi(): PcsApi {
           genres: ['Экшены', 'Приключенческие игры'],
           source: 'steam',
           hltb: { main: 181800, plus: 295200, full: 633600, title: 'Red Dead Redemption 2' }
+        }
+      }
+      if (en) {
+        return {
+          description:
+            'Fifteen-year-old troublemaker Jimmy Hopkins is dumped at Bullworth Academy, the most rotten school around. To survive, he has to stand up to bullies, jocks, nerds and preppies, and deal with the teachers too.',
+          developer: 'Rockstar Vancouver',
+          publisher: 'Rockstar Games',
+          released: 'Oct 24, 2008',
+          genres: ['Action', 'Adventure'],
+          source: 'steam',
+          hltb: { main: 52718, plus: 69031, full: 99768, title: g?.title ?? 'Bully' }
         }
       }
       return {

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { inspect } from 'node:util'
+import { getLang } from '@shared/i18n'
 
 /**
  * Журнал PlayOS: %APPDATA%\PlayOS\logs\playos.log (при 2 МБ старый уходит в playos.old.log).
@@ -140,7 +141,7 @@ export function saveReport(settings: Record<string, unknown>, gamesCount: number
 
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
-  const name = `PlayOS-отчёт-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.txt`
+  const name = `${getLang() === 'en' ? 'PlayOS-report' : 'PlayOS-отчёт'}-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.txt`
   const out = path.join(app.getPath('desktop'), name)
   fs.writeFileSync(out, text, 'utf8')
   log('INFO', `Сохранён отчёт ${out}`)
