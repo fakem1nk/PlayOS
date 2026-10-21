@@ -1,0 +1,190 @@
+/* ───────────────────────── Обновления PlayOS ───────────────────────── */
+
+/* Тихая карточка скачивания — над подсказками внизу справа, ничего не перекрывает */
+.upd-card {
+  position: absolute;
+  right: var(--pad-x);
+  bottom: 9rem;
+  z-index: 35;
+  width: 44rem;
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+  padding: 1.6rem 2rem;
+  border-radius: 1.8rem;
+  background: rgba(18, 24, 40, 0.92);
+  backdrop-filter: blur(2.4rem);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.upd-card-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 1.2rem;
+  font-size: 2.2rem;
+  color: var(--ink);
+  background: color-mix(in oklch, var(--accent) 28%, transparent);
+}
+
+.upd-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.upd-card-title {
+  font-size: 1.7rem;
+  font-weight: 500;
+}
+
+.upd-card-meta {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.3rem;
+  font-size: 1.4rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.upd-card-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--faint);
+}
+
+.upd-bar {
+  height: 0.5rem;
+  margin-top: 1rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.upd-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in oklch, var(--accent) 55%, white));
+  transform-origin: left;
+  transition: transform 0.4s var(--ease-out);
+}
+
+/* Окно «готово к установке» */
+.upd-backdrop {
+  z-index: 60;
+}
+
+.upd-dialog {
+  width: 72rem;
+  padding: 3.6rem 4rem 3rem;
+  border-radius: 3rem;
+  background:
+    radial-gradient(70% 60% at 0% 0%, color-mix(in oklch, var(--accent) 24%, transparent), transparent 70%),
+    rgba(14, 19, 34, 0.97);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 4rem 12rem rgba(0, 0, 0, 0.6);
+}
+
+.upd-head {
+  display: flex;
+  align-items: center;
+  gap: 2.2rem;
+}
+
+.upd-logo {
+  flex: none;
+  width: 6.4rem;
+  height: 6.4rem;
+  color: #fff;
+  filter: drop-shadow(0 0 2rem color-mix(in oklch, var(--accent) 70%, transparent));
+}
+
+.upd-head h2 {
+  margin: 0;
+  font-size: 3rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.upd-head p {
+  margin: 0.4rem 0 0;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+.upd-list {
+  margin: 2.8rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.2rem;
+}
+
+.upd-list li {
+  position: relative;
+  padding-left: 2.4rem;
+  font-size: 1.8rem;
+  line-height: 1.45;
+}
+
+.upd-list li::before {
+  content: '';
+  position: absolute;
+  left: 0.4rem;
+  top: 0.75em;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 1.2rem color-mix(in oklch, var(--accent) 60%, transparent);
+}
+
+.upd-note {
+  margin: 2.6rem 0 0;
+  font-size: 1.5rem;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+.upd-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 3rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.upd-buttons {
+  display: flex;
+  gap: 1.4rem;
+}
+
+/* Скачанное обновление ждёт — точка на кнопке питания, там же пункт «Обновить» */
+.power-btn {
+  position: relative;
+}
+
+.power-dot {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow:
+    0 0 0 0.25rem var(--bg),
+    0 0 1.2rem color-mix(in oklch, var(--live) 70%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upd-bar span {
+    transition: none;
+  }
+}

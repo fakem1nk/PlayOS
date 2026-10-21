@@ -19,6 +19,7 @@ import { Settings } from './components/Settings'
 import { SteamImport } from './components/SteamImport'
 import { AnimatedCoversContext } from './components/Tile'
 import { TrophyList } from './components/TrophyList'
+import { UpdateNotice } from './components/UpdateNotice'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { api } from './lib/api'
 import { accentOf, DEFAULT_ACCENT, playtime } from './lib/format'
@@ -27,6 +28,7 @@ import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
 import { holdMusic, play, setMusic } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
+import { useUpdate } from './lib/update'
 
 /** Цвета обложек последних игр — для сияния в интро */
 function introColors(games: Game[]) {
@@ -36,6 +38,7 @@ function introColors(games: Game[]) {
 
 export function App() {
   const state = useAppState()
+  const update = useUpdate()
   const [booting, setBooting] = useState(true)
   const [tab, setTab] = useState<Tab>('home')
   const [tabFocus, setTabFocus] = useState<number | null>(null)
@@ -75,16 +78,6 @@ export function App() {
   )
 
   useEffect(() => api.onToast((t) => toast({ ...t })), [])
-  // Новая версия скачалась — говорим один раз, поставится она сама при выходе
-  useEffect(() => {
-    let shown = ''
-    return api.onUpdateState((u) => {
-      if (u.phase !== 'ready' || !u.version || shown === u.version) return
-      shown = u.version
-      play('trophy')
-      toast({ title: `Доступна PlayOS ${u.version}`, message: 'Установится при выходе. Или сразу: Настройки → Система → Обновления', tone: 'success' })
-    })
-  }, [])
   // Окно закрывают (Alt+F4) — main ждёт, пока доиграет аутро выхода
   useEffect(() => api.onOutro(() => setOutro((cur) => cur ?? 'quit')), [])
 
@@ -252,6 +245,7 @@ export function App() {
               goTab(t)
               setTabFocus(null)
             }}
+            updateReady={update.phase === 'ready'}
             onPower={() => setPower(true)}
           />
 
@@ -367,7 +361,7 @@ export function App() {
               }}
             />
           )}
-          {power && <PowerMenu key="power" onClose={() => setPower(false)} onPower={setOutro} />}
+          {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -428,6 +422,8 @@ export function App() {
 
         <AnimatePresence>{launchingGame && <LaunchScreen key="launch" game={launchingGame} />}</AnimatePresence>
 
+        {/* Окно об обновлении — только когда вы не в игре и ничего другого не открыто */}
+        <UpdateNotice blocked={modal || !!running || !!launching || saver} booting={booting || !!outro} />
         <OnScreenKeyboard />
         <Toasts />
         <Screensaver games={games} minutes={state.settings.screensaver} allowed={!booting && !outro} onChange={setSaver} />

@@ -1328,7 +1328,11 @@ app.whenReady().then(() => {
   createWindow()
   startUpdater((st) => send('update-state', st))
   // Проснулись после сна — интерфейс убирает затемнение «Спящий режим»
-  powerMonitor.on('resume', () => sendTo(win, 'power-resume'))
+  powerMonitor.on('resume', () => {
+    sendTo(win, 'power-resume')
+    // Компьютер мог спать сутками — проверяем, не вышла ли новая версия (сеть поднимается не сразу)
+    setTimeout(() => void checkForUpdates(), 15_000)
+  })
   // Выбранный экран подключили позже (включили телевизор) — переезжаем на него
   screen.on('display-added', () => setTimeout(moveToTargetDisplay, 800))
   if (app.isPackaged) {

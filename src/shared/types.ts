@@ -115,6 +115,9 @@ export interface UpdateState {
   current: string
   version?: string
   percent?: number
+  /** Скачано и всего, в байтах */
+  transferred?: number
+  total?: number
   notes?: string
   error?: string
   checkedAt?: number

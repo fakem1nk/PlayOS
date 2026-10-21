@@ -6,8 +6,9 @@ import { playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
-import { IconClose, IconEdit, IconExit, IconFolder, IconInfo, IconMoon, IconPlay, IconPower, IconReset, IconRestart, IconStar, IconTrash, IconTrophy } from './Icons'
+import { IconClose, IconDownload, IconEdit, IconExit, IconFolder, IconInfo, IconMoon, IconPlay, IconPower, IconReset, IconRestart, IconStar, IconTrash, IconTrophy } from './Icons'
 import { Cover } from './Tile'
+import { installNow } from './UpdateNotice'
 
 interface Item {
   id: string
@@ -177,12 +178,13 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
 }
 
 /** Меню питания. Само действие выполняет аутро (onPower), чтобы выход и выключение были с анимацией. */
-export function PowerMenu({ onClose, onPower }: { onClose: () => void; onPower: (a: PowerAction) => void }) {
+export function PowerMenu({ update, onClose, onPower }: { update?: string; onClose: () => void; onPower: (a: PowerAction) => void }) {
   const run = (a: PowerAction) => () => {
     onClose()
     onPower(a)
   }
   const items: Item[] = [
+    ...(update ? [{ id: 'update', label: `Обновить PlayOS до ${update}`, icon: <IconDownload />, run: () => (onClose(), installNow()) }] : []),
     { id: 'sleep', label: 'Спящий режим', icon: <IconMoon />, run: run('sleep') },
     {
       id: 'restart',

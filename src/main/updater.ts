@@ -5,7 +5,7 @@ import { log } from './log'
 
 /**
  * Обновления PlayOS из релизов GitHub (fakem1nk/PlayOS, см. build.publish в package.json).
- * Проверяем через 20 с после запуска и раз в 6 часов, новая версия качается в фоне
+ * Проверяем сразу при запуске, после выхода из сна и раз в 6 часов, новая версия качается в фоне
  * и ставится при выходе из PlayOS — или сразу, по кнопке «Перезапустить и обновить».
  */
 
@@ -56,7 +56,7 @@ export function startUpdater(onChange: (s: UpdateState) => void) {
   autoUpdater.on('checking-for-update', () => set({ phase: 'checking', error: undefined }))
   autoUpdater.on('update-not-available', () => set({ phase: 'latest', checkedAt: Date.now() }))
   autoUpdater.on('update-available', (i) => set({ phase: 'downloading', version: i.version, notes: notesOf(i.releaseNotes), percent: 0, checkedAt: Date.now() }))
-  autoUpdater.on('download-progress', (p) => set({ phase: 'downloading', percent: Math.round(p.percent) }))
+  autoUpdater.on('download-progress', (p) => set({ phase: 'downloading', percent: Math.round(p.percent), transferred: p.transferred, total: p.total }))
   autoUpdater.on('update-downloaded', (i) => set({ phase: 'ready', version: i.version, notes: notesOf(i.releaseNotes) ?? state.notes, percent: 100 }))
   autoUpdater.on('error', (e) => {
     // Нет сети или нет ни одного релиза — не ошибка для пользователя, просто «не удалось проверить»
@@ -64,7 +64,8 @@ export function startUpdater(onChange: (s: UpdateState) => void) {
     set({ phase: 'error', error: friendly(e?.message ?? '') })
   })
 
-  setTimeout(() => void checkForUpdates(), 20_000)
+  // Пара секунд на запуск окна и сети — и проверяем, пока идёт интро
+  setTimeout(() => void checkForUpdates(), 3_000)
   setInterval(() => void checkForUpdates(), 6 * 3600_000)
 }
 

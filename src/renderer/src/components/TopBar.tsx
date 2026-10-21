@@ -26,11 +26,13 @@ interface Props {
   avatar?: string
   runningGame?: Game
   runningSince?: number
+  /** Скачано обновление — точка на кнопке питания */
+  updateReady?: boolean
   onTab: (t: Tab) => void
   onPower: () => void
 }
 
-export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSince, onTab, onPower }: Props) {
+export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSince, updateReady, onTab, onPower }: Props) {
   const now = useNow(1000)
   const pad = usePadInfo()
   const status = usePadStatus()
@@ -92,9 +94,10 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
           className={`power-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
           onClick={onPower}
           tabIndex={-1}
-          aria-label="Питание"
+          aria-label={updateReady ? 'Питание. Готово обновление PlayOS' : 'Питание'}
         >
           <IconPower />
+          {updateReady && <span className="power-dot" />}
         </button>
       </div>
     </header>

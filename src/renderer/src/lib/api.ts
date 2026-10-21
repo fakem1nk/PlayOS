@@ -268,7 +268,21 @@ function createMockApi(): PcsApi {
       return { phase: 'ready', current: '0.9.0', version: '0.9.1', percent: 100, notes: 'Быстрее запуск\nИсправлена прокрутка профиля' }
     },
     installUpdate: async () => true,
-    onUpdateState: () => () => {},
+    // ?update в адресе — показать скачивание и окно «готово» на демо-данных
+    onUpdateState: (cb) => {
+      if (!location.search.includes('update')) return () => {}
+      const notes = '• Копия данных одним файлом\n• Восстановление на другом компьютере\n• Окно «О системе» помещается на 1080p'
+      let p = 0
+      const t = setInterval(() => {
+        p = Math.min(100, p + 9)
+        const total = 118 * 2 ** 20
+        cb(p < 100
+          ? { phase: 'downloading', current: '0.9.1', version: '0.9.2', percent: p, transferred: (total * p) / 100, total }
+          : { phase: 'ready', current: '0.9.1', version: '0.9.2', percent: 100, notes })
+        if (p >= 100) clearInterval(t)
+      }, 700)
+      return () => clearInterval(t)
+    },
     saveReport: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-отчёт.txt',
     exportData: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-копия-2026-10-21_12-00.playos',
     inspectBackup: async () => ({ version: '0.9.0', createdAt: Date.now() - 86400_000, games: 9 }),
