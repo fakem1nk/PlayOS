@@ -49,7 +49,13 @@ export interface Game {
 /** Черновик из редактора. Поля арта могут быть http-ссылками — main скачает их при сохранении. */
 export type GameDraft = Omit<Game, 'id' | 'playtime' | 'addedAt' | 'sessions'> & { id?: string }
 
-export type GlyphStyle = 'auto' | 'playstation' | 'xbox'
+export type GlyphStyle = 'auto' | 'playstation' | 'xbox' | 'nintendo' | 'keyboard'
+
+export type PadDir = 'up' | 'down' | 'left' | 'right'
+/** Вход геймпада: кнопка, ось с направлением или крестовина-«шапка» DirectInput */
+export type PadInput = { b: number } | { a: number; d: 1 | -1 } | { h: number; dir: PadDir }
+/** Ручная раскладка: id геймпада из Gamepad API → действие → вход */
+export type PadMaps = Record<string, Partial<Record<PadAction, PadInput>>>
 export type SoundVolume = 'low' | 'mid' | 'high'
 
 export interface Settings {
@@ -108,6 +114,8 @@ export interface Settings {
   onboarded: boolean
   /** Бета-тест: получать и ранние версии (pre-release на GitHub) */
   betaUpdates: boolean
+  /** Кнопки, назначенные вручную для геймпадов без стандартной раскладки */
+  padMaps?: PadMaps
 }
 
 /** Состояние обновлений PlayOS */

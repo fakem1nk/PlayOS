@@ -188,3 +188,96 @@
     transition: none;
   }
 }
+
+/* ───────────────────────── Настройка кнопок геймпада ───────────────────────── */
+.pm {
+  width: 68rem;
+  padding: 3.6rem 4rem 3rem;
+  border-radius: 3rem;
+  background: rgba(14, 19, 34, 0.97);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 4rem 12rem rgba(0, 0, 0, 0.6);
+}
+
+.pm-stage {
+  min-height: 24rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.pm-pad {
+  font-size: 7rem;
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.pm-device {
+  font-size: 1.5rem;
+  color: var(--faint);
+}
+
+.pm-count {
+  font-size: 1.5rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-ask {
+  margin: 0.6rem 0 0;
+  font-size: 2.6rem;
+  font-weight: 500;
+  max-width: 52rem;
+}
+
+.pm-hint {
+  margin: 0;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+.pm-progress {
+  width: 40rem;
+  height: 0.5rem;
+  margin-top: 1.6rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pm-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 0.25s var(--ease-out);
+}
+
+.pm-note {
+  margin: 1.4rem 0 0;
+  font-size: 1.4rem;
+  color: var(--faint);
+}
+
+.pm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2.4rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.pm-buttons {
+  display: flex;
+  gap: 1.4rem;
+}
+
+.glyph-key {
+  min-width: 2.7rem;
+  border-radius: 0.6rem;
+  font-size: 1.2rem;
+  box-shadow: inset 0 -0.2rem 0 rgba(0, 0, 0, 0.35);
+}

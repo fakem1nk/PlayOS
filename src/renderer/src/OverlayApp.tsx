@@ -8,7 +8,7 @@ import { LogoMark, Wordmark } from './components/Logo'
 import { Cover } from './components/Tile'
 import { api } from './lib/api'
 import { accentOf, clock, DEFAULT_ACCENT, media, playtime, timer } from './lib/format'
-import { useInputLayer } from './lib/input'
+import { setPadMaps, useInputLayer } from './lib/input'
 import { useAppState, useNow, usePadStatus } from './lib/state'
 import { play } from './lib/sound'
 
@@ -40,6 +40,7 @@ function slotTime(t: number) {
 
 export function OverlayApp() {
   const state = useAppState()
+  useEffect(() => setPadMaps(state?.settings.padMaps), [state?.settings.padMaps])
   const pad = usePadStatus()
   const [open, setOpen] = useState(false)
   const [backdrop, setBackdrop] = useState<string | undefined>()

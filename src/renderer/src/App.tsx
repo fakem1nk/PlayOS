@@ -12,6 +12,7 @@ import { Intro } from './components/Intro'
 import { Onboarding } from './components/Onboarding'
 import { OnScreenKeyboard } from './components/OnScreenKeyboard'
 import { Outro } from './components/Outro'
+import { padName } from './components/PadMapper'
 import { LaunchScreen, Toasts } from './components/Overlays'
 import { Profile } from './components/Profile'
 import { Screensaver } from './components/Screensaver'
@@ -23,7 +24,7 @@ import { UpdateNotice } from './components/UpdateNotice'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { api } from './lib/api'
 import { accentOf, DEFAULT_ACCENT, playtime } from './lib/format'
-import { useInputLayer } from './lib/input'
+import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
 import { holdMusic, play, setMusic } from './lib/sound'
@@ -78,6 +79,15 @@ export function App() {
   )
 
   useEffect(() => api.onToast((t) => toast({ ...t })), [])
+  useEffect(() => setPadMaps(state?.settings.padMaps), [state?.settings.padMaps])
+  // Геймпад без стандартной раскладки: подсказываем, где назначить кнопки
+  useEffect(
+    () =>
+      setUnknownPadHandler((p) =>
+        toast({ title: padName(p.id), message: 'Если кнопки перепутаны: Настройки → Геймпад → «Настроить кнопки геймпада»', tone: 'info' })
+      ),
+    []
+  )
   // Окно закрывают (Alt+F4) — main ждёт, пока доиграет аутро выхода
   useEffect(() => api.onOutro(() => setOutro((cur) => cur ?? 'quit')), [])
 

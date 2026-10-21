@@ -9,6 +9,7 @@ import { play, previewVolume } from '../lib/sound'
 import { Avatar } from './Avatar'
 import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
 import { SystemInfoDialog } from './SystemInfoDialog'
+import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
 import { gamesCount } from '../lib/format'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
@@ -365,10 +366,13 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 options={[
                   { id: 'auto', label: 'Авто' },
                   { id: 'playstation', label: 'PlayStation' },
-                  { id: 'xbox', label: 'Xbox' }
+                  { id: 'xbox', label: 'Xbox' },
+                  { id: 'nintendo', label: 'Nintendo и 8BitDo' },
+                  { id: 'keyboard', label: 'Клавиатура' }
                 ]}
                 onChange={(v) => save({ glyphs: v })}
               />
+              <PadMapRow s={s} save={save} />
               <h2 className="panel-title">
                 <IconGamepad /> Оверлей поверх игры
               </h2>
@@ -633,6 +637,56 @@ function BackupRows() {
         </AnimatePresence>,
         document.querySelector('.app') ?? document.body
       )}
+    </>
+  )
+}
+
+/** Геймпады DirectInput (без стандартной раскладки): назначить кнопки вручную или сбросить */
+function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
+  const [open, setOpen] = useState(false)
+  const maps = s.padMaps ?? {}
+  const names = Object.keys(maps).map(padName)
+  return (
+    <>
+      <ActionRow
+        label="Настроить кнопки геймпада"
+        hint={
+          names.length
+            ? `Настроено вручную: ${names.join(', ')}`
+            : 'Для геймпадов в режиме DirectInput и старых USB-геймпадов, у которых кнопки перепутаны. Xbox, DualSense и 8BitDo в режиме XInput настраивать не нужно.'
+        }
+        button="Настроить"
+        icon={<IconGamepad />}
+        onClick={() => {
+          play('select')
+          setOpen(true)
+        }}
+      />
+      {names.length > 0 && (
+        <ActionRow
+          label="Сбросить раскладку"
+          hint="Вернуть стандартные кнопки для всех настроенных геймпадов"
+          button="Сбросить"
+          onClick={() => {
+            play('back')
+            void save({ padMaps: {} })
+            toast({ title: 'Раскладка сброшена', tone: 'info' })
+          }}
+        />
+      )}
+      <AnimatePresence>
+        {open && (
+          <PadMapper
+            key="pm"
+            maps={maps}
+            onSave={(m) => void save({ padMaps: m })}
+            onClose={() => {
+              play('back')
+              setOpen(false)
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }
