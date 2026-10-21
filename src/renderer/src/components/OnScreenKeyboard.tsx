@@ -5,6 +5,7 @@ import { closeKeyboard, useKeyboardTarget, writeValue, type OskTarget } from '..
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconBackspace } from './Icons'
+import { t } from '@shared/i18n'
 
 type Layout = 'ru' | 'en' | 'sym'
 
@@ -45,10 +46,10 @@ function Keyboard({ el }: { el: OskTarget }) {
     const bottom: Key[] = [
       { id: 'shift', label: '⇧', w: 1.5 },
       { id: 'lang', label: layout === 'ru' ? 'EN' : 'RU', w: 1.5 },
-      { id: 'sym', label: layout === 'sym' ? 'АБВ' : '#+=', w: 1.5 },
-      { id: 'space', label: 'Пробел', w: 5 },
+      { id: 'sym', label: layout === 'sym' ? t('АБВ') : '#+=', w: 1.5 },
+      { id: 'space', label: t('Пробел'), w: 5 },
       { id: 'back', label: <IconBackspace />, w: 1.5 },
-      { id: 'done', label: 'Готово', w: 2.5 }
+      { id: 'done', label: t('Готово'), w: 2.5 }
     ]
     return [...chars, bottom]
   }, [layout, shift])
@@ -156,7 +157,7 @@ function Keyboard({ el }: { el: OskTarget }) {
     60
   )
 
-  const label = el.getAttribute('aria-label') || el.placeholder || 'Ввод текста'
+  const label = el.getAttribute('aria-label') || el.placeholder || t('Ввод текста')
 
   return (
     <motion.div
@@ -172,7 +173,7 @@ function Keyboard({ el }: { el: OskTarget }) {
           {text.slice(0, caret)}
           <span className="osk-caret" />
           {text.slice(caret)}
-          {!text && <span className="osk-placeholder">Начните набирать</span>}
+          {!text && <span className="osk-placeholder">{t('Начните набирать')}</span>}
         </span>
       </div>
       <div className="osk-keys">
@@ -197,12 +198,12 @@ function Keyboard({ el }: { el: OskTarget }) {
         ))}
       </div>
       <footer className="osk-hints">
-        <Hint glyph="confirm" label="Ввод" />
-        <Hint glyph="search" label="Стереть" />
-        <Hint glyph="menu" label="Пробел" />
-        <Hint glyph="l1" label="Курсор" />
-        <Hint glyph="options" label="Готово" />
-        <Hint glyph="back" label="Закрыть" />
+        <Hint glyph="confirm" label={t('Ввод')} />
+        <Hint glyph="search" label={t('Стереть')} />
+        <Hint glyph="menu" label={t('Пробел')} />
+        <Hint glyph="l1" label={t('Курсор')} />
+        <Hint glyph="options" label={t('Готово')} />
+        <Hint glyph="back" label={t('Закрыть')} />
       </footer>
     </motion.div>
   )

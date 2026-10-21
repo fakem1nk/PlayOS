@@ -11,11 +11,12 @@ import { ArtSearch } from './ArtSearch'
 import { Field } from './Controls'
 import { Glyph, Hint } from './Glyph'
 import { IconClose, IconDisc, IconFolder, IconImage, IconMonitor, IconSearch } from './Icons'
+import { t } from '@shared/i18n'
 
 const PLATFORMS: { id: Platform; title: string; text: string; icon: React.ReactNode }[] = [
-  { id: 'pc', title: 'Игра для PC', text: 'EXE, ярлык .lnk или .bat с компьютера', icon: <IconMonitor /> },
-  { id: 'ps2', title: 'PlayStation 2', text: 'Образ ISO, CHD или CSO — запуск через PCSX2', icon: <IconDisc /> },
-  { id: 'ps3', title: 'PlayStation 3', text: 'EBOOT.BIN или папка игры — запуск через RPCS3', icon: <IconDisc /> }
+  { id: 'pc', title: t('Игра для PC'), text: t('EXE, ярлык .lnk или .bat с компьютера'), icon: <IconMonitor /> },
+  { id: 'ps2', title: 'PlayStation 2', text: t('Образ ISO, CHD или CSO — запуск через PCSX2'), icon: <IconDisc /> },
+  { id: 'ps3', title: 'PlayStation 3', text: t('EBOOT.BIN или папка игры — запуск через RPCS3'), icon: <IconDisc /> }
 ]
 
 type ArtField = 'cover' | 'hero' | 'logo'
@@ -96,7 +97,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     const file = await api.pickFile(kind)
     if (!file) return
     const token = ++inspectToken.current
-    setBusy({ label: 'Читаем файл игры…', kind: 'inspect' })
+    setBusy({ label: t('Читаем файл игры…'), kind: 'inspect' })
     try {
       const info = await api.inspect(platform, file)
       if (token !== inspectToken.current) return
@@ -173,23 +174,23 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
         logo: c.logo,
         ...(appId && draft.platform === 'pc' ? { steamAppId: appId } : {})
       })
-      if (title && title !== draft.title) toast({ title: 'Название взято из Steam', message: title })
+      if (title && title !== draft.title) toast({ title: t('Название взято из Steam'), message: title })
     }
   }
 
   const save = async () => {
     if (!draft.path.trim()) {
       play('error')
-      toast({ title: 'Не выбран файл игры', message: 'Нажмите «Выбрать файл» и укажите игру.', tone: 'error' })
+      toast({ title: t('Не выбран файл игры'), message: t('Нажмите «Выбрать файл» и укажите игру.'), tone: 'error' })
       return
     }
     if (!draft.title.trim()) {
       play('error')
-      toast({ title: 'Введите название игры', tone: 'error' })
+      toast({ title: t('Введите название игры'), tone: 'error' })
       return
     }
     const downloading = [draft.cover, draft.hero, draft.logo].some((v) => v?.startsWith('http'))
-    setBusy({ label: downloading ? 'Скачиваем арт…' : 'Сохраняем…', kind: 'save' })
+    setBusy({ label: downloading ? t('Скачиваем арт…') : t('Сохраняем…'), kind: 'save' })
     setProgress(null)
     setSlow(false)
     const off = api.onSaveProgress(setProgress)
@@ -202,10 +203,10 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     } catch (e) {
       const msg = (e as Error).message
       if (/cancelled/.test(msg)) {
-        toast({ title: 'Загрузка арта отменена', message: 'Игра не сохранена. Можно выбрать другой арт или попробовать ещё раз.' })
+        toast({ title: t('Загрузка арта отменена'), message: t('Игра не сохранена. Можно выбрать другой арт или попробовать ещё раз.') })
       } else {
         play('error')
-        toast({ title: 'Не удалось сохранить', message: msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
+        toast({ title: t('Не удалось сохранить'), message: msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
       }
     } finally {
       off()
@@ -230,8 +231,8 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     >
       <div className="sheet-inner" ref={ref}>
         <header className="sheet-head">
-          <h1 className="sheet-title">{game ? 'Изменить игру' : step === 'platform' ? 'Добавить игру' : PLATFORMS.find((p) => p.id === draft.platform)!.title}</h1>
-          <button data-nav className="btn btn-round" onClick={onClose} aria-label="Закрыть">
+          <h1 className="sheet-title">{game ? t('Изменить игру') : step === 'platform' ? t('Добавить игру') : PLATFORMS.find((p) => p.id === draft.platform)!.title}</h1>
+          <button data-nav className="btn btn-round" onClick={onClose} aria-label={t('Закрыть')}>
             <IconClose />
           </button>
         </header>
@@ -266,87 +267,87 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
               <div className="editor-form">
                 <div className="field">
                   <span className="field-label">
-                    {draft.launcher === 'steam' ? 'Папка игры в Steam' : draft.platform === 'pc' ? 'Файл игры' : draft.platform === 'ps2' ? 'Образ диска' : 'EBOOT.BIN или образ'}
+                    {draft.launcher === 'steam' ? t('Папка игры в Steam') : draft.platform === 'pc' ? t('Файл игры') : draft.platform === 'ps2' ? t('Образ диска') : t('EBOOT.BIN или образ')}
                   </span>
                   <div className="field-row">
                     <div className={`path-display ${draft.path ? '' : 'is-empty'}`} title={draft.path}>
-                      {draft.path ? shortPath(draft.path) : 'Файл не выбран'}
+                      {draft.path ? shortPath(draft.path) : t('Файл не выбран')}
                     </div>
                     <button data-nav data-autofocus={!draft.path || undefined} className="btn btn-glass btn-sm" onClick={() => pickGameFile()}>
-                      <IconFolder /> Выбрать файл
+                      <IconFolder /> {t('Выбрать файл')}
                     </button>
                     {draft.platform === 'ps3' && (
                       <button data-nav className="btn btn-glass btn-sm" onClick={() => pickGameFile('ps3', true)}>
-                        Папка
+                        {t('Папка')}
                       </button>
                     )}
                   </div>
-                  {draft.serial && <span className="field-hint">Серийный номер диска: {draft.serial}</span>}
+                  {draft.serial && <span className="field-hint">{t('Серийный номер диска: {serial}', { serial: draft.serial })}</span>}
                   {draft.launcher === 'steam' && (
                     <span className="field-hint">
-                      Игра запускается через Steam, время считается по процессам в этой папке. Выберите EXE, чтобы запускать её напрямую.
+                      {t('Игра запускается через Steam, время считается по процессам в этой папке. Выберите EXE, чтобы запускать её напрямую.')}
                     </span>
                   )}
                 </div>
 
-                <Field label="Название" value={draft.title} onChange={(v) => set({ title: v })} placeholder="Как игра будет называться в библиотеке" />
+                <Field label={t('Название')} value={draft.title} onChange={(v) => set({ title: v })} placeholder={t('Как игра будет называться в библиотеке')} />
 
                 {draft.platform === 'pc' ? (
                   <>
-                    <Field label="Аргументы запуска" value={draft.args ?? ''} onChange={(v) => set({ args: v })} placeholder="Необязательно, например -windowed" mono />
+                    <Field label={t('Аргументы запуска')} value={draft.args ?? ''} onChange={(v) => set({ args: v })} placeholder={t('Необязательно, например -windowed')} mono />
                     <Field
-                      label="Процесс игры"
+                      label={t('Процесс игры')}
                       value={draft.trackProcess ?? ''}
                       onChange={(v) => set({ trackProcess: v })}
-                      placeholder="Необязательно, например Game-Win64-Shipping.exe"
-                      hint="Если выбранный EXE — лаунчер, укажите процесс самой игры, чтобы время считалось точно."
+                      placeholder={t('Необязательно, например Game-Win64-Shipping.exe')}
+                      hint={t('Если выбранный EXE — лаунчер, укажите процесс самой игры, чтобы время считалось точно.')}
                       mono
                     />
                     <Field
                       label="Steam AppID"
                       value={draft.steamAppId ? String(draft.steamAppId) : ''}
                       onChange={(v) => set({ steamAppId: Number(v.replace(/\D/g, '')) || undefined })}
-                      placeholder="Определится сам — для трофеев Steam"
+                      placeholder={t('Определится сам — для трофеев Steam')}
                       mono
                     />
                   </>
                 ) : (
                   <Field
-                    label="Своя команда запуска"
+                    label={t('Своя команда запуска')}
                     value={draft.customCommand ?? ''}
                     onChange={(v) => set({ customCommand: v })}
                     placeholder={template}
-                    hint="Оставьте пустым — будет использован эмулятор из настроек. {rom} подставит путь к игре."
+                    hint={t('Оставьте пустым — будет использован эмулятор из настроек. {rom} подставит путь к игре.')}
                     mono
                   />
                 )}
                 {draft.platform === 'ps2' && (
                   <Field
-                    label="ID в RetroAchievements"
+                    label={t('ID в RetroAchievements')}
                     value={draft.raGameId ? String(draft.raGameId) : ''}
                     onChange={(v) => set({ raGameId: Number(v.replace(/\D/g, '')) || undefined })}
-                    placeholder="Определится по образу — для трофеев PS2"
+                    placeholder={t('Определится по образу — для трофеев PS2')}
                     mono
                   />
                 )}
 
                 <div className="editor-actions">
                   <button data-nav className="btn btn-primary" onClick={save}>
-                    {game ? 'Сохранить' : 'Добавить в библиотеку'}
+                    {game ? t('Сохранить') : t('Добавить в библиотеку')}
                   </button>
                   <button data-nav className="btn btn-glass" onClick={onClose}>
-                    Отмена
+                    {t('Отмена')}
                   </button>
                 </div>
               </div>
 
               <div className="editor-art">
                 <button data-nav className="btn btn-glass art-search-btn" onClick={openSearch}>
-                  <IconSearch /> Найти обложку и фон онлайн
+                  <IconSearch /> {t('Найти обложку и фон онлайн')}
                 </button>
                 <div className="art-grid">
                   <ArtSlot
-                    label="Обложка"
+                    label={t('Обложка')}
                     field="cover"
                     draft={draft}
                     onPick={pickImage}
@@ -354,8 +355,8 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                     onClearAnimation={() => set({ coverAnimated: undefined })}
                   />
                   <div className="art-col">
-                    <ArtSlot label="Фон" field="hero" draft={draft} onPick={pickImage} onClear={() => set({ hero: undefined })} />
-                    <ArtSlot label="Логотип" field="logo" draft={draft} onPick={pickImage} onClear={() => set({ logo: undefined })} />
+                    <ArtSlot label={t('Фон')} field="hero" draft={draft} onPick={pickImage} onClear={() => set({ hero: undefined })} />
+                    <ArtSlot label={t('Логотип')} field="logo" draft={draft} onPick={pickImage} onClear={() => set({ logo: undefined })} />
                   </div>
                 </div>
               </div>
@@ -364,9 +365,9 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
         </AnimatePresence>
 
         <footer className="sheet-hints">
-          <Hint glyph="confirm" label="Выбрать" />
-          <Hint glyph="back" label={step === 'form' && !game ? 'Назад' : 'Закрыть'} />
-          {step === 'form' && <Hint glyph="search" label="Найти арт" />}
+          <Hint glyph="confirm" label={t('Выбрать')} />
+          <Hint glyph="back" label={step === 'form' && !game ? t('Назад') : t('Закрыть')} />
+          {step === 'form' && <Hint glyph="search" label={t('Найти арт')} />}
         </footer>
 
         <AnimatePresence>
@@ -412,22 +413,22 @@ function ArtSlot({
     <div className={`art-slot art-${field}`}>
       <div className="art-preview" style={{ '--hue': hueOf(draft) } as React.CSSProperties}>
         {src ? <img src={src} alt="" /> : <IconImage />}
-        {animated && <span className="art-anim-badge">Анимация</span>}
+        {animated && <span className="art-anim-badge">{t('Анимация')}</span>}
       </div>
       <div className="art-meta">
         <span className="art-label">{label}</span>
         <span className="art-buttons">
           <button data-nav className="btn btn-glass btn-xs" onClick={() => onPick(field)}>
-            Файл…
+            {t('Файл…')}
           </button>
           {animated && onClearAnimation && (
             <button data-nav className="btn btn-glass btn-xs" onClick={onClearAnimation}>
-              Без анимации
+              {t('Без анимации')}
             </button>
           )}
           {src && (
             <button data-nav className="btn btn-glass btn-xs" onClick={onClear}>
-              Убрать
+              {t('Убрать')}
             </button>
           )}
         </span>
@@ -437,21 +438,23 @@ function ArtSlot({
 }
 
 const ART_WORD: Record<SaveProgress['field'], string> = {
-  cover: 'обложку',
-  coverAnimated: 'анимированную обложку',
-  hero: 'фон',
-  logo: 'логотип',
-  icon: 'иконку'
+  cover: t('обложку'),
+  coverAnimated: t('анимированную обложку'),
+  hero: t('фон'),
+  logo: t('логотип'),
+  icon: t('иконку')
 }
 
 function size(bytes: number) {
-  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1).replace('.', ',')} МБ` : `${Math.max(1, Math.round(bytes / 1024))} КБ`
+  return bytes >= 1048576 ? t('{v} МБ', { v: (bytes / 1048576).toFixed(1).replace('.', ',') }) : t('{v} КБ', { v: Math.max(1, Math.round(bytes / 1024)) })
 }
 
 /** Экран ожидания: что качаем, прогресс и отмена по ○ */
 function BusyOverlay({ label, progress, slow, onCancel }: { label: string; progress: SaveProgress | null; slow: boolean; onCancel: () => void }) {
   const ratio = progress?.size ? Math.min(1, progress.received / progress.size) : null
-  const title = progress ? `Скачиваем ${ART_WORD[progress.field]}${progress.total > 1 ? ` (${progress.step} из ${progress.total})` : ''}` : label
+  const title = progress
+    ? t('Скачиваем {what}', { what: ART_WORD[progress.field] }) + (progress.total > 1 ? ` ${t('({step} из {total})', { step: progress.step, total: progress.total })}` : '')
+    : label
   return (
     <motion.div className="busy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15 } }}>
       <div className="busy-card">
@@ -465,13 +468,13 @@ function BusyOverlay({ label, progress, slow, onCancel }: { label: string; progr
               <span style={ratio === null ? undefined : { width: `${Math.round(ratio * 100)}%` }} />
             </div>
             <div className="busy-meta">
-              {progress.received ? (progress.size ? `${size(progress.received)} из ${size(progress.size)}` : size(progress.received)) : 'Подключаемся к серверу…'}
+              {progress.received ? (progress.size ? t('{v} из {v2}', { v: size(progress.received), v2: size(progress.size) }) : size(progress.received)) : t('Подключаемся к серверу…')}
             </div>
           </>
         )}
-        {slow && <div className="busy-slow">Сервер отвечает медленно. Можно отменить и выбрать другой источник арта.</div>}
+        {slow && <div className="busy-slow">{t('Сервер отвечает медленно. Можно отменить и выбрать другой источник арта.')}</div>}
         <button className="btn btn-glass btn-sm busy-cancel" onClick={onCancel}>
-          <Glyph name="back" /> Отменить
+          <Glyph name="back" /> {t('Отменить')}
         </button>
       </div>
     </motion.div>

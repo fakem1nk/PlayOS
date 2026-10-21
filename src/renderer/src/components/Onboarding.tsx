@@ -12,19 +12,20 @@ import { Glyph, type GlyphName } from './Glyph'
 import { IconDisc, IconDownload, IconFolder, IconImage } from './Icons'
 import { LogoMark } from './Logo'
 import { DisplayPicker } from './Settings'
+import { t } from '@shared/i18n'
 
 type Step = 'hello' | 'games' | 'emulators' | 'screen' | 'done'
 const STEPS: { id: Step; label: string; title: string; text: string }[] = [
-  { id: 'hello', label: 'Знакомство', title: 'Добро пожаловать в PlayOS', text: 'Пара минут — и всё готово. Любую настройку потом можно поменять.' },
-  { id: 'games', label: 'Игры', title: 'Соберём библиотеку', text: 'PlayOS сам найдёт игры Steam и образы для эмуляторов. Можно пропустить и добавить игры позже кнопкой ▢.' },
-  { id: 'emulators', label: 'Эмуляторы', title: 'Эмуляторы', text: 'Для игр PS2 нужен PCSX2, для PS3 — RPCS3. Если чего-то нет, шаг можно пропустить.' },
-  { id: 'screen', label: 'Экран', title: 'Экран и звук', text: 'Издалека, с дивана, удобнее крупный интерфейс. Он меняется прямо на картинке слева.' },
-  { id: 'done', label: 'Готово', title: 'Всё готово', text: 'Вот кнопки, которые пригодятся чаще всего.' }
+  { id: 'hello', label: t('Знакомство'), title: t('Добро пожаловать в PlayOS'), text: t('Пара минут — и всё готово. Любую настройку потом можно поменять.') },
+  { id: 'games', label: t('Игры'), title: t('Соберём библиотеку'), text: t('PlayOS сам найдёт игры Steam и образы для эмуляторов. Можно пропустить и добавить игры позже кнопкой ▢.') },
+  { id: 'emulators', label: t('Эмуляторы'), title: t('Эмуляторы'), text: t('Для игр PS2 нужен PCSX2, для PS3 — RPCS3. Если чего-то нет, шаг можно пропустить.') },
+  { id: 'screen', label: t('Экран'), title: t('Экран и звук'), text: t('Издалека, с дивана, удобнее крупный интерфейс. Он меняется прямо на картинке слева.') },
+  { id: 'done', label: t('Готово'), title: t('Всё готово'), text: t('Вот кнопки, которые пригодятся чаще всего.') }
 ]
 
 const greeting = () => {
   const h = new Date().getHours()
-  return h >= 5 && h < 12 ? 'Доброе утро' : h < 17 && h >= 12 ? 'Добрый день' : h < 23 && h >= 17 ? 'Добрый вечер' : 'Доброй ночи'
+  return h >= 5 && h < 12 ? t('Доброе утро') : h < 17 && h >= 12 ? t('Добрый день') : h < 23 && h >= 17 ? t('Добрый вечер') : t('Доброй ночи')
 }
 
 interface Props {
@@ -68,7 +69,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
   const run = async (fn: () => Promise<number>, what: string) => {
     try {
       const n = await fn()
-      toast({ title: what, message: n ? `Добавлено: ${gamesCount(n)}` : 'Новых игр не найдено', tone: n ? 'success' : 'info' })
+      toast({ title: what, message: n ? t('Добавлено: {v}', { v: gamesCount(n) }) : t('Новых игр не найдено'), tone: n ? 'success' : 'info' })
     } catch (e) {
       toast({ title: what, message: (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
     }
@@ -101,7 +102,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
             </span>
           </span>
           <span className="wiz-counter">
-            Шаг {i + 1} из {STEPS.length}
+            {t('Шаг {n} из {total}', { n: i + 1, total: STEPS.length })}
           </span>
         </header>
 
@@ -126,23 +127,23 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
             <div className="wiz-controls">
               {step.id === 'hello' && (
                 <>
-                  <Field label="Как вас зовут" value={s.userName} onCommit={(v) => save({ userName: v.trim() || 'Игрок' })} />
-                  <ActionRow label="Аватар" hint="Любая картинка, обрежется по кругу" button="Выбрать картинку" icon={<IconImage />} onClick={pickAvatar} />
+                  <Field label={t('Как вас зовут')} value={s.userName} onCommit={(v) => save({ userName: v.trim() || t('Игрок') })} />
+                  <ActionRow label={t('Аватар')} hint={t('Любая картинка, обрежется по кругу')} button={t('Выбрать картинку')} icon={<IconImage />} onClick={pickAvatar} />
                 </>
               )}
               {step.id === 'games' && (
                 <>
-                  <ActionRow label="Игры Steam" hint="Установленные игры со всех дисков" button="Выбрать игры" icon={<IconDownload />} onClick={onSteamImport} />
-                  <ActionRow label="Образы PS2" hint="Папка с ISO, CHD, CSO" button="Выбрать папку" icon={<IconFolder />} onClick={() => run(api.scanPs2Folder, 'Сканирование PS2')} />
-                  <ActionRow label="Игры RPCS3" hint="Список игр RPCS3 и dev_hdd0" button="Импортировать" onClick={() => run(api.importRpcs3, 'Импорт RPCS3')} />
+                  <ActionRow label={t('Игры Steam')} hint={t('Установленные игры со всех дисков')} button={t('Выбрать игры')} icon={<IconDownload />} onClick={onSteamImport} />
+                  <ActionRow label={t('Образы PS2')} hint={t('Папка с ISO, CHD, CSO')} button={t('Выбрать папку')} icon={<IconFolder />} onClick={() => run(api.scanPs2Folder, t('Сканирование PS2'))} />
+                  <ActionRow label={t('Игры RPCS3')} hint={t('Список игр RPCS3 и dev_hdd0')} button={t('Импортировать')} onClick={() => run(api.importRpcs3, t('Импорт RPCS3'))} />
                 </>
               )}
               {step.id === 'emulators' && (
                 <>
-                  <Field label="PCSX2: путь к pcsx2-qt.exe" value={s.pcsx2Path} onCommit={(v) => save({ pcsx2Path: v })} mono>
+                  <Field label={t('PCSX2: путь к pcsx2-qt.exe')} value={s.pcsx2Path} onCommit={(v) => save({ pcsx2Path: v })} mono>
                     <BrowseButton onClick={() => browse('pcsx2Path')} />
                   </Field>
-                  <Field label="RPCS3: путь к rpcs3.exe" value={s.rpcs3Path} placeholder="Не указан" onCommit={(v) => save({ rpcs3Path: v })} mono>
+                  <Field label={t('RPCS3: путь к rpcs3.exe')} value={s.rpcs3Path} placeholder={t('Не указан')} onCommit={(v) => save({ rpcs3Path: v })} mono>
                     <BrowseButton onClick={() => browse('rpcs3Path')} />
                   </Field>
                 </>
@@ -151,7 +152,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
                 <>
                   <DisplayPicker s={s} save={save} />
                   <Cycler
-                    label="Масштаб интерфейса"
+                    label={t('Масштаб интерфейса')}
                     value={String(s.uiScale)}
                     options={[
                       { id: '0.9', label: '90%' },
@@ -162,13 +163,13 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
                     ]}
                     onChange={(v) => save({ uiScale: Number(v) })}
                   />
-                  <Toggle label="Звуки интерфейса" value={s.sounds} onChange={(v) => save({ sounds: v })} />
-                  <Toggle label="Фоновая музыка" value={s.music} onChange={(v) => save({ music: v })} />
+                  <Toggle label={t('Звуки интерфейса')} value={s.sounds} onChange={(v) => save({ sounds: v })} />
+                  <Toggle label={t('Фоновая музыка')} value={s.music} onChange={(v) => save({ music: v })} />
                 </>
               )}
               {step.id === 'done' && (
                 <p className="wiz-note">
-                  Мастер больше не появится. Всё, что вы здесь выбрали, живёт в «Настройках», а игры добавляются кнопкой ▢ на главном экране.
+                  {t('Мастер больше не появится. Всё, что вы здесь выбрали, живёт в «Настройках», а игры добавляются кнопкой ▢ на главном экране.')}
                 </p>
               )}
             </div>
@@ -189,15 +190,15 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
           <span className="wiz-buttons">
             {i > 0 ? (
               <button data-nav className="btn btn-glass" onClick={() => go(-1)}>
-                Назад
+                {t('Назад')}
               </button>
             ) : (
               <button data-nav className="btn btn-glass" onClick={finish}>
-                Пропустить
+                {t('Пропустить')}
               </button>
             )}
             <button data-nav className="btn btn-primary wiz-next" onClick={() => (step.id === 'done' ? finish() : go(1))}>
-              {step.id === 'done' ? 'Начать играть' : 'Далее'}
+              {step.id === 'done' ? t('Начать играть') : t('Далее')}
             </button>
           </span>
         </footer>
@@ -247,7 +248,7 @@ function GamesArt({ state }: { state: AppState }) {
           )
         })}
       </div>
-      <div className="wiz-games-count">{state.games.length ? gamesCount(state.games.length) : 'Библиотека пока пуста'}</div>
+      <div className="wiz-games-count">{state.games.length ? gamesCount(state.games.length) : t('Библиотека пока пуста')}</div>
     </div>
   )
 }
@@ -269,7 +270,7 @@ function EmuArt({ pcsx2, rpcs3 }: { pcsx2: string; rpcs3: string }) {
       </span>
       <span className="wiz-disc-label">{label}</span>
       <span className="wiz-disc-emu">{emu}</span>
-      <span className={`wiz-disc-status ${ok ? 'is-ok' : ''}`}>{ok === undefined ? 'Проверяем…' : ok ? 'Найден' : empty ? 'Не указан' : 'Не найден'}</span>
+      <span className={`wiz-disc-status ${ok ? 'is-ok' : ''}`}>{ok === undefined ? t('Проверяем…') : ok ? t('Найден') : empty ? t('Не указан') : t('Не найден')}</span>
     </div>
   )
   return (
@@ -305,12 +306,12 @@ function ScreenArt({ scale }: { scale: number }) {
 }
 
 const BUTTONS: { glyph: GlyphName | 'ps'; label: string }[] = [
-  { glyph: 'confirm', label: 'Играть и выбирать' },
-  { glyph: 'back', label: 'Назад' },
-  { glyph: 'menu', label: 'Параметры игры' },
-  { glyph: 'search', label: 'Добавить игру' },
-  { glyph: 'r1', label: 'Вкладки' },
-  { glyph: 'ps', label: 'Меню поверх игры' }
+  { glyph: 'confirm', label: t('Играть и выбирать') },
+  { glyph: 'back', label: t('Назад') },
+  { glyph: 'menu', label: t('Параметры игры') },
+  { glyph: 'search', label: t('Добавить игру') },
+  { glyph: 'r1', label: t('Вкладки') },
+  { glyph: 'ps', label: t('Меню поверх игры') }
 ]
 
 /** Главные кнопки карточками — появляются по очереди */

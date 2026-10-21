@@ -11,6 +11,7 @@ import { accentOf, clock, DEFAULT_ACCENT, media, playtime, timer } from './lib/f
 import { setPadMaps, useInputLayer } from './lib/input'
 import { useAppState, useNow, usePadStatus } from './lib/state'
 import { play } from './lib/sound'
+import { locale, t } from '@shared/i18n'
 
 /**
  * Оверлей 2.0 — прозрачная панель поверх запущенной игры (отдельное окно).
@@ -26,15 +27,15 @@ interface Action {
 
 const SLOT_W = 21 // ширина карточки слота в rem (вместе с отступом)
 const BATTERY_LEVEL = { empty: 0, low: 1, medium: 2, full: 3 } as const
-const timeFmt = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
-const dayFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
+const timeFmt = new Intl.DateTimeFormat(locale(), { hour: '2-digit', minute: '2-digit' })
+const dayFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' })
 
-function slotTime(t: number) {
-  const d = new Date(t)
+function slotTime(ts: number) {
+  const d = new Date(ts)
   const today = new Date()
   const yesterday = new Date()
   yesterday.setDate(today.getDate() - 1)
-  const day = d.toDateString() === today.toDateString() ? 'Сегодня' : d.toDateString() === yesterday.toDateString() ? 'Вчера' : dayFmt.format(d)
+  const day = d.toDateString() === today.toDateString() ? t('Сегодня') : d.toDateString() === yesterday.toDateString() ? t('Вчера') : dayFmt.format(d)
   return `${day}, ${timeFmt.format(d)}`
 }
 
@@ -119,10 +120,10 @@ export function OverlayApp() {
 
   const hasSlots = !!emu && emu.mode !== 'none' && emu.platform === 'ps2'
   const actions: Action[] = [
-    { id: 'resume', label: 'Вернуться в игру', icon: <IconPlay /> },
-    ...(emu?.mode !== 'none' && emu?.platform === 'ps3' ? [{ id: 'save' as const, label: 'Сохранить состояние', icon: <IconCheck /> }] : []),
-    { id: 'home', label: 'Главный экран', icon: <IconHome /> },
-    { id: 'close', label: closing ? 'Закрываем…' : confirmClose ? 'Нажмите ещё раз' : 'Закрыть игру', icon: <IconClose /> }
+    { id: 'resume', label: t('Вернуться в игру'), icon: <IconPlay /> },
+    ...(emu?.mode !== 'none' && emu?.platform === 'ps3' ? [{ id: 'save' as const, label: t('Сохранить состояние'), icon: <IconCheck /> }] : []),
+    { id: 'home', label: t('Главный экран'), icon: <IconHome /> },
+    { id: 'close', label: closing ? t('Закрываем…') : confirmClose ? t('Нажмите ещё раз') : t('Закрыть игру'), icon: <IconClose /> }
   ]
   const slots: SaveSlot[] = emu?.slots ?? []
   const slot = slots[slotIdx]
@@ -174,7 +175,7 @@ export function OverlayApp() {
   const load = async (s: SaveSlot) => {
     if (!s.time || !emu?.canLoad) {
       play('error')
-      return showNotice(`Слот ${s.slot} пуст`, false)
+      return showNotice(t('Слот {slot} пуст', { slot: s.slot }), false)
     }
     setBusy(s.slot)
     play('launch')
@@ -294,10 +295,10 @@ export function OverlayApp() {
                   <div className="ov-meta">
                     <span>{PLATFORM_NAMES[game.platform]}</span>
                     <span>
-                      Сессия <b className="live-text">{timer(now - running.startedAt)}</b>
+                      {t('Сессия')} <b className="live-text">{timer(now - running.startedAt)}</b>
                     </span>
-                    <span>Всего {playtime(game.playtime + Math.floor((now - running.startedAt) / 1000)).toLowerCase()}</span>
-                    {emu?.paused && <span className="ov-chip">Игра на паузе</span>}
+                    <span>{t('Всего {time}', { time: playtime(game.playtime + Math.floor((now - running.startedAt) / 1000)).toLowerCase() })}</span>
+                    {emu?.paused && <span className="ov-chip">{t('Игра на паузе')}</span>}
                   </div>
                 </div>
               </div>
@@ -327,9 +328,9 @@ export function OverlayApp() {
               {hasSlots && (
                 <section className={`ov-slots ${row === 'slots' ? 'is-zone' : ''}`}>
                   <div className="ov-slots-head">
-                    <span className="ov-slots-title">Быстрые сохранения</span>
+                    <span className="ov-slots-title">{t('Быстрые сохранения')}</span>
                     <span className="ov-slots-hint">
-                      {emu?.mode === 'pine' ? 'Через PINE: без выхода из оверлея' : emu?.hint}
+                      {emu?.mode === 'pine' ? t('Через PINE: без выхода из оверлея') : emu?.hint}
                     </span>
                   </div>
                   <div className="ov-slots-viewport">
@@ -345,15 +346,15 @@ export function OverlayApp() {
                           }}
                         >
                           <span className="ov-slot-art">
-                            {s.thumb ? <img src={media(s.thumb)} alt="" /> : <span className="ov-slot-empty">Пусто</span>}
+                            {s.thumb ? <img src={media(s.thumb)} alt="" /> : <span className="ov-slot-empty">{t('Пусто')}</span>}
                             {busy === s.slot && (
                               <span className="ov-slot-busy">
                                 <span className="spinner" />
                               </span>
                             )}
                           </span>
-                          <span className="ov-slot-label">Слот {s.slot}</span>
-                          <span className="ov-slot-time">{s.time ? slotTime(s.time) : 'Свободен'}</span>
+                          <span className="ov-slot-label">{t('Слот {slot}', { slot: s.slot })}</span>
+                          <span className="ov-slot-time">{s.time ? slotTime(s.time) : t('Свободен')}</span>
                         </button>
                       ))}
                     </div>
@@ -368,42 +369,42 @@ export function OverlayApp() {
                       <>
                         <span className="hint">
                           <span className="glyph glyph-pill">◀ ▶</span>
-                          {cc.adjusting === 'volume' ? 'Громкость' : 'Яркость'}
+                          {cc.adjusting === 'volume' ? t('Громкость') : t('Яркость')}
                         </span>
-                        <Hint glyph="confirm" label="Готово" />
+                        <Hint glyph="confirm" label={t('Готово')} />
                       </>
                     ) : (
                       <>
                         <Hint
                           glyph="confirm"
-                          label={cc.pop ? 'Выбрать' : cc.current === 'volume' || cc.current === 'brightness' ? 'Регулировать' : 'Открыть'}
+                          label={cc.pop ? t('Выбрать') : cc.current === 'volume' || cc.current === 'brightness' ? t('Регулировать') : t('Открыть')}
                         />
-                        {cc.current === 'volume' && !cc.pop && <Hint glyph="menu" label={cc.sys?.muted ? 'Включить звук' : 'Без звука'} />}
-                        <Hint glyph="back" label={cc.pop ? 'Закрыть список' : 'Вернуться в игру'} />
+                        {cc.current === 'volume' && !cc.pop && <Hint glyph="menu" label={cc.sys?.muted ? t('Включить звук') : t('Без звука')} />}
+                        <Hint glyph="back" label={cc.pop ? t('Закрыть список') : t('Вернуться в игру')} />
                       </>
                     )}
                   </>
                 ) : row === 'slots' ? (
                   <>
-                    <Hint glyph="confirm" label={`Сохранить в слот ${slot?.slot ?? ''}`} />
-                    {emu?.canLoad && <Hint glyph="menu" label="Загрузить" />}
-                    <Hint glyph="back" label="Вернуться в игру" />
+                    <Hint glyph="confirm" label={t('Сохранить в слот {v}', { v: slot?.slot ?? '' })} />
+                    {emu?.canLoad && <Hint glyph="menu" label={t('Загрузить')} />}
+                    <Hint glyph="back" label={t('Вернуться в игру')} />
                   </>
                 ) : (
                   <>
-                    <Hint glyph="confirm" label="Выбрать" />
+                    <Hint glyph="confirm" label={t('Выбрать')} />
                     <span className="hint">
                       <span className="glyph">
                         <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="m7 10 5 5 5-5" />
                         </svg>
                       </span>
-                      {hasSlots ? 'Пункт управления и сохранения' : 'Пункт управления'}
+                      {hasSlots ? t('Пункт управления и сохранения') : t('Пункт управления')}
                     </span>
-                    <Hint glyph="back" label="Вернуться в игру" />
+                    <Hint glyph="back" label={t('Вернуться в игру')} />
                   </>
                 )}
-                <span className="ov-hint-ps">Кнопка PS — закрыть оверлей</span>
+                <span className="ov-hint-ps">{t('Кнопка PS — закрыть оверлей')}</span>
               </footer>
             </motion.div>
 
@@ -460,7 +461,7 @@ export function OverlayApp() {
               <span className="ov-trophy-icon">{a.icon ? <img src={a.icon} alt="" /> : <IconTrophy />}</span>
               <span className="ov-trophy-text">
                 <span className="ov-trophy-eyebrow">
-                  <IconTrophy /> Трофей получен
+                  <IconTrophy /> {t('Трофей получен')}
                 </span>
                 <span className="ov-trophy-title">{a.title}</span>
                 <span className="ov-trophy-game">{title}</span>

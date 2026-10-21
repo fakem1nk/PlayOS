@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { play } from '../lib/sound'
 import { IconChevron, IconFolder } from './Icons'
+import { t } from '@shared/i18n'
 
 /** Подписка на влево/вправо от пространственной навигации (атрибут data-adjust). */
 function useAdjust<T extends HTMLElement>(cb: (d: number) => void) {
@@ -125,7 +126,7 @@ export function Field({
   )
 }
 
-export function BrowseButton({ onClick, label = 'Обзор' }: { onClick: () => void; label?: string }) {
+export function BrowseButton({ onClick, label = t('Обзор') }: { onClick: () => void; label?: string }) {
   return (
     <button data-nav className="btn btn-glass btn-sm" onClick={onClick}>
       <IconFolder /> {label}

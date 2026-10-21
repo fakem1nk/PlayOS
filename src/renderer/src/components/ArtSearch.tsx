@@ -6,11 +6,12 @@ import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconSearch } from './Icons'
+import { t } from '@shared/i18n'
 
 const SOURCES: { id: ArtSource; label: string; note: string }[] = [
-  { id: 'steam', label: 'Steam', note: 'Обложка, фон и логотип из Steam. Подходит и для PS2/PS3 игр, у которых есть PC-версия.' },
-  { id: 'steamgriddb', label: 'SteamGridDB', note: 'Большая база арта от сообщества, в том числе для игр без PC-версии. Нужен ключ API в настройках.' },
-  { id: 'wiki', label: 'Википедия', note: 'Обложка из статьи об игре. Только обложка, без фона и логотипа.' }
+  { id: 'steam', label: 'Steam', note: t('Обложка, фон и логотип из Steam. Подходит и для PS2/PS3 игр, у которых есть PC-версия.') },
+  { id: 'steamgriddb', label: 'SteamGridDB', note: t('Большая база арта от сообщества, в том числе для игр без PC-версии. Нужен ключ API в настройках.') },
+  { id: 'wiki', label: t('Википедия'), note: t('Обложка из статьи об игре. Только обложка, без фона и логотипа.') }
 ]
 
 interface Props {
@@ -41,7 +42,7 @@ export function ArtSearch({ initialQuery, platform, serial, onPick, onClose }: P
       const msg = (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
       if (id === reqId.current) {
         setResults([])
-        setError(/fetch|network|timeout/i.test(msg) ? 'Нет соединения с интернетом или сервис не ответил. Попробуйте ещё раз.' : msg)
+        setError(/fetch|network|timeout/i.test(msg) ? t('Нет соединения с интернетом или сервис не ответил. Попробуйте ещё раз.') : msg)
       }
     } finally {
       if (id === reqId.current) setLoading(false)
@@ -90,7 +91,7 @@ export function ArtSearch({ initialQuery, platform, serial, onPick, onClose }: P
         transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
       >
         <header className="art-search-head">
-          <h2 className="sheet-title">Обложка и фон</h2>
+          <h2 className="sheet-title">{t('Обложка и фон')}</h2>
           <form
             className="search-box"
             onSubmit={(e) => {
@@ -105,11 +106,11 @@ export function ArtSearch({ initialQuery, platform, serial, onPick, onClose }: P
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && search()}
-              placeholder="Название игры на английском"
+              placeholder={t('Название игры на английском')}
               spellCheck={false}
             />
             <button data-nav type="submit" className="btn btn-primary btn-sm">
-              Найти
+              {t('Найти')}
             </button>
           </form>
         </header>
@@ -130,15 +131,15 @@ export function ArtSearch({ initialQuery, platform, serial, onPick, onClose }: P
           {!loading &&
             results?.map((r) => <Result key={r.key} candidate={r} onPick={onPick} />)}
           {!loading && !error && results?.length === 0 && (
-            <p className="results-empty">Ничего не нашлось. Попробуйте английское название игры без подзаголовка.</p>
+            <p className="results-empty">{t('Ничего не нашлось. Попробуйте английское название игры без подзаголовка.')}</p>
           )}
           {!loading && error && <p className="results-empty">{error}</p>}
         </div>
         <p className="art-search-note">{SOURCES.find((s) => s.id === source)!.note}</p>
         <footer className="sheet-hints">
-          <Hint glyph="confirm" label="Применить" />
-          <Hint glyph="r1" label="Источник" />
-          <Hint glyph="back" label="Назад" />
+          <Hint glyph="confirm" label={t('Применить')} />
+          <Hint glyph="r1" label={t('Источник')} />
+          <Hint glyph="back" label={t('Назад')} />
         </footer>
       </motion.div>
     </motion.div>
@@ -160,8 +161,8 @@ function Result({ candidate, onPick }: { candidate: ArtCandidate; onPick: (c: Ar
     >
       <ResultImage candidate={candidate} active={active} />
       <span className="result-title">{candidate.title}</span>
-      {candidate.source === 'disc' && <span className="result-badge">Обложка диска</span>}
-      {candidate.coverAnimated && <span className="result-badge is-anim">Анимированная</span>}
+      {candidate.source === 'disc' && <span className="result-badge">{t('Обложка диска')}</span>}
+      {candidate.coverAnimated && <span className="result-badge is-anim">{t('Анимированная')}</span>}
     </button>
   )
 }

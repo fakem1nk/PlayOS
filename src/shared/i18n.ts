@@ -8,7 +8,15 @@ import { EN } from './i18n-en'
 
 export type Lang = 'ru' | 'en'
 
-let lang: Lang = 'ru'
+/** Язык известен ещё до загрузки модулей интерфейса: его отдаёт preload (или ?lang= в браузерном превью) */
+function initialLang(): Lang {
+  if (typeof window === 'undefined') return 'ru'
+  const w = window as unknown as { pcsLang?: string; location?: Location }
+  const q = w.location?.search.match(/[?&]lang=(en|ru)/)?.[1]
+  return (q ?? w.pcsLang) === 'en' ? 'en' : 'ru'
+}
+
+let lang: Lang = initialLang()
 const listeners = new Set<() => void>()
 const missing = new Set<string>()
 
@@ -31,7 +39,7 @@ export function onLangChange(cb: () => void) {
 /** Язык по умолчанию — по языку Windows */
 export const langFromLocale = (locale: string): Lang => (/^(ru|be|uk|kk)/i.test(locale) ? 'ru' : 'en')
 
-export function t(ru: string, vars?: Record<string, string | number>): string {
+export function t(ru: string, vars?: Record<string, string | number | undefined>): string {
   let s = ru
   if (lang === 'en') {
     const en = EN[ru]
@@ -40,7 +48,7 @@ export function t(ru: string, vars?: Record<string, string | number>): string {
       missing.add(ru)
     }
   }
-  return vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : s
+  return vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k] ?? '') : m)) : s
 }
 
 /** Строки, которые показали по-английски без перевода, — для проверки полноты */

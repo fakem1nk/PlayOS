@@ -8,10 +8,11 @@ import { earnedNow, TIER_NAMES, TROPHIES, type Tier } from '../lib/trophies'
 import { Avatar } from './Avatar'
 import { IconImage, IconTrophy } from './Icons'
 import { Cover } from './Tile'
+import { locale, t } from '@shared/i18n'
 
 const DAYS = 14
-const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' })
-const dayMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
+const weekday = new Intl.DateTimeFormat(locale(), { weekday: 'short' })
+const dayMonth = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long' })
 
 interface Props {
   state: AppState
@@ -70,38 +71,38 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
     const p = await api.pickFile('image')
     if (!p) return
     await api.saveSettings({ avatar: p })
-    toast({ title: 'Аватар обновлён', image: p, tone: 'success' })
+    toast({ title: t('Аватар обновлён'), image: p, tone: 'success' })
   }
 
   return (
     <div className="profile-page" ref={ref}>
       <section className="profile-card">
-        <button data-nav className="profile-avatar-btn" onClick={pickAvatar} aria-label="Сменить аватар">
+        <button data-nav className="profile-avatar-btn" onClick={pickAvatar} aria-label={t('Сменить аватар')}>
           <Avatar name={settings.userName} src={settings.avatar} className="avatar-xl" />
           <span className="profile-avatar-edit">
             <IconImage />
           </span>
         </button>
         <h1 className="profile-title">{settings.userName}</h1>
-        <p className="profile-since">В PlayOS с {dayMonth.format(stats.since)}</p>
+        <p className="profile-since">{t('В PlayOS с {date}', { date: dayMonth.format(stats.since) })}</p>
 
         <div className="profile-hero">
-          <span className="profile-hero-value">{stats.total ? playtime(stats.total) : '0 мин'}</span>
-          <span className="profile-hero-label">наиграно всего</span>
+          <span className="profile-hero-value">{stats.total ? playtime(stats.total) : t('0 мин')}</span>
+          <span className="profile-hero-label">{t('наиграно всего')}</span>
         </div>
         <dl className="profile-stats">
           <div>
-            <dt>Библиотека</dt>
+            <dt>{t('Библиотека')}</dt>
             <dd>{gamesCount(games.length)}</dd>
           </div>
           <div>
-            <dt>Сессий</dt>
+            <dt>{t('Сессий')}</dt>
             <dd>{stats.sessions}</dd>
           </div>
           <div>
-            <dt>Трофеи</dt>
+            <dt>{t('Трофеи')}</dt>
             <dd>
-              {earned.size} из {TROPHIES.length}
+              {t('{earned} из {total}', { earned: earned.size, total: TROPHIES.length })}
             </dd>
           </div>
         </dl>
@@ -110,11 +111,11 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
       <div className="profile-main">
         <section className="profile-block">
           <header className="block-head">
-            <h2 className="block-title">Активность за две недели</h2>
-            <span className="block-meta">{twoWeeks ? `Всего ${playtime(twoWeeks).toLowerCase()}` : 'Пока без игр'}</span>
+            <h2 className="block-title">{t('Активность за две недели')}</h2>
+            <span className="block-meta">{twoWeeks ? t('Всего {v}', { v: playtime(twoWeeks).toLowerCase() }) : t('Пока без игр')}</span>
           </header>
           <div className="activity" onMouseLeave={() => setHoverDay(null)}>
-            <div className="activity-bars" role="img" aria-label="Часы игры по дням за последние 14 дней">
+            <div className="activity-bars" role="img" aria-label={t('Часы игры по дням за последние 14 дней')}>
               {stats.days.map((d, i) => {
                 const isToday = i === DAYS - 1
                 const h = d.seconds ? Math.max(4, (d.seconds / maxDay) * 100) : 0
@@ -127,21 +128,21 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
                     <div className="activity-track">
                       {h > 0 ? <span className="activity-bar" style={{ height: `${h}%` }} /> : <span className="activity-empty" />}
                     </div>
-                    <span className="activity-day">{isToday ? 'сег.' : weekday.format(d.date)}</span>
+                    <span className="activity-day">{isToday ? t('сег.') : weekday.format(d.date)}</span>
                   </div>
                 )
               })}
             </div>
             <p className="activity-caption">
-              {hoverDay === null || hoverDay === DAYS - 1 ? 'Сегодня' : dayMonth.format(shownDay.date)}:{' '}
-              <strong>{shownDay.seconds ? playtime(shownDay.seconds).toLowerCase() : 'не играли'}</strong>
+              {hoverDay === null || hoverDay === DAYS - 1 ? t('Сегодня') : dayMonth.format(shownDay.date)}:{' '}
+              <strong>{shownDay.seconds ? playtime(shownDay.seconds).toLowerCase() : t('не играли')}</strong>
             </p>
           </div>
         </section>
 
         <section className="profile-block" data-reveal>
           <header className="block-head">
-            <h2 className="block-title">Больше всего играли</h2>
+            <h2 className="block-title">{t('Больше всего играли')}</h2>
           </header>
           {stats.top.length ? (
             <div className="top-list">
@@ -161,7 +162,7 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
               ))}
             </div>
           ) : (
-            <p className="block-empty">Здесь появятся игры, в которые вы играете чаще всего.</p>
+            <p className="block-empty">{t('Здесь появятся игры, в которые вы играете чаще всего.')}</p>
           )}
         </section>
 
@@ -169,22 +170,22 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
 
         <section className="profile-block" data-reveal>
           <header className="block-head">
-            <h2 className="block-title">Трофеи PlayOS</h2>
+            <h2 className="block-title">{t('Трофеи PlayOS')}</h2>
             <span className="block-meta">
-              {earned.size} из {TROPHIES.length}
+              {t('{earned} из {total}', { earned: earned.size, total: TROPHIES.length })}
             </span>
           </header>
           <div className="trophies">
-            {TROPHIES.map((t) => {
-              const got = earned.has(t.id)
+            {TROPHIES.map((tr) => {
+              const got = earned.has(tr.id)
               return (
                 <button
-                  key={t.id}
+                  key={tr.id}
                   data-nav
-                  className={`trophy trophy-${t.tier} ${got ? 'is-earned' : ''}`}
-                  onFocus={() => setFocusedTrophy(t.id)}
-                  onMouseEnter={() => setFocusedTrophy(t.id)}
-                  aria-label={`${t.title}: ${t.desc}`}
+                  className={`trophy trophy-${tr.tier} ${got ? 'is-earned' : ''}`}
+                  onFocus={() => setFocusedTrophy(tr.id)}
+                  onMouseEnter={() => setFocusedTrophy(tr.id)}
+                  aria-label={`${tr.title}: ${tr.desc}`}
                 >
                   <IconTrophy />
                 </button>
@@ -195,10 +196,10 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
             {trophy ? (
               <>
                 <strong>{trophy.title}</strong> <TierBadge tier={trophy.tier} /> {trophy.desc}
-                {earned.has(trophy.id) && settings.trophies[trophy.id] && <span className="trophy-date">, получен {dayMonth.format(settings.trophies[trophy.id])}</span>}
+                {earned.has(trophy.id) && settings.trophies[trophy.id] && <span className="trophy-date">{t(', получен {date}', { date: dayMonth.format(settings.trophies[trophy.id]) })}</span>}
               </>
             ) : (
-              'Выберите трофей, чтобы узнать условие'
+              t('Выберите трофей, чтобы узнать условие')
             )}
           </p>
         </section>
@@ -221,12 +222,12 @@ function GameTrophies({ games, trophies, onOpen }: { games: Game[]; trophies: Re
   return (
     <section className="profile-block" data-reveal>
       <header className="block-head">
-        <h2 className="block-title">Трофеи игр</h2>
-        {list.length > 0 && <span className="block-meta">Получено {earned}</span>}
+        <h2 className="block-title">{t('Трофеи игр')}</h2>
+        {list.length > 0 && <span className="block-meta">{t('Получено {n}', { n: earned })}</span>}
       </header>
       {list.length ? (
         <div className="top-list">
-          {list.map(({ g, t }) => (
+          {list.map(({ g, t: set }) => (
             <button key={g.id} data-nav className="top-item" onClick={() => onOpen(g)}>
               <span className="top-cover">
                 <Cover game={g} />
@@ -234,18 +235,18 @@ function GameTrophies({ games, trophies, onOpen }: { games: Game[]; trophies: Re
               <span className="top-body">
                 <span className="top-title">{g.title}</span>
                 <span className="top-track">
-                  <span className="top-fill" style={{ width: `${(t.earned / t.total) * 100}%` }} />
+                  <span className="top-fill" style={{ width: `${(set.earned / set.total) * 100}%` }} />
                 </span>
               </span>
               <span className="top-time">
-                {t.earned} из {t.total}
+                {t('{earned} из {total}', { earned: set.earned, total: set.total })}
               </span>
             </button>
           ))}
         </div>
       ) : (
         <p className="block-empty">
-          Подключите RetroAchievements (PS2) и Steam в настройках, затем откройте трофеи игры через △ — прогресс появится здесь.
+          {t('Подключите RetroAchievements (PS2) и Steam в настройках, затем откройте трофеи игры через △ — прогресс появится здесь.')}
         </p>
       )}
     </section>

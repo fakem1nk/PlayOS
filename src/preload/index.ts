@@ -81,3 +81,5 @@ const api: PcsApi = {
 }
 
 contextBridge.exposeInMainWorld('pcs', api)
+// Язык нужен до загрузки интерфейса — иначе тексты в константах модулей останутся на старом языке
+contextBridge.exposeInMainWorld('pcsLang', ipcRenderer.sendSync('lang:get'))

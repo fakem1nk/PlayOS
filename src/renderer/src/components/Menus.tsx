@@ -9,6 +9,7 @@ import { Hint } from './Glyph'
 import { IconClose, IconDownload, IconEdit, IconExit, IconFolder, IconInfo, IconMoon, IconPlay, IconPower, IconReset, IconRestart, IconStar, IconTrash, IconTrophy } from './Icons'
 import { Cover } from './Tile'
 import { installNow } from './UpdateNotice'
+import { t } from '@shared/i18n'
 
 interface Item {
   id: string
@@ -64,8 +65,8 @@ function SideMenu({ title, header, items, onClose }: { title: string; header?: R
           ))}
         </div>
         <footer className="sheet-hints">
-          <Hint glyph="confirm" label="Выбрать" />
-          <Hint glyph="back" label="Закрыть" />
+          <Hint glyph="confirm" label={t('Выбрать')} />
+          <Hint glyph="back" label={t('Закрыть')} />
         </footer>
       </motion.aside>
       <AnimatePresence>
@@ -101,7 +102,7 @@ export function ConfirmDialog({ title, text, button, onCancel, onConfirm }: { ti
         <p className="dialog-text">{text}</p>
         <div className="dialog-actions">
           <button data-nav className="btn btn-glass" onClick={onCancel}>
-            Отмена
+            {t('Отмена')}
           </button>
           <button data-nav className="btn btn-danger" onClick={onConfirm}>
             {button}
@@ -127,37 +128,37 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
   const isRunning = running?.gameId === game.id
   const items: Item[] = [
     isRunning
-      ? { id: 'close', label: 'Закрыть игру', icon: <IconClose />, run: () => (onClose(), onCloseGame()) }
-      : { id: 'play', label: 'Играть', icon: <IconPlay />, run: () => (onClose(), onLaunch(game)) },
-    { id: 'info', label: 'Об игре', icon: <IconInfo />, run: () => onInfo(game) },
-    { id: 'trophies', label: 'Трофеи', icon: <IconTrophy />, run: () => onTrophies(game) },
-    { id: 'edit', label: 'Изменить', icon: <IconEdit />, run: () => (onClose(), onEdit(game)) },
+      ? { id: 'close', label: t('Закрыть игру'), icon: <IconClose />, run: () => (onClose(), onCloseGame()) }
+      : { id: 'play', label: t('Играть'), icon: <IconPlay />, run: () => (onClose(), onLaunch(game)) },
+    { id: 'info', label: t('Об игре'), icon: <IconInfo />, run: () => onInfo(game) },
+    { id: 'trophies', label: t('Трофеи'), icon: <IconTrophy />, run: () => onTrophies(game) },
+    { id: 'edit', label: t('Изменить'), icon: <IconEdit />, run: () => (onClose(), onEdit(game)) },
     {
       id: 'fav',
-      label: game.favorite ? 'Убрать из избранного' : 'Добавить в избранное',
+      label: game.favorite ? t('Убрать из избранного') : t('Добавить в избранное'),
       icon: <IconStar filled={game.favorite} />,
       run: () => api.setFavorite(game.id, !game.favorite)
     },
-    { id: 'folder', label: 'Открыть папку игры', icon: <IconFolder />, run: () => api.openFolder(game.path) },
+    { id: 'folder', label: t('Открыть папку игры'), icon: <IconFolder />, run: () => api.openFolder(game.path) },
     {
       id: 'reset',
-      label: 'Сбросить время игры',
+      label: t('Сбросить время игры'),
       icon: <IconReset />,
-      confirm: { title: 'Сбросить время игры?', text: `Наигранные ${playtime(game.playtime)} в «${game.title}» обнулятся.`, button: 'Сбросить' },
+      confirm: { title: t('Сбросить время игры?'), text: t('Наигранные {v} в «{title}» обнулятся.', { v: playtime(game.playtime), title: game.title }), button: t('Сбросить') },
       run: () => api.resetPlaytime(game.id)
     },
     {
       id: 'delete',
-      label: 'Удалить из библиотеки',
+      label: t('Удалить из библиотеки'),
       icon: <IconTrash />,
       danger: true,
-      confirm: { title: 'Удалить игру из библиотеки?', text: `«${game.title}» пропадёт из PlayOS вместе со статистикой. Файлы игры на диске останутся.`, button: 'Удалить' },
+      confirm: { title: t('Удалить игру из библиотеки?'), text: t('«{title}» пропадёт из PlayOS вместе со статистикой. Файлы игры на диске останутся.', { title: game.title }), button: t('Удалить') },
       run: () => (onClose(), api.deleteGame(game.id))
     }
   ]
   return (
     <SideMenu
-      title="Параметры"
+      title={t('Параметры')}
       onClose={onClose}
       items={items}
       header={
@@ -184,23 +185,23 @@ export function PowerMenu({ update, onClose, onPower }: { update?: string; onClo
     onPower(a)
   }
   const items: Item[] = [
-    ...(update ? [{ id: 'update', label: `Обновить PlayOS до ${update}`, icon: <IconDownload />, run: () => (onClose(), installNow()) }] : []),
-    { id: 'sleep', label: 'Спящий режим', icon: <IconMoon />, run: run('sleep') },
+    ...(update ? [{ id: 'update', label: t('Обновить PlayOS до {update}', { update }), icon: <IconDownload />, run: () => (onClose(), installNow()) }] : []),
+    { id: 'sleep', label: t('Спящий режим'), icon: <IconMoon />, run: run('sleep') },
     {
       id: 'restart',
-      label: 'Перезагрузить ПК',
+      label: t('Перезагрузить ПК'),
       icon: <IconRestart />,
-      confirm: { title: 'Перезагрузить компьютер?', text: 'Несохранённый прогресс в открытых программах будет потерян.', button: 'Перезагрузить' },
+      confirm: { title: t('Перезагрузить компьютер?'), text: t('Несохранённый прогресс в открытых программах будет потерян.'), button: t('Перезагрузить') },
       run: run('restart')
     },
     {
       id: 'shutdown',
-      label: 'Выключить ПК',
+      label: t('Выключить ПК'),
       icon: <IconPower />,
-      confirm: { title: 'Выключить компьютер?', text: 'Несохранённый прогресс в открытых программах будет потерян.', button: 'Выключить' },
+      confirm: { title: t('Выключить компьютер?'), text: t('Несохранённый прогресс в открытых программах будет потерян.'), button: t('Выключить') },
       run: run('shutdown')
     },
-    { id: 'quit', label: 'Выйти из PlayOS', icon: <IconExit />, run: run('quit') }
+    { id: 'quit', label: t('Выйти из PlayOS'), icon: <IconExit />, run: run('quit') }
   ]
-  return <SideMenu title="Питание" items={items} onClose={onClose} />
+  return <SideMenu title={t('Питание')} items={items} onClose={onClose} />
 }

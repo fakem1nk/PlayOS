@@ -10,24 +10,25 @@ import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconBattery, IconGamepad, IconPlug } from './Icons'
 import { LogoMark } from './Logo'
+import { locale, t } from '@shared/i18n'
 
-const num = (v: number, digits = 1) => v.toLocaleString('ru-RU', { maximumFractionDigits: digits })
-const gb = (b: number) => `${num(b / 2 ** 30)} ГБ`
-const size = (b: number) => (b >= 2 ** 30 ? gb(b) : `${num(b / 2 ** 20, 0)} МБ`)
-const uptime = (m: number) => (m >= 1440 ? `${Math.floor(m / 1440)} д ${Math.floor((m % 1440) / 60)} ч` : m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`)
+const num = (v: number, digits = 1) => v.toLocaleString(locale(), { maximumFractionDigits: digits })
+const gb = (b: number) => t('{v} ГБ', { v: num(b / 2 ** 30) })
+const size = (b: number) => (b >= 2 ** 30 ? gb(b) : t('{v} МБ', { v: num(b / 2 ** 20, 0) }))
+const uptime = (m: number) => (m >= 1440 ? t('{v} д {v2} ч', { v: Math.floor(m / 1440), v2: Math.floor((m % 1440) / 60) }) : m >= 60 ? t('{v} ч {v2} мин', { v: Math.floor(m / 60), v2: m % 60 }) : t('{m} мин', { m }))
 const BATTERY_LEVEL = { empty: 0, low: 1, medium: 2, full: 3 } as const
 
 /** Сведения одним текстом — для «Скопировать» */
 function asText(i: SystemInfo) {
   return [
     `PlayOS ${i.app.version} (Electron ${i.app.electron}, Chromium ${i.app.chrome})`,
-    `${i.os.name}, сборка ${i.os.build}`,
-    `Процессор: ${i.cpu.model}, ${i.cpu.threads} потоков`,
-    `Видеокарта: ${i.gpu}`,
-    `Память: ${gb(i.memory.total)}, свободно ${gb(i.memory.free)}`,
-    ...i.displays.map((d) => `Экран ${d.name}: ${d.width}×${d.height}, ${d.hz} Гц${d.primary ? ', основной' : ''}`),
-    ...i.pads.map((p) => `Геймпад ${p.name}${p.via ? ` (${p.via})` : ''}${p.percent !== undefined ? `, ${p.percent}%` : ''}`),
-    `Библиотека: ${gamesCount(i.library.games)}, ${num(i.library.hours)} ч, данные ${size(i.library.totalBytes)}`
+    t('{name}, сборка {build}', { name: i.os.name, build: i.os.build }),
+    t('Процессор: {model}, {threads} потоков', { model: i.cpu.model, threads: i.cpu.threads }),
+    t('Видеокарта: {gpu}', { gpu: i.gpu }),
+    t('Память: {v}, свободно {v2}', { v: gb(i.memory.total), v2: gb(i.memory.free) }),
+    ...i.displays.map((d) => t('Экран {name}: {w}×{h}, {hz} Гц', { name: d.name, w: d.width, h: d.height, hz: d.hz }) + (d.primary ? t(', основной') : '')),
+    ...i.pads.map((p) => t('Геймпад {name}', { name: p.name }) + (p.via ? ` (${p.via})` : '') + (p.percent !== undefined ? `, ${p.percent}%` : '')),
+    t('Библиотека: {v}, {v2} ч, данные {v3}', { v: gamesCount(i.library.games), v2: num(i.library.hours), v3: size(i.library.totalBytes) })
   ].join('\n')
 }
 
@@ -57,7 +58,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
     try {
       await navigator.clipboard.writeText(asText(info))
       play('select')
-      toast({ title: 'Сведения скопированы', message: 'Их можно вставить в сообщение или отчёт об ошибке', tone: 'success' })
+      toast({ title: t('Сведения скопированы'), message: t('Их можно вставить в сообщение или отчёт об ошибке'), tone: 'success' })
     } catch {
       play('error')
     }
@@ -69,9 +70,9 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
   const other = info ? Math.max(0, info.library.totalBytes - info.library.artBytes - info.library.videoBytes) : 0
   const storage = info
     ? [
-        { label: 'Обложки и фоны', bytes: info.library.artBytes, cls: 'is-art' },
-        { label: 'Видео живого фона', bytes: info.library.videoBytes, cls: 'is-video' },
-        { label: 'Кэш и остальное', bytes: other, cls: 'is-other' }
+        { label: t('Обложки и фоны'), bytes: info.library.artBytes, cls: 'is-art' },
+        { label: t('Видео живого фона'), bytes: info.library.videoBytes, cls: 'is-video' },
+        { label: t('Кэш и остальное'), bytes: other, cls: 'is-other' }
       ]
     : []
 
@@ -91,7 +92,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
             <h2>
               Play<span>OS</span>
             </h2>
-            <p>{info ? `Версия ${info.app.version}${info.app.packaged ? '' : ' (из исходников)'}` : 'Собираем сведения…'}</p>
+            <p>{info ? t('Версия {v}', { v: info.app.version }) + (info.app.packaged ? '' : ` ${t('(из исходников)')}`) : t('Собираем сведения…')}</p>
           </div>
           {info && (
             <div className="si-chips">
@@ -111,47 +112,47 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
           ) : (
             <div className="si-grid">
               <section className="si-card">
-                <h3>Компьютер</h3>
+                <h3>{t('Компьютер')}</h3>
                 <dl className="si-list">
                   <div>
-                    <dt>Система</dt>
+                    <dt>{t('Система')}</dt>
                     <dd>
                       {info.os.name} <span className="si-faint">{info.os.build}</span>
                     </dd>
                   </div>
                   <div>
-                    <dt>Процессор</dt>
+                    <dt>{t('Процессор')}</dt>
                     <dd>
-                      {info.cpu.model} <span className="si-faint">{info.cpu.threads} потоков</span>
+                      {info.cpu.model} <span className="si-faint">{t('{n} потоков', { n: info.cpu.threads })}</span>
                     </dd>
                   </div>
                   <div>
-                    <dt>Видеокарта</dt>
+                    <dt>{t('Видеокарта')}</dt>
                     <dd>{info.gpu}</dd>
                   </div>
                   <div>
-                    <dt>Включён</dt>
+                    <dt>{t('Включён')}</dt>
                     <dd>{uptime(info.os.uptimeMin)}</dd>
                   </div>
                 </dl>
               </section>
 
               <section className="si-card">
-                <h3>Память</h3>
+                <h3>{t('Память')}</h3>
                 <div className="si-big">
                   {gb(info.memory.total)}
-                  <span>занято {usedPct}%</span>
+                  <span>{t('занято {pct}%', { pct: usedPct })}</span>
                 </div>
-                <div className="si-meter" role="img" aria-label={`Занято ${gb(used)} из ${gb(info.memory.total)}`}>
+                <div className="si-meter" role="img" aria-label={t('Занято {v} из {v2}', { v: gb(used), v2: gb(info.memory.total) })}>
                   <span style={{ width: `${usedPct}%` }} />
                 </div>
                 <p className="si-caption">
-                  Занято {gb(used)}, свободно {gb(info.memory.free)}
+                  {t('Занято {used}, свободно {free}', { used: gb(used), free: gb(info.memory.free) })}
                 </p>
               </section>
 
               <section className="si-card">
-                <h3>Геймпады</h3>
+                <h3>{t('Геймпады')}</h3>
                 {info.pads.length ? (
                   <ul className="si-pads">
                     {info.pads.map((p) => (
@@ -175,12 +176,12 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
                     ))}
                   </ul>
                 ) : (
-                  <p className="si-caption">Геймпады не подключены</p>
+                  <p className="si-caption">{t('Геймпады не подключены')}</p>
                 )}
               </section>
 
               <section className="si-card is-wide">
-                <h3>Экраны</h3>
+                <h3>{t('Экраны')}</h3>
                 <div className="si-screens">
                   {info.displays.map((d) => (
                     <div key={d.name + d.width} className={`si-screen ${d.current ? 'is-current' : ''}`}>
@@ -189,11 +190,11 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
                       </div>
                       <div className="si-screen-name">{d.name}</div>
                       <div className="si-screen-meta">
-                        {d.width}×{d.height}, {d.hz} Гц
+                        {t('{w}×{h}, {hz} Гц', { w: d.width, h: d.height, hz: d.hz })}
                       </div>
                       <div className="si-badges">
-                        {d.primary && <span>Основной</span>}
-                        {d.current && <span className="is-accent">Здесь PlayOS</span>}
+                        {d.primary && <span>{t('Основной')}</span>}
+                        {d.current && <span className="is-accent">{t('Здесь PlayOS')}</span>}
                       </div>
                     </div>
                   ))}
@@ -201,12 +202,12 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
               </section>
 
               <section className="si-card">
-                <h3>Библиотека и место</h3>
+                <h3>{t('Библиотека и место')}</h3>
                 <div className="si-big">
                   {gamesCount(info.library.games)}
-                  <span>{num(info.library.hours)} ч в играх</span>
+                  <span>{t('{h} ч в играх', { h: num(info.library.hours) })}</span>
                 </div>
-                <div className="si-stack" role="img" aria-label={`Данные PlayOS занимают ${size(info.library.totalBytes)}`}>
+                <div className="si-stack" role="img" aria-label={t('Данные PlayOS занимают {v}', { v: size(info.library.totalBytes) })}>
                   {storage.map((x) => (x.bytes > 0 ? <span key={x.label} className={x.cls} style={{ flexGrow: x.bytes }} /> : null))}
                 </div>
                 <ul className="si-legend">
@@ -225,13 +226,13 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <footer className="si-actions">
-          <Hint glyph="back" label="Закрыть" />
+          <Hint glyph="back" label={t('Закрыть')} />
           <span className="si-actions-buttons">
             <button data-nav className="btn btn-glass" onClick={copy} disabled={!info}>
-              Скопировать сведения
+              {t('Скопировать сведения')}
             </button>
             <button data-nav className="btn btn-primary si-done" onClick={onClose}>
-              Готово
+              {t('Готово')}
             </button>
           </span>
         </footer>

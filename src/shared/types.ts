@@ -116,6 +116,8 @@ export interface Settings {
   betaUpdates: boolean
   /** Кнопки, назначенные вручную для геймпадов без стандартной раскладки */
   padMaps?: PadMaps
+  /** Язык интерфейса; по умолчанию — по языку Windows */
+  language?: 'ru' | 'en'
 }
 
 /** Состояние обновлений PlayOS */

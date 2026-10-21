@@ -6,6 +6,7 @@ import { shell } from 'electron'
 import type { Game, RunningGame, Settings } from '@shared/types'
 import { commitSession, getDb, saveDb } from './store'
 import { listProcesses } from './win32'
+import { t } from '@shared/i18n'
 
 /** Разбивает командную строку на аргументы с учётом кавычек (как cmd.exe). */
 export function parseCommand(cmd: string): string[] {
@@ -84,14 +85,14 @@ interface LaunchSpec {
 function buildSpec(game: Game, settings: Settings): LaunchSpec | string {
   if (game.customCommand?.trim()) {
     const [exe, ...args] = parseCommand(expand(game.customCommand, game))
-    if (!exe) return 'Пустая команда запуска'
+    if (!exe) return t('Пустая команда запуска')
     return { exe, args, cwd: game.workDir || path.dirname(exe) }
   }
   if (game.launcher === 'steam' && game.steamAppId) {
-    if (!fs.existsSync(game.path)) return `Папка игры не найдена — возможно, игра удалена из Steam:\n${game.path}`
+    if (!fs.existsSync(game.path)) return t('Папка игры не найдена — возможно, игра удалена из Steam:\n{path}', { path: game.path })
     return { exe: '', args: [], cwd: game.path, url: `steam://rungameid/${game.steamAppId}` }
   }
-  if (!fs.existsSync(game.path)) return `Файл игры не найден:\n${game.path}`
+  if (!fs.existsSync(game.path)) return t('Файл игры не найден:\n{path}', { path: game.path })
 
   if (game.platform === 'pc') {
     const ext = path.extname(game.path).toLowerCase()
@@ -105,12 +106,12 @@ function buildSpec(game: Game, settings: Settings): LaunchSpec | string {
   const emu = game.platform === 'ps2' ? settings.pcsx2Path : settings.rpcs3Path
   const tpl = game.platform === 'ps2' ? settings.pcsx2Args : settings.rpcs3Args
   const name = game.platform === 'ps2' ? 'PCSX2' : 'RPCS3'
-  if (!emu || !fs.existsSync(emu)) return `Не найден эмулятор ${name}. Укажите путь к нему в настройках.`
+  if (!emu || !fs.existsSync(emu)) return t('Не найден эмулятор {name}. Укажите путь к нему в настройках.', { name })
   return { exe: emu, args: parseCommand(expand(tpl, game)), cwd: path.dirname(emu) }
 }
 
 export async function launchGame(game: Game, settings: Settings): Promise<{ ok: boolean; error?: string }> {
-  if (tracker) return { ok: false, error: 'Сначала закройте запущенную игру' }
+  if (tracker) return { ok: false, error: t('Сначала закройте запущенную игру') }
   const spec = buildSpec(game, settings)
   if (typeof spec === 'string') return { ok: false, error: spec }
 
@@ -119,7 +120,7 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
     try {
       await shell.openExternal(spec.url)
     } catch (e) {
-      return { ok: false, error: `Не удалось открыть Steam: ${(e as Error).message}` }
+      return { ok: false, error: t('Не удалось открыть Steam: {v}', { v: (e as Error).message }) }
     }
   } else if (spec.viaShell) {
     const err = await shell.openPath(spec.exe)
@@ -135,7 +136,7 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
         })
       })
     } catch (e) {
-      return { ok: false, error: `Не удалось запустить: ${(e as Error).message}` }
+      return { ok: false, error: t('Не удалось запустить: {v}', { v: (e as Error).message }) }
     }
   }
 

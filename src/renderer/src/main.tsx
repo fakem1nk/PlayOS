@@ -12,10 +12,15 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { startInput } from './lib/input'
 import { OverlayApp } from './OverlayApp'
+import { getLang, missingKeys } from '@shared/i18n'
 
 // Одно и то же приложение работает в двух окнах: основной лаунчер и прозрачный оверлей поверх игры
 const isOverlay = location.hash === '#overlay'
 if (isOverlay) document.documentElement.classList.add('overlay-mode')
+
+document.documentElement.lang = getLang()
+// В режиме разработки — список строк без перевода: window.__i18nMissing()
+if (import.meta.env.DEV) Object.assign(window, { __i18nMissing: missingKeys })
 
 startInput()
 createRoot(document.getElementById('root')!).render(isOverlay ? <OverlayApp /> : <App />)

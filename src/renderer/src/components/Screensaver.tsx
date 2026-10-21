@@ -4,10 +4,11 @@ import type { Game } from '@shared/types'
 import { lastPlayed, media, playtime } from '../lib/format'
 import { idleFor, onActivity, useInputLayer } from '../lib/input'
 import { useNow } from '../lib/state'
+import { locale, t } from '@shared/i18n'
 
 const SLIDE_MS = 11000
-const timeFmt = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
-const dateFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+const timeFmt = new Intl.DateTimeFormat(locale(), { hour: '2-digit', minute: '2-digit' })
+const dateFmt = new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long' })
 
 interface Props {
   games: Game[]
@@ -107,8 +108,8 @@ function Show({ slides }: { slides: Game[] }) {
           >
             {game.logo ? <img className="saver-logo" src={media(game.logo)} alt={game.title} /> : <span className="saver-title">{game.title}</span>}
             <span className="saver-meta">
-              {game.playtime ? `Наиграно ${playtime(game.playtime).toLowerCase()}` : 'Ещё не запускалась'}
-              {game.lastPlayed ? `, последний запуск ${lastPlayed(game.lastPlayed).toLowerCase()}` : ''}
+              {game.playtime ? t('Наиграно {v}', { v: playtime(game.playtime).toLowerCase() }) : t('Ещё не запускалась')}
+              {game.lastPlayed ? t(', последний запуск {v}', { v: lastPlayed(game.lastPlayed).toLowerCase() }) : ''}
             </span>
           </motion.div>
         )}

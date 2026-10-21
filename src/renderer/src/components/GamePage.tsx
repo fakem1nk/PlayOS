@@ -2,19 +2,20 @@ import { motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PLATFORM_NAMES, type AchievementSummaryItem, type Game, type GameDetails, type RunningGame } from '@shared/types'
 import { api } from '../lib/api'
-import { accentOf, lastPlayed, media, playtime, plural } from '../lib/format'
+import { accentOf, lastPlayed, media, playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { useNow } from '../lib/state'
 import { Hint } from './Glyph'
 import { IconClock, IconClose, IconEdit, IconPlay, IconTrophy } from './Icons'
+import { locale, plural, t } from '@shared/i18n'
 
-const dayFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' })
-const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
-const timeFmt = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
+const dayFmt = new Intl.DateTimeFormat(locale(), { weekday: 'short' })
+const dateFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long' })
+const timeFmt = new Intl.DateTimeFormat(locale(), { hour: '2-digit', minute: '2-digit' })
 const DAYS = 14
 
 /** Часы с одним знаком после запятой: 14,6 ч */
-const hours = (sec: number) => `${(sec / 3600).toLocaleString('ru-RU', { maximumFractionDigits: sec < 36000 ? 1 : 0 })} ч`
+const hours = (sec: number) => t('{v} ч', { v: (sec / 3600).toLocaleString('ru-RU', { maximumFractionDigits: sec < 36000 ? 1 : 0 }) })
 
 interface Props {
   game: Game
@@ -74,10 +75,10 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
 
   const hltb = details?.hltb
   const facts = [
-    ['Разработчик', details?.developer],
-    ['Издатель', details?.publisher],
-    ['Дата выхода', details?.released],
-    ['Жанр', details?.genres?.join(', ')]
+    [t('Разработчик'), details?.developer],
+    [t('Издатель'), details?.publisher],
+    [t('Дата выхода'), details?.released],
+    [t('Жанр'), details?.genres?.join(', ')]
   ].filter(([, v]) => v) as [string, string][]
 
   return (
@@ -102,30 +103,30 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
             <div className="gp-meta">
               <span>{PLATFORM_NAMES[game.platform]}</span>
               <span>{playtime(played)}</span>
-              <span>{isRunning ? 'Запущена сейчас' : `Последний запуск: ${lastPlayed(game.lastPlayed).toLowerCase()}`}</span>
+              <span>{isRunning ? t('Запущена сейчас') : t('Последний запуск: {v}', { v: lastPlayed(game.lastPlayed).toLowerCase() })}</span>
             </div>
           </div>
-          <button data-nav className="btn btn-round gp-close" onClick={onClose} aria-label="Закрыть">
+          <button data-nav className="btn btn-round gp-close" onClick={onClose} aria-label={t('Закрыть')}>
             <IconClose />
           </button>
         </header>
 
         <div className="gp-actions">
           <button data-nav className="btn btn-primary" onClick={() => onLaunch(game)}>
-            <IconPlay /> {isRunning ? 'Вернуться в игру' : 'Играть'}
+            <IconPlay /> {isRunning ? t('Вернуться в игру') : t('Играть')}
           </button>
           <button data-nav className="btn btn-glass" onClick={() => onTrophies(game)}>
-            <IconTrophy /> {trophies?.total ? `Трофеи ${trophies.earned} из ${trophies.total}` : 'Трофеи'}
+            <IconTrophy /> {trophies?.total ? t('Трофеи {earned} из {total}', { earned: trophies.earned, total: trophies.total }) : t('Трофеи')}
           </button>
           <button data-nav className="btn btn-glass" onClick={() => onEdit(game)}>
-            <IconEdit /> Изменить
+            <IconEdit /> {t('Изменить')}
           </button>
         </div>
 
         <div className="gp-body">
           <section className="gp-col">
             <div className="gp-card" data-nav tabIndex={-1}>
-              <h2 className="gp-card-title">Об игре</h2>
+              <h2 className="gp-card-title">{t('Об игре')}</h2>
               {!details ? (
                 <div className="gp-skeleton">
                   <span />
@@ -145,16 +146,16 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                       ))}
                     </dl>
                   )}
-                  <p className="gp-source">{details.source === 'wiki' ? 'Описание из Википедии' : 'Описание из Steam'}</p>
+                  <p className="gp-source">{details.source === 'wiki' ? t('Описание из Википедии') : t('Описание из Steam')}</p>
                 </>
               ) : (
-                <p className="gp-empty">Описание не нашлось. Если у игры есть страница в Steam, укажите её Steam AppID в редакторе игры.</p>
+                <p className="gp-empty">{t('Описание не нашлось. Если у игры есть страница в Steam, укажите её Steam AppID в редакторе игры.')}</p>
               )}
             </div>
 
             <div className="gp-card" data-nav tabIndex={-1}>
               <h2 className="gp-card-title">
-                <IconClock /> Время прохождения
+                <IconClock /> {t('Время прохождения')}
               </h2>
               {!details ? (
                 <div className="gp-skeleton">
@@ -165,9 +166,9 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                   <div className="hltb">
                     {(
                       [
-                        ['Сюжет', hltb.main],
-                        ['Сюжет и побочное', hltb.plus],
-                        ['На 100%', hltb.full]
+                        [t('Сюжет'), hltb.main],
+                        [t('Сюжет и побочное'), hltb.plus],
+                        [t('На 100%'), hltb.full]
                       ] as const
                     ).map(([label, sec]) => (
                       <div key={label} className="hltb-item">
@@ -177,18 +178,18 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                     ))}
                   </div>
                   {hltb.main ? <HltbProgress played={played} main={hltb.main} full={hltb.full} /> : null}
-                  <p className="gp-source">По данным HowLongToBeat{hltb.title !== game.title ? ` для «${hltb.title}»` : ''}</p>
+                  <p className="gp-source">{hltb.title !== game.title ? t('По данным HowLongToBeat для «{title}»', { title: hltb.title }) : t('По данным HowLongToBeat')}</p>
                 </>
               ) : (
-                <p className="gp-empty">HowLongToBeat ничего не знает об этой игре — или сайт сейчас недоступен.</p>
+                <p className="gp-empty">{t('HowLongToBeat ничего не знает об этой игре — или сайт сейчас недоступен.')}</p>
               )}
             </div>
           </section>
 
           <section className="gp-col">
             <div className="gp-card" data-nav tabIndex={-1}>
-              <h2 className="gp-card-title">Активность за две недели</h2>
-              <div className="gp-chart" role="img" aria-label={`Сыграно за две недели: ${playtime(fortnight)}`}>
+              <h2 className="gp-card-title">{t('Активность за две недели')}</h2>
+              <div className="gp-chart" role="img" aria-label={t('Сыграно за две недели: {v}', { v: playtime(fortnight) })}>
                 {activity.map((d, i) => {
                   const isToday = i === DAYS - 1
                   const label = d === busiest && d.sec > 0
@@ -198,22 +199,22 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                         {label && <span className="gp-bar-value">{hours(d.sec)}</span>}
                         <span className="gp-bar-fill" style={{ height: d.sec ? `${Math.max(4, (d.sec / maxDay) * 100)}%` : 0 }} />
                       </div>
-                      <span className="gp-bar-day">{isToday ? 'сег.' : dayFmt.format(d.start)}</span>
+                      <span className="gp-bar-day">{isToday ? t('сег.') : dayFmt.format(d.start)}</span>
                     </div>
                   )
                 })}
               </div>
               <dl className="gp-stats">
                 <div>
-                  <dt>За две недели</dt>
+                  <dt>{t('За две недели')}</dt>
                   <dd>{fortnight ? playtime(fortnight) : '—'}</dd>
                 </div>
                 <div>
-                  <dt>Средняя сессия</dt>
+                  <dt>{t('Средняя сессия')}</dt>
                   <dd>{average ? playtime(average) : '—'}</dd>
                 </div>
                 <div>
-                  <dt>Самая долгая</dt>
+                  <dt>{t('Самая долгая')}</dt>
                   <dd>{longest ? playtime(longest) : '—'}</dd>
                 </div>
               </dl>
@@ -221,10 +222,10 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
 
             <div className="gp-card gp-sessions-card">
               <h2 className="gp-card-title">
-                История сессий
+                {t('История сессий')}
                 {sessions.length > 0 && (
                   <span className="gp-card-sub">
-                    {sessions.length} {plural(sessions.length, ['сессия', 'сессии', 'сессий'])}
+                    {sessions.length} {plural(sessions.length, ['сессия', 'сессии', 'сессий'], ['session', 'sessions'])}
                   </span>
                 )}
               </h2>
@@ -241,15 +242,15 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                   ))}
                 </ol>
               ) : (
-                <p className="gp-empty">Сессий пока нет — PlayOS начнёт записывать их с первого запуска.</p>
+                <p className="gp-empty">{t('Сессий пока нет — PlayOS начнёт записывать их с первого запуска.')}</p>
               )}
             </div>
           </section>
         </div>
 
         <footer className="sheet-hints">
-          <Hint glyph="confirm" label="Выбрать" />
-          <Hint glyph="back" label="Назад" />
+          <Hint glyph="confirm" label={t('Выбрать')} />
+          <Hint glyph="back" label={t('Назад')} />
         </footer>
       </div>
     </motion.div>
@@ -263,10 +264,10 @@ function HltbProgress({ played, main, full }: { played: number; main: number; fu
   const ratio = played / main
   const verdict =
     played === 0
-      ? `Сюжет занимает около ${hours(main)}.`
+      ? t('Сюжет занимает около {v}.', { v: hours(main) })
       : ratio >= 1
-        ? `Вы наиграли ${hours(played)} — больше, чем нужно на сюжет.`
-        : `Вы наиграли ${hours(played)} — примерно ${Math.round(ratio * 100)}% от времени на сюжет.`
+        ? t('Вы наиграли {v} — больше, чем нужно на сюжет.', { v: hours(played) })
+        : t('Вы наиграли {v} — примерно {v2}% от времени на сюжет.', { v: hours(played), v2: Math.round(ratio * 100) })
   return (
     <div className="hltb-progress">
       <div className="hltb-track">

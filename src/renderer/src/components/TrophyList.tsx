@@ -8,8 +8,9 @@ import { TIER_NAMES } from '../lib/trophies'
 import { Hint } from './Glyph'
 import { IconClose, IconReset, IconSearch, IconTrophy } from './Icons'
 import { Cover } from './Tile'
+import { locale, t } from '@shared/i18n'
 
-const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+const dateFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric' })
 const TIERS: TrophyTier[] = ['platinum', 'gold', 'silver', 'bronze']
 const SOURCE_NAME = { ra: 'RetroAchievements', steam: 'Steam' } as const
 
@@ -90,23 +91,23 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
                     <span style={{ width: `${percent}%` }} />
                   </span>
                   <span className="trophy-count">
-                    {set.earned} из {set.total}
+                    {t('{earned} из {total}', { earned: set.earned, total: set.total })}
                   </span>
                 </div>
                 <div className="trophy-tiers">
-                  {TIERS.map((t) => (
-                    <span key={t} className={`tier-count tier-${t}`} title={TIER_NAMES[t]}>
-                      <IconTrophy /> {byTier[t]}
+                  {TIERS.map((tier) => (
+                    <span key={tier} className={`tier-count tier-${tier}`} title={TIER_NAMES[tier]}>
+                      <IconTrophy /> {byTier[tier]}
                     </span>
                   ))}
                   <span className="trophy-source">{SOURCE_NAME[set.source]}</span>
                 </div>
               </>
             ) : (
-              <p className="trophy-sub">{loading ? 'Загружаем трофеи…' : ''}</p>
+              <p className="trophy-sub">{loading ? t('Загружаем трофеи…') : ''}</p>
             )}
           </div>
-          <button data-nav className="btn btn-round" onClick={onClose} aria-label="Закрыть">
+          <button data-nav className="btn btn-round" onClick={onClose} aria-label={t('Закрыть')}>
             <IconClose />
           </button>
         </header>
@@ -124,7 +125,7 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
 
           {set && (
             <>
-              {res?.error && <div className="note trophy-warn">{res.error}. Показаны сохранённые данные.</div>}
+              {res?.error && <div className="note trophy-warn">{res.error}. {t('Показаны сохранённые данные.')}</div>}
               <div className="trophy-rows">
                 {items.map((a) => (
                   <TrophyRow key={a.id} a={a} onFocus={() => setFocused(a)} />
@@ -137,14 +138,14 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
         <footer className="sheet-hints">
           {focused && set ? (
             <span className="trophy-detail-hint">
-              {focused.earnedAt ? `Получен ${dateFmt.format(focused.earnedAt)}` : 'Ещё не получен'}
-              {focused.rarity !== undefined && `, у ${focused.rarity < 1 ? focused.rarity.toFixed(1) : Math.round(focused.rarity)}% игроков`}
+              {focused.earnedAt ? t('Получен {v}', { v: dateFmt.format(focused.earnedAt) }) : t('Ещё не получен')}
+              {focused.rarity !== undefined && t(', у {v}% игроков', { v: focused.rarity < 1 ? focused.rarity.toFixed(1) : Math.round(focused.rarity) })}
             </span>
           ) : (
-            <Hint glyph="confirm" label="Выбрать" />
+            <Hint glyph="confirm" label={t('Выбрать')} />
           )}
-          {set && <Hint glyph="search" label="Обновить" />}
-          <Hint glyph="back" label="Закрыть" />
+          {set && <Hint glyph="search" label={t('Обновить')} />}
+          <Hint glyph="back" label={t('Закрыть')} />
         </footer>
       </div>
     </motion.div>
@@ -160,8 +161,8 @@ function TrophyRow({ a, onFocus }: { a: Achievement; onFocus: () => void }) {
         {secret ? <span className="trophy-secret">?</span> : icon ? <img src={icon} alt="" loading="lazy" /> : <IconTrophy className="trophy-icon-fallback" />}
       </span>
       <span className="trophy-text">
-        <span className="trophy-name">{secret ? 'Скрытый трофей' : a.title}</span>
-        <span className="trophy-desc">{secret ? 'Продолжайте играть, чтобы узнать, что это за трофей' : a.description}</span>
+        <span className="trophy-name">{secret ? t('Скрытый трофей') : a.title}</span>
+        <span className="trophy-desc">{secret ? t('Продолжайте играть, чтобы узнать, что это за трофей') : a.description}</span>
       </span>
       <span className={`trophy-tier tier-${a.tier}`} title={TIER_NAMES[a.tier]}>
         <IconTrophy />
@@ -218,12 +219,12 @@ function TrophyProblem({
       <p className="trophy-problem-text">{res.error}</p>
       {(res.needs === 'ra-account' || res.needs === 'steam-account') && (
         <button data-nav className="btn btn-primary" onClick={onOpenSettings}>
-          Открыть настройки трофеев
+          {t('Открыть настройки трофеев')}
         </button>
       )}
       {res.needs === 'link' && game.platform === 'pc' && (
         <button data-nav className="btn btn-primary" onClick={() => onEdit(game)}>
-          Указать Steam AppID
+          {t('Указать Steam AppID')}
         </button>
       )}
       {res.needs === 'link' && game.platform === 'ps2' && (
@@ -238,7 +239,7 @@ function TrophyProblem({
             <IconSearch />
             <input data-nav className="input" value={query} onChange={(e) => setQuery(e.target.value)} spellCheck={false} />
             <button data-nav type="submit" className="btn btn-glass btn-sm">
-              {busy ? <IconReset /> : 'Найти'}
+              {busy ? <IconReset /> : t('Найти')}
             </button>
           </form>
           {err && <p className="trophy-problem-text">{err}</p>}
@@ -247,10 +248,10 @@ function TrophyProblem({
               <button key={g.id} data-nav className="ra-result" onClick={() => link(g)} disabled={busy}>
                 {g.icon && <img src={g.icon} alt="" />}
                 <span className="ra-title">{g.title}</span>
-                <span className="ra-count">{g.achievements} трофеев</span>
+                <span className="ra-count">{t('{n} трофеев', { n: g.achievements })}</span>
               </button>
             ))}
-            {found && !found.length && <p className="trophy-problem-text">Ничего не нашлось. Попробуйте английское название.</p>}
+            {found && !found.length && <p className="trophy-problem-text">{t('Ничего не нашлось. Попробуйте английское название.')}</p>}
           </div>
         </>
       )}

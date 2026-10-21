@@ -11,19 +11,19 @@ import { IconGamepad } from './Icons'
 
 /** Порядок шагов: сначала то, без чего не обойтись в меню */
 const STEPS: { action: PadAction; label: string; hint: string }[] = [
-  { action: 'confirm', label: 'Выбрать', hint: 'Нижняя кнопка справа: ✕ на PlayStation, A на Xbox' },
-  { action: 'back', label: 'Назад', hint: 'Правая кнопка: ○ на PlayStation, B на Xbox' },
-  { action: 'up', label: 'Вверх', hint: 'Крестовина' },
-  { action: 'down', label: 'Вниз', hint: 'Крестовина' },
-  { action: 'left', label: 'Влево', hint: 'Крестовина' },
-  { action: 'right', label: 'Вправо', hint: 'Крестовина' },
-  { action: 'menu', label: 'Параметры игры', hint: 'Верхняя кнопка справа: △ или Y' },
-  { action: 'search', label: 'Добавить игру', hint: 'Левая кнопка справа: ▢ или X' },
-  { action: 'l1', label: 'Вкладка влево', hint: 'Левый бампер: L1 или LB' },
-  { action: 'r1', label: 'Вкладка вправо', hint: 'Правый бампер: R1 или RB' },
-  { action: 'l2', label: 'Фильтр назад', hint: 'Левый курок: L2 или LT' },
-  { action: 'r2', label: 'Фильтр вперёд', hint: 'Правый курок: R2 или RT' },
-  { action: 'options', label: 'Меню', hint: 'Options, Start или Menu' }
+  { action: 'confirm', label: t('Выбрать'), hint: t('Нижняя кнопка справа: ✕ на PlayStation, A на Xbox') },
+  { action: 'back', label: t('Назад'), hint: t('Правая кнопка: ○ на PlayStation, B на Xbox') },
+  { action: 'up', label: t('Вверх'), hint: t('Крестовина') },
+  { action: 'down', label: t('Вниз'), hint: t('Крестовина') },
+  { action: 'left', label: t('Влево'), hint: t('Крестовина') },
+  { action: 'right', label: t('Вправо'), hint: t('Крестовина') },
+  { action: 'menu', label: t('Параметры игры'), hint: t('Верхняя кнопка справа: △ или Y') },
+  { action: 'search', label: t('Добавить игру'), hint: t('Левая кнопка справа: ▢ или X') },
+  { action: 'l1', label: t('Вкладка влево'), hint: t('Левый бампер: L1 или LB') },
+  { action: 'r1', label: t('Вкладка вправо'), hint: t('Правый бампер: R1 или RB') },
+  { action: 'l2', label: t('Фильтр назад'), hint: t('Левый курок: L2 или LT') },
+  { action: 'r2', label: t('Фильтр вперёд'), hint: t('Правый курок: R2 или RT') },
+  { action: 'options', label: t('Меню'), hint: t('Options, Start или Menu') }
 ]
 
 const same = (a: PadInput, b: PadInput) => JSON.stringify(a) === JSON.stringify(b)
@@ -101,8 +101,8 @@ export function PadMapper({ maps, onSave, onClose }: { maps: PadMaps; onSave: (m
           <div className="pm-stage">
             <div className="pm-device">{padName(padId)}</div>
             <div className="pm-count">{t('Шаг {n} из {total}', { n: step + 1, total: STEPS.length })}</div>
-            <p className="pm-ask">{t('Нажмите кнопку «{label}»', { label: t(current.label) })}</p>
-            <p className="pm-hint">{t(current.hint)}</p>
+            <p className="pm-ask">{t('Нажмите кнопку «{label}»', { label: current.label })}</p>
+            <p className="pm-hint">{current.hint}</p>
             <div className="pm-progress">
               <span style={{ transform: `scaleX(${step / STEPS.length})` }} />
             </div>

@@ -6,17 +6,18 @@ import { useNow, usePadStatus } from '../lib/state'
 import { Avatar } from './Avatar'
 import { Glyph } from './Glyph'
 import { IconBattery, IconGamepad, IconPlug, IconPower } from './Icons'
+import { t } from '@shared/i18n'
 
 export type Tab = 'home' | 'library' | 'profile' | 'settings'
 export const TABS: { id: Tab; label: string }[] = [
-  { id: 'home', label: 'Игры' },
-  { id: 'library', label: 'Библиотека' },
-  { id: 'profile', label: 'Профиль' },
-  { id: 'settings', label: 'Настройки' }
+  { id: 'home', label: t('Игры') },
+  { id: 'library', label: t('Библиотека') },
+  { id: 'profile', label: t('Профиль') },
+  { id: 'settings', label: t('Настройки') }
 ]
 
 const BATTERY_LEVEL = { empty: 0, low: 1, medium: 2, full: 3 } as const
-const BATTERY_TEXT = { empty: 'Геймпад разряжен', low: 'Низкий заряд геймпада', medium: 'Заряд геймпада: средний', full: 'Геймпад заряжен' }
+const BATTERY_TEXT = { empty: t('Геймпад разряжен'), low: t('Низкий заряд геймпада'), medium: t('Заряд геймпада: средний'), full: t('Геймпад заряжен') }
 
 interface Props {
   tab: Tab
@@ -50,15 +51,15 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
           <span className="tabs-shoulder">
             <Glyph name="l1" />
           </span>
-          {TABS.map((t, i) => (
+          {TABS.map((tb, i) => (
             <button
-              key={t.id}
-              className={`tab ${tab === t.id ? 'is-active' : ''} ${tabFocus === i ? 'is-focused' : ''}`}
-              onClick={() => onTab(t.id)}
+              key={tb.id}
+              className={`tab ${tab === tb.id ? 'is-active' : ''} ${tabFocus === i ? 'is-focused' : ''}`}
+              onClick={() => onTab(tb.id)}
               tabIndex={-1}
             >
-              {tab === t.id && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ type: 'spring', duration: 0.4, bounce: 0.12 }} />}
-              <span className="tab-label">{t.label}</span>
+              {tab === tb.id && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ type: 'spring', duration: 0.4, bounce: 0.12 }} />}
+              <span className="tab-label">{tb.label}</span>
             </button>
           ))}
           <span className="tabs-shoulder">
@@ -75,10 +76,10 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
             <span className="running-time">{timer(now - runningSince)}</span>
           </div>
         )}
-        <span className={`status-icon ${connected ? '' : 'is-off'}`} title={connected ? 'Геймпад подключён' : 'Геймпад не подключён'}>
+        <span className={`status-icon ${connected ? '' : 'is-off'}`} title={connected ? t('Геймпад подключён') : t('Геймпад не подключён')}>
           <IconGamepad />
           {connected && battery === 'wired' && (
-            <span className="battery" title="Проводной геймпад">
+            <span className="battery" title={t('Проводной геймпад')}>
               <IconPlug />
             </span>
           )}
@@ -94,7 +95,7 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
           className={`power-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
           onClick={onPower}
           tabIndex={-1}
-          aria-label={updateReady ? 'Питание. Готово обновление PlayOS' : 'Питание'}
+          aria-label={updateReady ? t('Питание. Готово обновление PlayOS') : t('Питание')}
         >
           <IconPower />
           {updateReady && <span className="power-dot" />}

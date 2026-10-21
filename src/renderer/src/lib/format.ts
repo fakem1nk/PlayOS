@@ -1,36 +1,28 @@
 import type { Game } from '@shared/types'
-
-export function plural(n: number, forms: [string, string, string]) {
-  const a = Math.abs(n) % 100
-  const b = a % 10
-  if (a > 10 && a < 20) return forms[2]
-  if (b > 1 && b < 5) return forms[1]
-  if (b === 1) return forms[0]
-  return forms[2]
-}
+import { locale, plural, t } from '@shared/i18n'
 
 export function playtime(sec: number) {
-  if (!sec) return 'Ещё не играли'
+  if (!sec) return t('Ещё не играли')
   const m = Math.floor(sec / 60)
   const h = Math.floor(m / 60)
-  if (h === 0) return m === 0 ? 'Меньше минуты' : `${m} мин`
-  return m % 60 ? `${h} ч ${m % 60} мин` : `${h} ч`
+  if (h === 0) return m === 0 ? t('Меньше минуты') : t('{m} мин', { m })
+  return m % 60 ? t('{h} ч {m} мин', { h, m: m % 60 }) : t('{h} ч', { h })
 }
 
-const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
-const dateYearFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+const dateFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long' })
+const dateYearFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric' })
 
 export function lastPlayed(ts?: number) {
-  if (!ts) return 'Не запускалась'
+  if (!ts) return t('Не запускалась')
   const day = (t: number) => {
     const d = new Date(t)
     d.setHours(0, 0, 0, 0)
     return d.getTime()
   }
   const days = Math.round((day(Date.now()) - day(ts)) / 86400000)
-  if (days <= 0) return 'Сегодня'
-  if (days === 1) return 'Вчера'
-  if (days < 7) return `${days} ${plural(days, ['день', 'дня', 'дней'])} назад`
+  if (days <= 0) return t('Сегодня')
+  if (days === 1) return t('Вчера')
+  if (days < 7) return t('{n} {days} назад', { n: days, days: plural(days, ['день', 'дня', 'дней'], ['day', 'days']) })
   return new Date(ts).getFullYear() === new Date().getFullYear() ? dateFmt.format(ts) : dateYearFmt.format(ts)
 }
 
@@ -42,10 +34,10 @@ export function timer(ms: number) {
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`
 }
 
-export const clock = (d: Date) => d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+export const clock = (d: Date) => d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
 
 export function gamesCount(n: number) {
-  return `${n} ${plural(n, ['игра', 'игры', 'игр'])}`
+  return `${n} ${plural(n, ['игра', 'игры', 'игр'], ['game', 'games'])}`
 }
 
 /** Стабильный оттенок из названия — для игр без обложки. */

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { UpdateState } from '@shared/types'
 import { api } from './api'
+import { t } from '@shared/i18n'
 
 /** Состояние обновления PlayOS — одно на всё окно: уведомление, меню питания и настройки */
 let state: UpdateState = { phase: 'idle', current: '' }
@@ -41,8 +42,8 @@ export function updateHighlights(notes?: string, max = 4) {
   return (bullets.length ? bullets : lines.filter((l) => !/^(#|full changelog|\*\*full)/i.test(l)).slice(0, 2)).slice(0, max)
 }
 
-const mb = (b: number) => `${Math.round(b / 2 ** 20)} МБ`
+const mb = (b: number) => t('{v} МБ', { v: Math.round(b / 2 ** 20) })
 
 export function downloadText(u: UpdateState) {
-  return u.total ? `${mb(u.transferred ?? 0)} из ${mb(u.total)}` : `${u.percent ?? 0}%`
+  return u.total ? t('{v} из {v2}', { v: mb(u.transferred ?? 0), v2: mb(u.total) }) : `${u.percent ?? 0}%`
 }

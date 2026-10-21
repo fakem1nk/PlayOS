@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { Achievement, AchievementResult, AchievementSet, AchievementSummaryItem, Game, RaGame, Settings, TrophyTier } from '@shared/types'
 import { httpFetch } from './http'
 import { findGame, getDb, saveDb } from './store'
+import { t } from '@shared/i18n'
 
 /**
  * Настоящие трофеи игр: RetroAchievements (PS2 через PCSX2) и достижения Steam (PC).
@@ -71,8 +72,8 @@ const RA_MEDIA = 'https://media.retroachievements.org'
 async function raApi<T>(endpoint: string, params: Record<string, string | number>, s: Settings): Promise<T> {
   const q = new URLSearchParams({ ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])), y: s.raKey.trim() })
   const r = await httpFetch(`${RA}/API/${endpoint}.php?${q}`, { headers: UA, signal: AbortSignal.timeout(15000) })
-  if (r.status === 401 || r.status === 403) throw new Error('RetroAchievements не принял ключ API. Проверьте логин и ключ в настройках.')
-  if (!r.ok) throw new Error(`RetroAchievements ответил ошибкой ${r.status}`)
+  if (r.status === 401 || r.status === 403) throw new Error(t('RetroAchievements не принял ключ API. Проверьте логин и ключ в настройках.'))
+  if (!r.ok) throw new Error(t('RetroAchievements ответил ошибкой {status}', { status: r.status }))
   return (await r.json()) as T
 }
 
@@ -146,7 +147,7 @@ const norm = (s: string) =>
 /** Поиск игры PS2 в RetroAchievements по названию (когда образ не опознан по хешу) */
 export async function findRaGames(query: string): Promise<RaGame[]> {
   const s = getDb().settings
-  if (!s.raKey.trim()) throw new Error('Добавьте логин и ключ RetroAchievements в настройках (раздел «Трофеи»)')
+  if (!s.raKey.trim()) throw new Error(t('Добавьте логин и ключ RetroAchievements в настройках (раздел «Трофеи»)'))
   if (!raList) {
     type Row = { ID: number; Title: string; ImageIcon?: string; NumAchievements?: number }
     const rows = await raApi<Row[]>('API_GetGameList', { i: 21, f: 1 }, s)
@@ -214,7 +215,7 @@ async function steamId64(s: Settings): Promise<string> {
   const r = await httpFetch(`${STEAM}/ISteamUser/ResolveVanityURL/v1/?key=${s.steamKey.trim()}&vanityurl=${encodeURIComponent(vanity)}`, {
     signal: AbortSignal.timeout(10000)
   }).then((x) => x.json() as Promise<{ response?: { success: number; steamid?: string } }>)
-  if (r.response?.success !== 1 || !r.response.steamid) throw new Error('Не удалось найти профиль Steam. Укажите SteamID64 или ссылку на профиль.')
+  if (r.response?.success !== 1 || !r.response.steamid) throw new Error(t('Не удалось найти профиль Steam. Укажите SteamID64 или ссылку на профиль.'))
   resolvedId = { input, id: r.response.steamid }
   return r.response.steamid
 }
@@ -264,9 +265,9 @@ async function fetchSteam(appid: number, s: Settings): Promise<AchievementSet> {
   const stats = player.playerstats
   if (!stats?.success) {
     const err = stats?.error ?? ''
-    if (/not public/i.test(err)) throw new Error('Профиль Steam скрыт. Откройте «Сведения об играх» в настройках приватности Steam.')
-    if (/no stats/i.test(err)) throw new Error('У этой игры нет достижений Steam.')
-    throw new Error(err || 'Steam не отдал достижения')
+    if (/not public/i.test(err)) throw new Error(t('Профиль Steam скрыт. Откройте «Сведения об играх» в настройках приватности Steam.'))
+    if (/no stats/i.test(err)) throw new Error(t('У этой игры нет достижений Steam.'))
+    throw new Error(err || t('Steam не отдал достижения'))
   }
   const unlocked = new Map((stats.achievements ?? []).map((a) => [a.apiname, a]))
   const pct = new Map((global.achievementpercentages?.achievements ?? []).map((a) => [a.name, Number(a.percent)]))
@@ -285,7 +286,7 @@ async function fetchSteam(appid: number, s: Settings): Promise<AchievementSet> {
       tier: tierOf(rarity)
     }
   })
-  if (!items.length) throw new Error('У этой игры нет достижений Steam.')
+  if (!items.length) throw new Error(t('У этой игры нет достижений Steam.'))
   return finalize('steam', items, { gameTitle: stats.gameName ?? schema.game?.gameName, url: `https://steamcommunity.com/stats/${appid}/achievements` })
 }
 
@@ -293,7 +294,7 @@ async function fetchSteam(appid: number, s: Settings): Promise<AchievementSet> {
 
 export async function getAchievements(gameId: string, refresh = false): Promise<AchievementResult> {
   const game = findGame(gameId)
-  if (!game) return { error: 'Игра не найдена' }
+  if (!game) return { error: t('Игра не найдена') }
   const s = getDb().settings
   const cached = store()[gameId]
   if (cached && !refresh && Date.now() - cached.fetchedAt < CACHE_TTL) return { set: cached }
@@ -301,7 +302,7 @@ export async function getAchievements(gameId: string, refresh = false): Promise<
   try {
     let set: AchievementSet
     if (game.platform === 'ps2') {
-      if (!s.raUser.trim() || !s.raKey.trim()) return { set: cached, needs: 'ra-account', error: 'Добавьте логин и ключ RetroAchievements в настройках' }
+      if (!s.raUser.trim() || !s.raKey.trim()) return { set: cached, needs: 'ra-account', error: t('Добавьте логин и ключ RetroAchievements в настройках') }
       if (!game.raGameId) {
         const hash = ps2RaHash(game.path)
         const id = hash ? await raIdByHash(hash) : 0
@@ -309,8 +310,8 @@ export async function getAchievements(gameId: string, refresh = false): Promise<
           return {
             needs: 'link',
             error: hash
-              ? 'Этот образ не опознан RetroAchievements (возможно, это модифицированная сборка). Выберите игру вручную.'
-              : 'Не получилось прочитать образ. Выберите игру в RetroAchievements вручную.'
+              ? t('Этот образ не опознан RetroAchievements (возможно, это модифицированная сборка). Выберите игру вручную.')
+              : t('Не получилось прочитать образ. Выберите игру в RetroAchievements вручную.')
           }
         }
         game.raGameId = id
@@ -318,16 +319,16 @@ export async function getAchievements(gameId: string, refresh = false): Promise<
       }
       set = await fetchRa(game.raGameId, s)
     } else if (game.platform === 'pc') {
-      if (!s.steamKey.trim() || !s.steamId.trim()) return { set: cached, needs: 'steam-account', error: 'Добавьте ключ Steam Web API и профиль Steam в настройках' }
+      if (!s.steamKey.trim() || !s.steamId.trim()) return { set: cached, needs: 'steam-account', error: t('Добавьте ключ Steam Web API и профиль Steam в настройках') }
       if (!game.steamAppId) {
         const id = detectSteamAppId(game)
-        if (!id) return { needs: 'link', error: 'Не удалось определить Steam AppID. Укажите его в редакторе игры или выберите арт из Steam.' }
+        if (!id) return { needs: 'link', error: t('Не удалось определить Steam AppID. Укажите его в редакторе игры или выберите арт из Steam.') }
         game.steamAppId = id
         saveDb()
       }
       set = await fetchSteam(game.steamAppId, s)
     } else {
-      return { needs: 'unsupported', error: 'Для игр PS3 трофеи пока недоступны: RetroAchievements не поддерживает PS3.' }
+      return { needs: 'unsupported', error: t('Для игр PS3 трофеи пока недоступны: RetroAchievements не поддерживает PS3.') }
     }
     store()[gameId] = set
     persist()
@@ -339,7 +340,7 @@ export async function getAchievements(gameId: string, refresh = false): Promise<
 
 export async function linkRaGame(gameId: string, raId: number) {
   const game = findGame(gameId)
-  if (!game) return { error: 'Игра не найдена' }
+  if (!game) return { error: t('Игра не найдена') }
   game.raGameId = raId
   saveDb()
   return getAchievements(gameId, true)
@@ -356,11 +357,11 @@ export async function newSince(gameId: string): Promise<Achievement[]> {
 
 export async function testAccounts(): Promise<{ ra: string; steam: string }> {
   const s = getDb().settings
-  const out = { ra: 'Не настроено', steam: 'Не настроено' }
+  const out = { ra: t('Не настроено'), steam: t('Не настроено') }
   if (s.raUser.trim() && s.raKey.trim()) {
     try {
       const j = await raApi<{ User?: string; TotalPoints?: number }>('API_GetUserProfile', { u: s.raUser.trim() }, s)
-      out.ra = j.User ? `Подключено: ${j.User}, ${j.TotalPoints ?? 0} очков` : 'Пользователь не найден'
+      out.ra = j.User ? t('Подключено: {User}, {v} очков', { User: j.User, v: j.TotalPoints ?? 0 }) : t('Пользователь не найден')
     } catch (e) {
       out.ra = (e as Error).message
     }
@@ -371,10 +372,10 @@ export async function testAccounts(): Promise<{ ra: string; steam: string }> {
       const r = await httpFetch(`${STEAM}/ISteamUser/GetPlayerSummaries/v2/?key=${s.steamKey.trim()}&steamids=${sid}`, {
         signal: AbortSignal.timeout(10000)
       })
-      if (r.status === 403 || r.status === 401) throw new Error('Steam не принял ключ API')
+      if (r.status === 403 || r.status === 401) throw new Error(t('Steam не принял ключ API'))
       const j = (await r.json()) as { response?: { players?: { personaname: string }[] } }
       const name = j.response?.players?.[0]?.personaname
-      out.steam = name ? `Подключено: ${name}` : 'Профиль не найден'
+      out.steam = name ? t('Подключено: {name}', { name }) : t('Профиль не найден')
     } catch (e) {
       out.steam = (e as Error).message
     }

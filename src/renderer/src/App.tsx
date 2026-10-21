@@ -30,6 +30,7 @@ import { toast, useAppState } from './lib/state'
 import { holdMusic, play, setMusic } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
 import { useUpdate } from './lib/update'
+import { t } from '@shared/i18n'
 
 /** Цвета обложек последних игр — для сияния в интро */
 function introColors(games: Game[]) {
@@ -40,7 +41,18 @@ function introColors(games: Game[]) {
 export function App() {
   const state = useAppState()
   const update = useUpdate()
-  const [booting, setBooting] = useState(true)
+  // После смены языка окно перезагружается — интро второй раз не показываем
+  const [booting, setBooting] = useState(() => {
+    try {
+      if (sessionStorage.getItem('playos-skip-intro')) {
+        sessionStorage.removeItem('playos-skip-intro')
+        return false
+      }
+    } catch {
+      /* хранилище недоступно — просто покажем интро */
+    }
+    return true
+  })
   const [tab, setTab] = useState<Tab>('home')
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
@@ -73,18 +85,18 @@ export function App() {
         setLaunching(null)
         const g = (state?.games ?? []).find((x) => x.id === gameId)
         play('select')
-        toast({ title: g?.title ?? 'Игра закрыта', message: duration ? `Сессия: ${playtime(duration).toLowerCase()}` : 'Игра закрыта', image: g?.cover, tone: 'success' })
+        toast({ title: g?.title ?? t('Игра закрыта'), message: duration ? t('Сессия: {v}', { v: playtime(duration).toLowerCase() }) : t('Игра закрыта'), image: g?.cover, tone: 'success' })
       }),
     [state?.games]
   )
 
-  useEffect(() => api.onToast((t) => toast({ ...t })), [])
+  useEffect(() => api.onToast((n) => toast({ ...n })), [])
   useEffect(() => setPadMaps(state?.settings.padMaps), [state?.settings.padMaps])
   // Геймпад без стандартной раскладки: подсказываем, где назначить кнопки
   useEffect(
     () =>
       setUnknownPadHandler((p) =>
-        toast({ title: padName(p.id), message: 'Если кнопки перепутаны: Настройки → Геймпад → «Настроить кнопки геймпада»', tone: 'info' })
+        toast({ title: padName(p.id), message: t('Если кнопки перепутаны: Настройки → Геймпад → «Настроить кнопки геймпада»'), tone: 'info' })
       ),
     []
   )
@@ -127,7 +139,7 @@ export function App() {
     if (running) {
       if (running.gameId === g.id) return api.resumeGame()
       play('error')
-      return toast({ title: 'Уже запущена другая игра', message: `Сначала закройте «${runningGame?.title}».`, tone: 'error' })
+      return toast({ title: t('Уже запущена другая игра'), message: t('Сначала закройте «{title}».', { title: runningGame?.title }), tone: 'error' })
     }
     play('launch')
     setLaunching(g.id)
@@ -136,7 +148,7 @@ export function App() {
     if (!res.ok) {
       setLaunching(null)
       play('error')
-      toast({ title: 'Не удалось запустить игру', message: res.error, tone: 'error' })
+      toast({ title: t('Не удалось запустить игру'), message: res.error, tone: 'error' })
     }
   }
 
@@ -211,15 +223,15 @@ export function App() {
   const hints =
     calm ? (
       <>
-        <Hint glyph="confirm" label="Выбрать" />
-        <Hint glyph="back" label="Назад" />
+        <Hint glyph="confirm" label={t('Выбрать')} />
+        <Hint glyph="back" label={t('Назад')} />
       </>
     ) : (
       <>
-        <Hint glyph="confirm" label="Играть" />
-        <Hint glyph="menu" label="Параметры" />
-        <Hint glyph="search" label="Добавить игру" />
-        {tab === 'library' && <Hint glyph="r2" label="Фильтр" />}
+        <Hint glyph="confirm" label={t('Играть')} />
+        <Hint glyph="menu" label={t('Параметры')} />
+        <Hint glyph="search" label={t('Добавить игру')} />
+        {tab === 'library' && <Hint glyph="r2" label={t('Фильтр')} />}
       </>
     )
 
@@ -251,8 +263,8 @@ export function App() {
             avatar={state.settings.avatar}
             runningGame={runningGame}
             runningSince={running?.startedAt}
-            onTab={(t) => {
-              goTab(t)
+            onTab={(next) => {
+              goTab(next)
               setTabFocus(null)
             }}
             updateReady={update.phase === 'ready'}
@@ -343,7 +355,7 @@ export function App() {
                 setEditor(null)
               }}
               onSaved={(g) => {
-                toast({ title: editor.game ? 'Изменения сохранены' : 'Игра добавлена', message: g.title, image: g.cover, tone: 'success' })
+                toast({ title: editor.game ? t('Изменения сохранены') : t('Игра добавлена'), message: g.title, image: g.cover, tone: 'success' })
                 setEditor(null)
                 focusGame(g)
               }}

@@ -4,6 +4,7 @@ import { useInputLayer } from '../lib/input'
 import { play } from '../lib/sound'
 import { Avatar } from './Avatar'
 import { LOGO_PLAY, LOGO_RING } from './Logo'
+import { t } from '@shared/i18n'
 
 const easeOut = [0.23, 1, 0.32, 1] as const
 
@@ -21,10 +22,10 @@ const FALLBACK_COLORS = ['#3d8bff', '#8a5cff', '#3fd0ff']
 
 function greeting(d = new Date()) {
   const h = d.getHours()
-  if (h >= 5 && h < 12) return 'Доброе утро'
-  if (h >= 12 && h < 17) return 'Добрый день'
-  if (h >= 17 && h < 23) return 'Добрый вечер'
-  return 'Доброй ночи'
+  if (h >= 5 && h < 12) return t('Доброе утро')
+  if (h >= 12 && h < 17) return t('Добрый день')
+  if (h >= 17 && h < 23) return t('Добрый вечер')
+  return t('Доброй ночи')
 }
 
 interface Props {
@@ -150,7 +151,7 @@ export function Intro({ userName, avatar, lastGame, colors, onDone }: Props) {
             </div>
             <div className="intro-greet">{greeting()}</div>
             <div className="intro-name">{userName}</div>
-            {lastGame && <div className="intro-sub">Вы остановились на «{lastGame}»</div>}
+            {lastGame && <div className="intro-sub">{t('Вы остановились на «{game}»', { game: lastGame })}</div>}
           </motion.div>
         )}
       </AnimatePresence>

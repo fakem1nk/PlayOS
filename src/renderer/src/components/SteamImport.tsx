@@ -8,10 +8,11 @@ import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconCheck } from './Icons'
+import { t } from '@shared/i18n'
 
 const header = (appId: number) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/capsule_231x87.jpg`
 const size = (bytes: number) =>
-  bytes >= 1e9 ? `${(bytes / 1e9).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ГБ` : `${Math.max(1, Math.round(bytes / 1e6))} МБ`
+  bytes >= 1e9 ? t('{v} ГБ', { v: (bytes / 1e9).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) }) : t('{v} МБ', { v: Math.max(1, Math.round(bytes / 1e6)) })
 
 /** Импорт установленных игр Steam: список с галочками, затем добавление с артом из Steam. */
 export function SteamImport({ onClose }: { onClose: () => void }) {
@@ -67,11 +68,11 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
     try {
       const n = await api.importSteam([...picked])
       play('launch')
-      toast({ title: 'Импорт Steam', message: n ? `Добавлено: ${gamesCount(n)}` : 'Ничего не добавлено', tone: n ? 'success' : 'info' })
+      toast({ title: t('Импорт Steam'), message: n ? t('Добавлено: {v}', { v: gamesCount(n) }) : t('Ничего не добавлено'), tone: n ? 'success' : 'info' })
       onClose()
     } catch (e) {
       setProgress(null)
-      toast({ title: 'Импорт Steam', message: (e as Error).message, tone: 'error' })
+      toast({ title: t('Импорт Steam'), message: (e as Error).message, tone: 'error' })
     }
   }
 
@@ -86,25 +87,25 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
         transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
       >
         <header className="steam-import-head">
-          <h2 className="sheet-title">Импорт из Steam</h2>
+          <h2 className="sheet-title">{t('Импорт из Steam')}</h2>
           <p className="steam-import-sub">
             {error
               ? error
               : !list
-                ? 'Ищем установленные игры…'
+                ? t('Ищем установленные игры…')
                 : list.length
-                  ? `Найдено ${gamesCount(list.length)} на дисках. Игры запускаются через Steam, обложки подтянутся из магазина.`
-                  : 'Установленных игр Steam не нашлось.'}
+                  ? t('Найдено {v} на дисках. Игры запускаются через Steam, обложки подтянутся из магазина.', { v: gamesCount(list.length) })
+                  : t('Установленных игр Steam не нашлось.')}
           </p>
         </header>
 
         {busy ? (
           <div className="steam-progress">
-            <div className="busy-title">Добавляем игры: {progress.done} из {progress.total}</div>
+            <div className="busy-title">{t('Добавляем игры: {done} из {total}', { done: progress.done, total: progress.total })}</div>
             <div className="busy-bar">
               <span style={{ width: `${(progress.done / progress.total) * 100}%` }} />
             </div>
-            <div className="busy-meta">{progress.title ? `Скачиваем арт: ${progress.title}` : 'Готовим…'}</div>
+            <div className="busy-meta">{progress.title ? t('Скачиваем арт: {title}', { title: progress.title }) : t('Готовим…')}</div>
           </div>
         ) : (
           <div className="steam-list">
@@ -124,7 +125,7 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
                   <span className="steam-check">{(on || g.added) && <IconCheck />}</span>
                   <img className="steam-capsule" src={header(g.appId)} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
                   <span className="steam-name">{g.name}</span>
-                  <span className="steam-size">{g.added ? 'Уже в библиотеке' : g.software ? `Программа, ${size(g.sizeOnDisk)}` : size(g.sizeOnDisk)}</span>
+                  <span className="steam-size">{g.added ? t('Уже в библиотеке') : g.software ? t('Программа, {v}', { v: size(g.sizeOnDisk) }) : size(g.sizeOnDisk)}</span>
                 </button>
               )
             })}
@@ -133,18 +134,18 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
 
         <div className="dialog-actions">
           <button data-nav className="btn btn-glass" disabled={busy} onClick={onClose}>
-            {list?.length ? 'Отмена' : 'Закрыть'}
+            {list?.length ? t('Отмена') : t('Закрыть')}
           </button>
           {!!fresh.length && (
             <button data-nav className="btn btn-primary" disabled={busy || !picked.size} onClick={run}>
-              {picked.size ? `Добавить ${gamesCount(picked.size)}` : 'Ничего не выбрано'}
+              {picked.size ? t('Добавить {v}', { v: gamesCount(picked.size) }) : t('Ничего не выбрано')}
             </button>
           )}
         </div>
         <footer className="sheet-hints">
-          <Hint glyph="confirm" label="Отметить" />
-          {!!fresh.length && <Hint glyph="menu" label={picked.size === fresh.length ? 'Снять все' : 'Выбрать все'} />}
-          <Hint glyph="back" label="Назад" />
+          <Hint glyph="confirm" label={t('Отметить')} />
+          {!!fresh.length && <Hint glyph="menu" label={picked.size === fresh.length ? t('Снять все') : t('Выбрать все')} />}
+          <Hint glyph="back" label={t('Назад')} />
         </footer>
       </motion.div>
     </motion.div>

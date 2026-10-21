@@ -5,21 +5,22 @@ import { useInputLayer } from '../lib/input'
 import { play } from '../lib/sound'
 import { IconPlus } from './Icons'
 import { Tile } from './Tile'
+import { t } from '@shared/i18n'
 
 type Filter = 'all' | Platform | 'favorite'
 type Sort = 'recent' | 'name' | 'time'
 
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'Все' },
+  { id: 'all', label: t('Все') },
   { id: 'pc', label: 'PC' },
   { id: 'ps2', label: 'PS2' },
   { id: 'ps3', label: 'PS3' },
-  { id: 'favorite', label: 'Избранное' }
+  { id: 'favorite', label: t('Избранное') }
 ]
 const SORTS: { id: Sort; label: string }[] = [
-  { id: 'recent', label: 'Недавние' },
-  { id: 'name', label: 'По названию' },
-  { id: 'time', label: 'По времени в игре' }
+  { id: 'recent', label: t('Недавние') },
+  { id: 'name', label: t('По названию') },
+  { id: 'time', label: t('По времени в игре') }
 ]
 /** Сколько колонок сейчас в адаптивной сетке (зависит от ширины экрана) */
 function useGridColumns(ref: React.RefObject<HTMLDivElement | null>, deps: unknown) {
@@ -187,7 +188,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
             className={`chip chip-sort ${chipsZone && chip === FILTERS.length ? 'is-focused' : ''}`}
             onClick={() => setSort(SORTS[(SORTS.findIndex((s) => s.id === sort) + 1) % SORTS.length].id)}
           >
-            Сортировка: {sortLabel}
+            {t('Сортировка: {sort}', { sort: sortLabel })}
           </button>
         </div>
         <div className="library-meta">
@@ -213,12 +214,12 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
         </div>
       ) : (
         <div className="empty">
-          <p className="empty-title">{games.length ? 'В этом разделе пока пусто' : 'Библиотека пуста'}</p>
+          <p className="empty-title">{games.length ? t('В этом разделе пока пусто') : t('Библиотека пуста')}</p>
           <p className="empty-text">
-            {games.length ? 'Выберите другой фильтр или добавьте игру.' : 'Добавьте первую игру: EXE, образ PS2 или игру PS3.'}
+            {games.length ? t('Выберите другой фильтр или добавьте игру.') : t('Добавьте первую игру: EXE, образ PS2 или игру PS3.')}
           </p>
           <button className="btn btn-primary" onClick={onAdd} tabIndex={-1}>
-            <IconPlus /> Добавить игру
+            <IconPlus /> {t('Добавить игру')}
           </button>
         </div>
       )}

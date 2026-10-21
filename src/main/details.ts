@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Game, GameDetails, LiveBackground } from '@shared/types'
+import { getLang } from '@shared/i18n'
 import { httpFetch } from './http'
 import { artDir, dataDir, getDb } from './store'
 
@@ -13,6 +14,8 @@ import { artDir, dataDir, getDb } from './store'
 interface CacheEntry {
   details?: GameDetails
   detailsAt?: number
+  /** На каком языке собраны сведения — сменили язык PlayOS, собираем заново */
+  detailsLang?: string
   /** Найденный по названию AppID в Steam (null — не нашли) */
   appId?: number | null
   live?: { file: string; loopAt?: number } | null
@@ -74,16 +77,18 @@ interface SteamApp {
   movies?: SteamMovie[]
 }
 
-const appCache = new Map<number, Promise<SteamApp | null>>()
+const appCache = new Map<string, Promise<SteamApp | null>>()
 
 /** Карточка игры в магазине Steam. Без cc магазин иногда отвечает success:false — повторяем с регионом US. */
 function steamApp(appId: number) {
-  let p = appCache.get(appId)
+  // Описание из Steam — на языке интерфейса
+  const key = `${appId}:${getLang()}`
+  let p = appCache.get(key)
   if (!p) {
     p = (async () => {
       for (const cc of ['', '&cc=us']) {
         try {
-          const r = await httpFetch(`https://store.steampowered.com/api/appdetails?appids=${appId}&l=russian${cc}`, {
+          const r = await httpFetch(`https://store.steampowered.com/api/appdetails?appids=${appId}&l=${getLang() === 'en' ? 'english' : 'russian'}${cc}`, {
             signal: AbortSignal.timeout(12000)
           })
           const j = (await r.json()) as Record<string, { success: boolean; data?: SteamApp }>
@@ -95,9 +100,9 @@ function steamApp(appId: number) {
       }
       return null
     })()
-    appCache.set(appId, p)
+    appCache.set(key, p)
     // Неудачу не запоминаем навсегда — вдруг просто не было сети
-    void p.then((v) => v ?? appCache.delete(appId))
+    void p.then((v) => v ?? appCache.delete(key))
   }
   return p
 }
@@ -148,13 +153,12 @@ const decodeEntities = (s: string) =>
 
 const WIKI_HEADERS = { 'User-Agent': 'PlayOS/0.7 (local game launcher)' }
 
-/** Краткое описание из статьи об игре: сначала русская Википедия, потом английская */
+/** Краткое описание из статьи об игре: сначала Википедия на языке интерфейса, потом другая */
 async function wikiSummary(title: string, onlyRussian = false): Promise<string | undefined> {
-  const sources = [
-    ['ru.wikipedia.org', 'компьютерная игра', /игр/i],
-    ['en.wikipedia.org', 'video game', /game/i]
-  ] as const
-  for (const [host, hint, marker] of onlyRussian ? sources.slice(0, 1) : sources) {
+  const ru = ['ru.wikipedia.org', 'компьютерная игра', /игр/i] as const
+  const en = ['en.wikipedia.org', 'video game', /game/i] as const
+  const sources = onlyRussian ? [ru] : getLang() === 'en' ? [en, ru] : [ru, en]
+  for (const [host, hint, marker] of sources) {
     try {
       const q = new URLSearchParams({ action: 'query', list: 'search', srsearch: `${title} ${hint}`, srlimit: '3', format: 'json', formatversion: '2' })
       const found = (await httpFetch(`https://${host}/w/api.php?${q}`, { headers: WIKI_HEADERS, signal: AbortSignal.timeout(10000) }).then((r) =>
@@ -249,7 +253,7 @@ const inflight = new Map<string, Promise<GameDetails>>()
 
 export function gameDetails(game: Game, refresh = false): Promise<GameDetails> {
   const e = entry(game.id)
-  if (!refresh && e.details && e.detailsAt && Date.now() - e.detailsAt < DETAILS_TTL) return Promise.resolve(e.details)
+  if (!refresh && e.details && e.detailsAt && (e.detailsLang ?? 'ru') === getLang() && Date.now() - e.detailsAt < DETAILS_TTL) return Promise.resolve(e.details)
   let p = inflight.get(game.id)
   if (p) return p
   p = (async () => {
@@ -267,7 +271,7 @@ export function gameDetails(game: Game, refresh = false): Promise<GameDetails> {
       d.genres = app.genres?.map((g) => g.description)
     }
     // В Steam у старых игр часто нет русского описания — тогда предпочитаем русскую Википедию
-    if (d.description && !/[а-яё]/i.test(d.description)) {
+    if (getLang() === 'ru' && d.description && !/[а-яё]/i.test(d.description)) {
       const ru = await wikiSummary(game.title, true)
       if (ru) {
         d.description = ru
@@ -286,6 +290,7 @@ export function gameDetails(game: Game, refresh = false): Promise<GameDetails> {
     if (d.description || d.hltb) {
       e.details = d
       e.detailsAt = Date.now()
+      e.detailsLang = getLang()
       save()
     }
     return d

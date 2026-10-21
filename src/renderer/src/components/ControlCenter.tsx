@@ -4,6 +4,7 @@ import type { ControllerInfo, PadAction, SystemState } from '@shared/types'
 import { api } from '../lib/api'
 import { play } from '../lib/sound'
 import { IconBattery, IconGamepad, IconHeadphones, IconPlug, IconSun, IconVolume } from './Icons'
+import { t } from '@shared/i18n'
 
 /**
  * Пункт управления в оверлее: громкость, звуковой выход, яркость экрана и список геймпадов.
@@ -12,7 +13,7 @@ import { IconBattery, IconGamepad, IconHeadphones, IconPlug, IconSun, IconVolume
 
 type ItemId = 'volume' | 'output' | 'brightness' | 'pads'
 const BATTERY_LEVEL = { empty: 0, low: 1, medium: 2, full: 3 } as const
-const BATTERY_TEXT = { empty: 'разряжен', low: 'мало заряда', medium: 'средний заряд', full: 'заряжен', wired: 'от кабеля' } as const
+const BATTERY_TEXT = { empty: t('разряжен'), low: t('мало заряда'), medium: t('средний заряд'), full: t('заряжен'), wired: t('от кабеля') } as const
 
 // «Динамики (Realtek High Definition Audio)» → «Динамики»: подробности уходят во вторую строку
 const shortName = (name: string) => name.replace(/\s*\(.*\)\s*$/, '') || name
@@ -20,7 +21,7 @@ const detail = (name: string) => name.match(/\((.*)\)\s*$/)?.[1]
 
 function batteryText(p: ControllerInfo) {
   if (p.percent !== undefined && p.battery !== 'wired') return `${p.percent}%`
-  return p.battery ? BATTERY_TEXT[p.battery] : 'нет данных'
+  return p.battery ? BATTERY_TEXT[p.battery] : t('нет данных')
 }
 
 export function useControlCenter(open: boolean) {
@@ -160,22 +161,22 @@ export function ControlCenterRow({ cc, zone }: { cc: ControlCenterState; zone: b
     if (id === 'volume') {
       const muted = !!sys?.muted
       icon = <IconVolume muted={muted || sys?.volume === 0} />
-      label = 'Громкость'
-      value = sys?.volume == null ? '—' : muted ? 'Без звука' : `${Math.round(sys.volume * 100)}%`
+      label = t('Громкость')
+      value = sys?.volume == null ? '—' : muted ? t('Без звука') : `${Math.round(sys.volume * 100)}%`
       level = muted ? 0 : (sys?.volume ?? 0)
     } else if (id === 'output') {
       icon = <IconHeadphones />
-      label = 'Звук'
+      label = t('Звук')
       value = defaultDevice ? shortName(defaultDevice.name) : '—'
     } else if (id === 'brightness') {
       icon = <IconSun />
-      label = 'Яркость'
+      label = t('Яркость')
       value = `${sys?.brightness ?? 0}%`
       level = (sys?.brightness ?? 0) / 100
     } else {
       icon = <IconGamepad />
-      label = pads.length > 1 ? `Геймпады: ${pads.length}` : 'Геймпад'
-      value = firstPad ? `${firstPad.name}, ${batteryText(firstPad)}` : 'Не подключены'
+      label = pads.length > 1 ? t('Геймпады: {length}', { length: pads.length }) : t('Геймпад')
+      value = firstPad ? `${firstPad.name}, ${batteryText(firstPad)}` : t('Не подключены')
     }
     const popHere = focused && cc.pop && ((cc.pop.kind === 'output' && id === 'output') || (cc.pop.kind === 'pads' && id === 'pads'))
     return (
@@ -207,7 +208,7 @@ export function ControlCenterRow({ cc, zone }: { cc: ControlCenterState; zone: b
   return (
     <section className={`cc ${zone ? 'is-zone' : ''}`}>
       <div className="ov-slots-head">
-        <span className="ov-slots-title">Пункт управления</span>
+        <span className="ov-slots-title">{t('Пункт управления')}</span>
       </div>
       <div className="cc-row">{cc.items.map((id, i) => card(id, i))}</div>
     </section>
@@ -245,7 +246,7 @@ function Popover({ cc }: { cc: ControlCenterState }) {
             </div>
           ))
         ) : (
-          <div className="cc-option">Геймпады не найдены</div>
+          <div className="cc-option">{t('Геймпады не найдены')}</div>
         ))}
     </motion.div>
   )

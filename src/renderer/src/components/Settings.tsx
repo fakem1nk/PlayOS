@@ -13,17 +13,18 @@ import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
 import { gamesCount } from '../lib/format'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
+import { getLang, t } from '@shared/i18n'
 
 type Section = 'profile' | 'library' | 'emulators' | 'display' | 'sound' | 'gamepad' | 'trophies' | 'system'
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
-  { id: 'profile', label: 'Профиль', hint: 'Имя и аватар' },
-  { id: 'library', label: 'Библиотека', hint: 'Импорт игр и обложки' },
-  { id: 'emulators', label: 'Эмуляторы', hint: 'PCSX2 и RPCS3' },
-  { id: 'display', label: 'Экран', hint: 'Монитор, масштаб, оформление' },
-  { id: 'sound', label: 'Звук', hint: 'Звуки и музыка' },
-  { id: 'gamepad', label: 'Геймпад', hint: 'Кнопки, оверлей, DualSense' },
-  { id: 'trophies', label: 'Трофеи', hint: 'RetroAchievements и Steam' },
-  { id: 'system', label: 'Система', hint: 'Запуск, данные, отчёты' }
+  { id: 'profile', label: t('Профиль'), hint: t('Имя и аватар') },
+  { id: 'library', label: t('Библиотека'), hint: t('Импорт игр и обложки') },
+  { id: 'emulators', label: t('Эмуляторы'), hint: t('PCSX2 и RPCS3') },
+  { id: 'display', label: t('Экран'), hint: t('Монитор, масштаб, оформление') },
+  { id: 'sound', label: t('Звук'), hint: t('Звуки и музыка') },
+  { id: 'gamepad', label: t('Геймпад'), hint: t('Кнопки, оверлей, DualSense') },
+  { id: 'trophies', label: t('Трофеи'), hint: t('RetroAchievements и Steam') },
+  { id: 'system', label: t('Система'), hint: t('Запуск, данные, отчёты') }
 ]
 
 interface Props {
@@ -119,13 +120,13 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
     const p = await api.pickFile('image')
     if (!p) return
     await save({ avatar: p })
-    toast({ title: 'Аватар обновлён', image: p, tone: 'success' })
+    toast({ title: t('Аватар обновлён'), image: p, tone: 'success' })
   }
 
   const run = async (fn: () => Promise<number>, what: string) => {
     try {
       const n = await fn()
-      toast({ title: what, message: n ? `Добавлено игр: ${n}` : 'Новых игр не найдено', tone: n ? 'success' : 'info' })
+      toast({ title: what, message: n ? t('Добавлено игр: {n}', { n }) : t('Новых игр не найдено'), tone: n ? 'success' : 'info' })
     } catch (e) {
       toast({ title: what, message: (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
     }
@@ -164,66 +165,66 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
         >
           {section === 'profile' && (
             <>
-              <h2 className="panel-title">Профиль</h2>
+              <h2 className="panel-title">{t('Профиль')}</h2>
+              <LanguageRow s={s} save={save} />
               <div className="setting setting-static avatar-setting">
                 <Avatar name={s.userName} src={s.avatar} className="avatar-lg" />
                 <span className="setting-text">
-                  <span className="setting-label">Аватар</span>
-                  <span className="setting-hint">PNG, JPG, WEBP или GIF. Картинка обрежется по кругу.</span>
+                  <span className="setting-label">{t('Аватар')}</span>
+                  <span className="setting-hint">{t('PNG, JPG, WEBP или GIF. Картинка обрежется по кругу.')}</span>
                 </span>
                 <span className="avatar-buttons">
                   <button data-nav className="btn btn-glass btn-sm" onClick={pickAvatar}>
-                    <IconImage /> Выбрать картинку
+                    <IconImage /> {t('Выбрать картинку')}
                   </button>
                   {s.avatar && (
                     <button data-nav className="btn btn-glass btn-sm" onClick={() => save({ avatar: undefined })}>
-                      Убрать
+                      {t('Убрать')}
                     </button>
                   )}
                 </span>
               </div>
-              <Field label="Имя пользователя" value={s.userName} onCommit={(v) => save({ userName: v.trim() || 'Игрок' })} />
+              <Field label={t('Имя пользователя')} value={s.userName} onCommit={(v) => save({ userName: v.trim() || t('Игрок') })} />
             </>
           )}
 
           {section === 'library' && (
             <>
               <h2 className="panel-title">
-                <IconDownload /> Добавить игры
+                <IconDownload /> {t('Добавить игры')}
               </h2>
               <ActionRow
-                label="Импорт игр из Steam"
-                hint="Найдёт установленные игры во всех библиотеках Steam. Они будут запускаться через Steam, а обложки, фоны и логотипы подтянутся из магазина."
-                button="Выбрать игры"
+                label={t('Импорт игр из Steam')}
+                hint={t('Найдёт установленные игры во всех библиотеках Steam. Они будут запускаться через Steam, а обложки, фоны и логотипы подтянутся из магазина.')}
+                button={t('Выбрать игры')}
                 icon={<IconDownload />}
                 onClick={onSteamImport}
               />
               <ActionRow
-                label="Сканировать папку с образами PS2"
-                hint="ISO, CHD, CSO и другие образы: названия и обложки подберутся по серийному номеру диска"
-                button="Выбрать папку"
+                label={t('Сканировать папку с образами PS2')}
+                hint={t('ISO, CHD, CSO и другие образы: названия и обложки подберутся по серийному номеру диска')}
+                button={t('Выбрать папку')}
                 icon={<IconFolder />}
-                onClick={() => run(api.scanPs2Folder, 'Сканирование PS2')}
+                onClick={() => run(api.scanPs2Folder, t('Сканирование PS2'))}
               />
               <ActionRow
-                label="Импорт игр из RPCS3"
-                hint="Игры из списка RPCS3 и папки dev_hdd0 с названиями и артом из PARAM.SFO"
-                button="Импортировать"
-                onClick={() => run(api.importRpcs3, 'Импорт RPCS3')}
+                label={t('Импорт игр из RPCS3')}
+                hint={t('Игры из списка RPCS3 и папки dev_hdd0 с названиями и артом из PARAM.SFO')}
+                button={t('Импортировать')}
+                onClick={() => run(api.importRpcs3, t('Импорт RPCS3'))}
               />
               <h2 className="panel-title">
-                <IconImage /> Обложки и фоны
+                <IconImage /> {t('Обложки и фоны')}
               </h2>
               <div className="note">
-                Арт ищется в трёх местах: <strong>Steam</strong> (обложка, фон и логотип), <strong>SteamGridDB</strong> (огромная база, в том
-                числе для игр PS2 и PS3 без PC-версии) и <strong>Википедия</strong>. Для PS2 и PS3 обложка диска подбирается по серийному номеру.
+                {t('Арт ищется в трёх местах: Steam (обложка, фон и логотип), SteamGridDB (огромная база, в том числе для игр PS2 и PS3 без PC-версии) и Википедия. Для PS2 и PS3 обложка диска подбирается по серийному номеру.')}
               </div>
               <Field
-                label="Ключ API SteamGridDB"
+                label={t('Ключ API SteamGridDB')}
                 value={s.steamGridDbKey}
-                placeholder="Не указан"
+                placeholder={t('Не указан')}
                 onCommit={(v) => save({ steamGridDbKey: v.trim() })}
-                hint="Бесплатно: зарегистрируйтесь на steamgriddb.com, затем Preferences → API → Generate API Key."
+                hint={t('Бесплатно: зарегистрируйтесь на steamgriddb.com, затем Preferences → API → Generate API Key.')}
                 mono
               />
             </>
@@ -234,14 +235,14 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               <h2 className="panel-title">
                 <IconDisc /> PlayStation 2 <span className="panel-sub">PCSX2</span>
               </h2>
-              <Field label="Путь к pcsx2-qt.exe" value={s.pcsx2Path} onCommit={(v) => save({ pcsx2Path: v })} mono>
+              <Field label={t('Путь к pcsx2-qt.exe')} value={s.pcsx2Path} onCommit={(v) => save({ pcsx2Path: v })} mono>
                 <BrowseButton onClick={() => browse('pcsx2Path')} />
               </Field>
               <Field
-                label="Аргументы запуска"
+                label={t('Аргументы запуска')}
                 value={s.pcsx2Args}
                 onCommit={(v) => save({ pcsx2Args: v })}
-                hint="{rom} — путь к образу. -batch закрывает PCSX2 вместе с игрой, -fullscreen открывает на весь экран."
+                hint={t('{rom} — путь к образу. -batch закрывает PCSX2 вместе с игрой, -fullscreen открывает на весь экран.')}
                 mono
               />
               <Pcsx2Pine />
@@ -249,21 +250,21 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               <h2 className="panel-title">
                 <IconDisc /> PlayStation 3 <span className="panel-sub">RPCS3</span>
               </h2>
-              <Field label="Путь к rpcs3.exe" value={s.rpcs3Path} placeholder="Не указан" onCommit={(v) => save({ rpcs3Path: v })} mono>
+              <Field label={t('Путь к rpcs3.exe')} value={s.rpcs3Path} placeholder={t('Не указан')} onCommit={(v) => save({ rpcs3Path: v })} mono>
                 <BrowseButton onClick={() => browse('rpcs3Path')} />
               </Field>
               <Field
-                label="Аргументы запуска"
+                label={t('Аргументы запуска')}
                 value={s.rpcs3Args}
                 onCommit={(v) => save({ rpcs3Args: v })}
-                hint="{rom} — путь к EBOOT.BIN. --no-gui запускает игру без окна RPCS3."
+                hint={t('{rom} — путь к EBOOT.BIN. --no-gui запускает игру без окна RPCS3.')}
                 mono
               />
               <Field
-                label="Клавиша сохранения состояния"
+                label={t('Клавиша сохранения состояния')}
                 value={s.rpcs3SaveKey}
                 onCommit={(v) => save({ rpcs3SaveKey: v.trim() })}
-                hint="Оверлей нажмёт её в окне RPCS3 (по умолчанию Ctrl+S). Сохранения состояний должны быть включены в RPCS3, загружаются они из его списка игр."
+                hint={t('Оверлей нажмёт её в окне RPCS3 (по умолчанию Ctrl+S). Сохранения состояний должны быть включены в RPCS3, загружаются они из его списка игр.')}
                 mono
               />
             </>
@@ -272,12 +273,12 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           {section === 'display' && (
             <>
               <h2 className="panel-title">
-                <IconMonitor /> Экран
+                <IconMonitor /> {t('Экран')}
               </h2>
               <DisplayPicker s={s} save={save} />
               <Cycler
-                label="Масштаб интерфейса"
-                hint="Крупнее — удобнее на телевизоре издалека"
+                label={t('Масштаб интерфейса')}
+                hint={t('Крупнее — удобнее на телевизоре издалека')}
                 value={String(s.uiScale)}
                 options={[
                   { id: '0.9', label: '90%' },
@@ -288,38 +289,38 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 ]}
                 onChange={(v) => save({ uiScale: Number(v) })}
               />
-              <Toggle label="Полноэкранный режим" hint="Также переключается клавишей F11" value={s.fullscreen} onChange={(v) => save({ fullscreen: v })} />
+              <Toggle label={t('Полноэкранный режим')} hint={t('Также переключается клавишей F11')} value={s.fullscreen} onChange={(v) => save({ fullscreen: v })} />
               <h2 className="panel-title">
-                <IconImage /> Оформление
+                <IconImage /> {t('Оформление')}
               </h2>
               <Toggle
-                label="Цвет интерфейса под игру"
-                hint="Акценты, свечение и фокус-рамка принимают цвет обложки выбранной игры"
+                label={t('Цвет интерфейса под игру')}
+                hint={t('Акценты, свечение и фокус-рамка принимают цвет обложки выбранной игры')}
                 value={s.gameTint}
                 onChange={(v) => save({ gameTint: v })}
               />
               <Toggle
-                label="Живой фон"
-                hint="Если задержаться на игре пару секунд, фон оживает: беззвучный трейлер из Steam или анимированный фон из SteamGridDB. Скачивается один раз."
+                label={t('Живой фон')}
+                hint={t('Если задержаться на игре пару секунд, фон оживает: беззвучный трейлер из Steam или анимированный фон из SteamGridDB. Скачивается один раз.')}
                 value={s.liveBackground}
                 onChange={(v) => save({ liveBackground: v })}
               />
               <Toggle
-                label="Анимированные обложки"
-                hint="Обложка в фокусе оживает, если у игры есть анимированная версия (SteamGridDB, GIF, анимированный WebP)"
+                label={t('Анимированные обложки')}
+                hint={t('Обложка в фокусе оживает, если у игры есть анимированная версия (SteamGridDB, GIF, анимированный WebP)')}
                 value={s.animatedCovers}
                 onChange={(v) => save({ animatedCovers: v })}
               />
               <Cycler
-                label="Заставка при бездействии"
-                hint="Медленное слайд-шоу фонов ваших игр с часами. Бережёт OLED-экраны."
+                label={t('Заставка при бездействии')}
+                hint={t('Медленное слайд-шоу фонов ваших игр с часами. Бережёт OLED-экраны.')}
                 value={String(s.screensaver)}
                 options={[
-                  { id: '0', label: 'Выключена' },
-                  { id: '2', label: 'Через 2 мин' },
-                  { id: '5', label: 'Через 5 мин' },
-                  { id: '10', label: 'Через 10 мин' },
-                  { id: '20', label: 'Через 20 мин' }
+                  { id: '0', label: t('Выключена') },
+                  { id: '2', label: t('Через 2 мин') },
+                  { id: '5', label: t('Через 5 мин') },
+                  { id: '10', label: t('Через 10 мин') },
+                  { id: '20', label: t('Через 20 мин') }
                 ]}
                 onChange={(v) => save({ screensaver: Number(v) })}
               />
@@ -329,16 +330,16 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           {section === 'sound' && (
             <>
               <h2 className="panel-title">
-                <IconVolume /> Звук
+                <IconVolume /> {t('Звук')}
               </h2>
-              <Toggle label="Звуки интерфейса" hint="Щелчки навигации, запуск игр, трофеи, интро и выключение" value={s.sounds} onChange={(v) => save({ sounds: v })} />
+              <Toggle label={t('Звуки интерфейса')} hint={t('Щелчки навигации, запуск игр, трофеи, интро и выключение')} value={s.sounds} onChange={(v) => save({ sounds: v })} />
               <Cycler
-                label="Громкость звуков"
+                label={t('Громкость звуков')}
                 value={s.volume}
                 options={[
-                  { id: 'low', label: 'Тихо' },
-                  { id: 'mid', label: 'Средне' },
-                  { id: 'high', label: 'Громко' }
+                  { id: 'low', label: t('Тихо') },
+                  { id: 'mid', label: t('Средне') },
+                  { id: 'high', label: t('Громко') }
                 ]}
                 onChange={(v) => {
                   save({ volume: v })
@@ -346,8 +347,8 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 }}
               />
               <Toggle
-                label="Фоновая музыка"
-                hint="Спокойный эмбиент на главном экране, затихает, когда запущена игра"
+                label={t('Фоновая музыка')}
+                hint={t('Спокойный эмбиент на главном экране, затихает, когда запущена игра')}
                 value={s.music}
                 onChange={(v) => save({ music: v })}
               />
@@ -357,59 +358,59 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           {section === 'gamepad' && (
             <>
               <h2 className="panel-title">
-                <IconGamepad /> Управление
+                <IconGamepad /> {t('Управление')}
               </h2>
               <Cycler
-                label="Значки кнопок"
-                hint="Авто — по подключённому геймпаду"
+                label={t('Значки кнопок')}
+                hint={t('Авто — по подключённому геймпаду')}
                 value={s.glyphs}
                 options={[
-                  { id: 'auto', label: 'Авто' },
+                  { id: 'auto', label: t('Авто') },
                   { id: 'playstation', label: 'PlayStation' },
                   { id: 'xbox', label: 'Xbox' },
-                  { id: 'nintendo', label: 'Nintendo и 8BitDo' },
-                  { id: 'keyboard', label: 'Клавиатура' }
+                  { id: 'nintendo', label: t('Nintendo и 8BitDo') },
+                  { id: 'keyboard', label: t('Клавиатура') }
                 ]}
                 onChange={(v) => save({ glyphs: v })}
               />
               <PadMapRow s={s} save={save} />
               <h2 className="panel-title">
-                <IconGamepad /> Оверлей поверх игры
+                <IconGamepad /> {t('Оверлей поверх игры')}
               </h2>
               <div className="note">
-                <strong>Как открыть:</strong> кнопка PS на DualSense или DualShock 4, Guide на Xbox, удержание Select + Start или Ctrl + Alt + H.
-                Если кнопку перехватывает Steam или Xbox Game Bar, отключите это в их настройках.
+                <strong>{t('Как открыть:')}</strong> {t('кнопка PS на DualSense или DualShock 4, Guide на Xbox, удержание Select + Start или Ctrl + Alt + H.')}
+                {t('Если кнопку перехватывает Steam или Xbox Game Bar, отключите это в их настройках.')}
               </div>
               <Cycler
-                label="Пауза игры в оверлее"
-                hint="Игра замораживается и не реагирует на геймпад, пока открыт оверлей. Для онлайн-игр лучше выключить."
+                label={t('Пауза игры в оверлее')}
+                hint={t('Игра замораживается и не реагирует на геймпад, пока открыт оверлей. Для онлайн-игр лучше выключить.')}
                 value={s.pauseOnOverlay}
                 options={[
-                  { id: 'all', label: 'Все игры' },
-                  { id: 'emulators', label: 'Только эмуляторы' },
-                  { id: 'off', label: 'Не ставить' }
+                  { id: 'all', label: t('Все игры') },
+                  { id: 'emulators', label: t('Только эмуляторы') },
+                  { id: 'off', label: t('Не ставить') }
                 ]}
                 onChange={(v) => save({ pauseOnOverlay: v })}
               />
               <h2 className="panel-title">
-                <IconGamepad /> DualSense и DSX
+                <IconGamepad /> {t('DualSense и DSX')}
               </h2>
               <Toggle
-                label="Подсветка в цвет игры"
-                hint="Световая панель DualSense принимает цвет обложки запущенной игры. Нужен запущенный DSX."
+                label={t('Подсветка в цвет игры')}
+                hint={t('Световая панель DualSense принимает цвет обложки запущенной игры. Нужен запущенный DSX.')}
                 value={s.dsxLightbar}
                 onChange={(v) => save({ dsxLightbar: v })}
               />
               <LightbarTest />
               <Toggle
-                label="Предупреждать о разряде"
-                hint="При 10% заряда — уведомление поверх игры и красная пульсация световой панели DualSense"
+                label={t('Предупреждать о разряде')}
+                hint={t('При 10% заряда — уведомление поверх игры и красная пульсация световой панели DualSense')}
                 value={s.lowBatteryWarning}
                 onChange={(v) => save({ lowBatteryWarning: v })}
               />
               <Toggle
-                label="Вибрация при новом трофее"
-                hint="Два коротких импульса. Через DSX работает и на DualSense."
+                label={t('Вибрация при новом трофее')}
+                hint={t('Два коротких импульса. Через DSX работает и на DualSense.')}
                 value={s.trophyRumble}
                 onChange={(v) => save({ trophyRumble: v })}
               />
@@ -421,43 +422,43 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           {section === 'system' && (
             <>
               <h2 className="panel-title">
-                <IconMonitor /> Запуск
+                <IconMonitor /> {t('Запуск')}
               </h2>
               <Toggle
-                label="Запускать вместе с Windows"
-                hint="Удобно для ТВ-режима и стриминга через Moonlight"
+                label={t('Запускать вместе с Windows')}
+                hint={t('Удобно для ТВ-режима и стриминга через Moonlight')}
                 value={s.launchOnStartup}
                 onChange={(v) => save({ launchOnStartup: v })}
               />
               <Cycler
-                label="Напоминать о перерыве"
-                hint="Уведомление Windows поверх игры"
+                label={t('Напоминать о перерыве')}
+                hint={t('Уведомление Windows поверх игры')}
                 value={String(s.breakReminder)}
                 options={[
-                  { id: '0', label: 'Выключено' },
-                  { id: '1', label: 'Каждый час' },
-                  { id: '2', label: 'Каждые 2 часа' },
-                  { id: '3', label: 'Каждые 3 часа' }
+                  { id: '0', label: t('Выключено') },
+                  { id: '1', label: t('Каждый час') },
+                  { id: '2', label: t('Каждые 2 часа') },
+                  { id: '3', label: t('Каждые 3 часа') }
                 ]}
                 onChange={(v) => save({ breakReminder: Number(v) })}
               />
               <h2 className="panel-title">
-                <IconFolder /> Данные и отчёты
+                <IconFolder /> {t('Данные и отчёты')}
               </h2>
-              <ActionRow label="Папка с данными" hint={state.dataDir} button="Открыть" icon={<IconFolder />} onClick={() => api.openFolder(state.dataDir)} />
+              <ActionRow label={t('Папка с данными')} hint={state.dataDir} button={t('Открыть')} icon={<IconFolder />} onClick={() => api.openFolder(state.dataDir)} />
               <ReportRow />
               <h2 className="panel-title">
-                <IconDownload /> Перенос на другой компьютер
+                <IconDownload /> {t('Перенос на другой компьютер')}
               </h2>
               <BackupRows />
               <h2 className="panel-title">
-                <IconInfo /> О PlayOS
+                <IconInfo /> {t('О PlayOS')}
               </h2>
               <SystemInfoRow version={state.version} />
               <UpdateRow version={state.version} />
               <Toggle
-                label="Участвовать в бета-тесте"
-                hint="Получать ранние версии PlayOS раньше всех. В них больше нового, но возможны ошибки. Если выключить, обновления будут приходить только со стабильными версиями."
+                label={t('Участвовать в бета-тесте')}
+                hint={t('Получать ранние версии PlayOS раньше всех. В них больше нового, но возможны ошибки. Если выключить, обновления будут приходить только со стабильными версиями.')}
                 value={s.betaUpdates}
                 onChange={(v) => save({ betaUpdates: v })}
               />
@@ -474,9 +475,9 @@ function SystemInfoRow({ version }: { version: string }) {
   return (
     <>
       <ActionRow
-        label="О системе"
-        hint={`PlayOS ${version}, Windows, процессор, видеокарта, экраны и геймпады`}
-        button="Подробнее"
+        label={t('О системе')}
+        hint={t('PlayOS {version}, Windows, процессор, видеокарта, экраны и геймпады', { version })}
+        button={t('Подробнее')}
         icon={<IconInfo />}
         onClick={() => {
           play('select')
@@ -500,18 +501,18 @@ function UpdateRow({ version }: { version: string }) {
   const firstNote = st?.notes?.split('\n').find((l) => l.trim())
   const hint =
     phase === 'dev'
-      ? `Версия ${version} запущена из исходников — обновления приходят только в установленную PlayOS`
+      ? t('Версия {version} запущена из исходников — обновления приходят только в установленную PlayOS', { version })
       : phase === 'checking'
-        ? 'Проверяем новую версию на GitHub…'
+        ? t('Проверяем новую версию на GitHub…')
         : phase === 'downloading'
-          ? `Скачивается PlayOS ${st?.version}: ${st?.percent ?? 0}%`
+          ? t('Скачивается PlayOS {version}: {v}%', { version: st?.version, v: st?.percent ?? 0 })
           : phase === 'ready'
-            ? `PlayOS ${st?.version} скачана и установится при выходе${firstNote ? `. Нового: ${firstNote.replace(/^[•\-*]\s*/, '')}` : ''}`
+            ? t('PlayOS {v} скачана и установится при выходе', { v: st?.version }) + (firstNote ? `. ${t('Нового: {note}', { note: firstNote.replace(/^[•\-*]\s*/, '') })}` : '')
             : phase === 'latest'
-              ? `Установлена последняя версия ${version}`
+              ? t('Установлена последняя версия {version}', { version })
               : phase === 'error'
-                ? `${st?.error ?? 'Не удалось проверить обновления'}. Установлена версия ${version}`
-                : `Установлена версия ${version}. PlayOS проверяет обновления сам после запуска`
+                ? `${st?.error ?? t('Не удалось проверить обновления')}. ${t('Установлена версия {v}', { v: version })}`
+                : t('Установлена версия {version}. PlayOS проверяет обновления сам после запуска', { version })
 
   const act = async () => {
     if (phase === 'ready') {
@@ -521,7 +522,7 @@ function UpdateRow({ version }: { version: string }) {
     }
     if (phase === 'checking' || phase === 'downloading') return
     if (phase === 'dev') {
-      toast({ title: 'Обновления', message: 'В версии из исходников обновления не проверяются', tone: 'info' })
+      toast({ title: t('Обновления'), message: t('В версии из исходников обновления не проверяются'), tone: 'info' })
       return
     }
     play('select')
@@ -530,28 +531,28 @@ function UpdateRow({ version }: { version: string }) {
   }
 
   const button =
-    phase === 'ready' ? 'Перезапустить и обновить' : phase === 'checking' ? 'Проверяем…' : phase === 'downloading' ? `Скачивается ${st?.percent ?? 0}%` : 'Проверить обновления'
-  return <ActionRow label="Обновления" hint={hint} button={button} icon={<IconDownload />} onClick={act} />
+    phase === 'ready' ? t('Перезапустить и обновить') : phase === 'checking' ? t('Проверяем…') : phase === 'downloading' ? t('Скачивается {v}%', { v: st?.percent ?? 0 }) : t('Проверить обновления')
+  return <ActionRow label={t('Обновления')} hint={hint} button={button} icon={<IconDownload />} onClick={act} />
 }
 
 /** Отчёт об ошибках: журнал, сведения о системе и об аварийных завершениях — одним файлом на рабочий стол */
 function ReportRow() {
   const [busy, setBusy] = useState(false)
-  const [hint, setHint] = useState('Журнал работы, сведения о системе и об ошибках — одним файлом на рабочий стол. Ключи API в отчёт не попадают.')
+  const [hint, setHint] = useState(t('Журнал работы, сведения о системе и об ошибках — одним файлом на рабочий стол. Ключи API в отчёт не попадают.'))
   const make = async () => {
     if (busy) return
     setBusy(true)
     try {
       const file = await api.saveReport()
-      setHint(`Сохранено: ${file}`)
-      toast({ title: 'Отчёт сохранён', message: file, tone: 'success' })
+      setHint(t('Сохранено: {file}', { file }))
+      toast({ title: t('Отчёт сохранён'), message: file, tone: 'success' })
     } catch (e) {
-      toast({ title: 'Не удалось сохранить отчёт', message: (e as Error).message, tone: 'error' })
+      toast({ title: t('Не удалось сохранить отчёт'), message: (e as Error).message, tone: 'error' })
     } finally {
       setBusy(false)
     }
   }
-  return <ActionRow label="Сохранить отчёт об ошибках" hint={hint} button={busy ? 'Сохраняем…' : 'Сохранить'} onClick={make} />
+  return <ActionRow label={t('Сохранить отчёт об ошибках')} hint={hint} button={busy ? t('Сохраняем…') : t('Сохранить')} onClick={make} />
 }
 
 /**
@@ -570,9 +571,9 @@ function BackupRows() {
       const file = await api.exportData()
       setSaved(file)
       play('select')
-      toast({ title: 'Копия сохранена', message: file, tone: 'success' })
+      toast({ title: t('Копия сохранена'), message: file, tone: 'success' })
     } catch (e) {
-      toast({ title: 'Не удалось сохранить копию', message: (e as Error).message, tone: 'error' })
+      toast({ title: t('Не удалось сохранить копию'), message: (e as Error).message, tone: 'error' })
     } finally {
       setBusy(false)
     }
@@ -585,7 +586,7 @@ function BackupRows() {
       setPending({ file, info: await api.inspectBackup(file) })
     } catch (e) {
       play('error')
-      toast({ title: 'Не получилось открыть копию', message: (e as Error).message, tone: 'error' })
+      toast({ title: t('Не получилось открыть копию'), message: (e as Error).message, tone: 'error' })
     }
   }
 
@@ -597,28 +598,28 @@ function BackupRows() {
       play('launch')
       await api.importData(file)
     } catch (e) {
-      toast({ title: 'Не удалось восстановить данные', message: (e as Error).message, tone: 'error' })
+      toast({ title: t('Не удалось восстановить данные'), message: (e as Error).message, tone: 'error' })
     }
   }
 
-  const date = (t: number) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+  const date = (ts: number) => new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
   return (
     <>
       <ActionRow
-        label="Сохранить копию данных"
+        label={t('Сохранить копию данных')}
         hint={
           saved
-            ? `Сохранено: ${saved}`
-            : 'Библиотека, время в играх, трофеи, настройки и обложки — одним файлом на рабочий стол. В файле есть ключи API, не публикуйте его.'
+            ? t('Сохранено: {saved}', { saved })
+            : t('Библиотека, время в играх, трофеи, настройки и обложки — одним файлом на рабочий стол. В файле есть ключи API, не публикуйте его.')
         }
-        button={busy ? 'Сохраняем…' : 'Сохранить'}
+        button={busy ? t('Сохраняем…') : t('Сохранить')}
         icon={<IconDownload />}
         onClick={save}
       />
       <ActionRow
-        label="Восстановить из копии"
-        hint="Выберите файл .playos с другого компьютера. Текущие данные PlayOS заменятся, но сначала сохранятся в папку backups."
-        button="Выбрать файл"
+        label={t('Восстановить из копии')}
+        hint={t('Выберите файл .playos с другого компьютера. Текущие данные PlayOS заменятся, но сначала сохранятся в папку backups.')}
+        button={t('Выбрать файл')}
         icon={<IconFolder />}
         onClick={pick}
       />
@@ -627,9 +628,9 @@ function BackupRows() {
           {pending && (
             <ConfirmDialog
               key="restore"
-              title="Восстановить из копии?"
-              text={`Копия от ${date(pending.info.createdAt)}, PlayOS ${pending.info.version}, ${gamesCount(pending.info.games)}. Текущие данные заменятся, и PlayOS перезапустится.`}
-              button="Восстановить"
+              title={t('Восстановить из копии?')}
+              text={t('Копия от {v}, PlayOS {version}, {v2}. Текущие данные заменятся, и PlayOS перезапустится.', { v: date(pending.info.createdAt), version: pending.info.version, v2: gamesCount(pending.info.games) })}
+              button={t('Восстановить')}
               onCancel={() => setPending(null)}
               onConfirm={restore}
             />
@@ -641,6 +642,32 @@ function BackupRows() {
   )
 }
 
+/** Язык интерфейса. Подпись на двух языках — чтобы найти пункт, даже если язык выбран не тот */
+function LanguageRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
+  return (
+    <Cycler
+      label={t('Язык · Language')}
+      hint={t('Язык интерфейса PlayOS. Окно перезагрузится, библиотека и настройки останутся на месте.')}
+      value={s.language ?? getLang()}
+      options={[
+        { id: 'ru', label: t('Русский') },
+        { id: 'en', label: 'English' }
+      ]}
+      onChange={(v) => {
+        try {
+          sessionStorage.setItem('playos-skip-intro', '1')
+        } catch {
+          /* без хранилища просто покажем интро ещё раз */
+        }
+        void save({ language: v }).then(() => {
+          // В браузерном превью окно перезагружаем сами, в PlayOS это делает main-процесс
+          if (!('pcsLang' in window)) location.search = `?lang=${v}`
+        })
+      }}
+    />
+  )
+}
+
 /** Геймпады DirectInput (без стандартной раскладки): назначить кнопки вручную или сбросить */
 function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
   const [open, setOpen] = useState(false)
@@ -649,13 +676,13 @@ function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) =>
   return (
     <>
       <ActionRow
-        label="Настроить кнопки геймпада"
+        label={t('Настроить кнопки геймпада')}
         hint={
           names.length
-            ? `Настроено вручную: ${names.join(', ')}`
-            : 'Для геймпадов в режиме DirectInput и старых USB-геймпадов, у которых кнопки перепутаны. Xbox, DualSense и 8BitDo в режиме XInput настраивать не нужно.'
+            ? t('Настроено вручную: {v}', { v: names.join(', ') })
+            : t('Для геймпадов в режиме DirectInput и старых USB-геймпадов, у которых кнопки перепутаны. Xbox, DualSense и 8BitDo в режиме XInput настраивать не нужно.')
         }
-        button="Настроить"
+        button={t('Настроить')}
         icon={<IconGamepad />}
         onClick={() => {
           play('select')
@@ -664,13 +691,13 @@ function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) =>
       />
       {names.length > 0 && (
         <ActionRow
-          label="Сбросить раскладку"
-          hint="Вернуть стандартные кнопки для всех настроенных геймпадов"
-          button="Сбросить"
+          label={t('Сбросить раскладку')}
+          hint={t('Вернуть стандартные кнопки для всех настроенных геймпадов')}
+          button={t('Сбросить')}
           onClick={() => {
             play('back')
             void save({ padMaps: {} })
-            toast({ title: 'Раскладка сброшена', tone: 'info' })
+            toast({ title: t('Раскладка сброшена'), tone: 'info' })
           }}
         />
       )}
@@ -700,15 +727,15 @@ export function DisplayPicker({ s, save }: { s: SettingsT; save: (p: Partial<Set
   if (list.length < 2 && !s.displayId) return null
   const label = (d: DisplayInfo) => `${d.name}, ${d.width}×${d.height}`
   const options = [
-    { id: '0', label: 'Основной экран' },
-    ...list.map((d) => ({ id: String(d.id), label: d.primary ? `${label(d)} (основной)` : label(d) }))
+    { id: '0', label: t('Основной экран') },
+    ...list.map((d) => ({ id: String(d.id), label: d.primary ? t('{v} (основной)', { v: label(d) }) : label(d) }))
   ]
   // Выбранный экран сейчас отключён — всё равно показываем его, чтобы выбор не «прыгал»
-  if (s.displayId && !list.some((d) => d.id === s.displayId)) options.push({ id: String(s.displayId), label: `${s.displayLabel || 'Экран'} (не подключён)` })
+  if (s.displayId && !list.some((d) => d.id === s.displayId)) options.push({ id: String(s.displayId), label: `${s.displayLabel || t('Экран')} ${t('(не подключён)')}` })
   return (
     <Cycler
-      label="Экран для PlayOS"
-      hint="Где открывается PlayOS. Если выбранный экран выключен, PlayOS откроется на основном и сам переедет, когда его включат."
+      label={t('Экран для PlayOS')}
+      hint={t('Где открывается PlayOS. Если выбранный экран выключен, PlayOS откроется на основном и сам переедет, когда его включат.')}
       value={String(s.displayId || 0)}
       options={options}
       onChange={(v) => {
@@ -730,17 +757,17 @@ function LightbarTest() {
     setBusy(false)
     setResult(
       r === 'ok'
-        ? 'Команды отправлены: панель должна была мигнуть красным, зелёным, синим и белым. Если цвет не менялся, проверьте в DSX, что включён UDP (Настройки → Система модов).'
+        ? t('Команды отправлены: панель должна была мигнуть красным, зелёным, синим и белым. Если цвет не менялся, проверьте в DSX, что включён UDP (Настройки → Система модов).')
         : r === 'no-pad'
-          ? 'DSX запущен, но не видит геймпад. Подключите DualSense и попробуйте ещё раз.'
-          : 'DSX не отвечает на 127.0.0.1:6969. Запустите DSX и включите в нём UDP-сервер.'
+          ? t('DSX запущен, но не видит геймпад. Подключите DualSense и попробуйте ещё раз.')
+          : t('DSX не отвечает на 127.0.0.1:6969. Запустите DSX и включите в нём UDP-сервер.')
     )
   }
   return (
     <ActionRow
-      label="Проверить подсветку"
-      hint={result ?? 'Покажет, доходят ли команды до DualSense через DSX'}
-      button={busy ? 'Проверяем…' : 'Проверить'}
+      label={t('Проверить подсветку')}
+      hint={result ?? t('Покажет, доходят ли команды до DualSense через DSX')}
+      button={busy ? t('Проверяем…') : t('Проверить')}
       onClick={test}
     />
   )
@@ -754,26 +781,26 @@ function Pcsx2Pine() {
   }, [])
   const enable = async () => {
     const r = await api.enablePine()
-    toast({ title: r.ok ? 'PINE включён' : 'Не получилось', message: r.message, tone: r.ok ? 'success' : 'error' })
+    toast({ title: r.ok ? t('PINE включён') : t('Не получилось'), message: r.message, tone: r.ok ? 'success' : 'error' })
     if (r.ok) setInfo(await api.pcsx2Info())
   }
   if (!info) return null
-  const keys = info.saveKey ? `Горячие клавиши PCSX2: сохранить ${info.saveKey}, загрузить ${info.loadKey}.` : ''
+  const keys = info.saveKey ? t('Горячие клавиши PCSX2: сохранить {saveKey}, загрузить {loadKey}.', { saveKey: info.saveKey, loadKey: info.loadKey }) : ''
   if (!info.found) {
-    return <div className="note">Папка данных PCSX2 не найдена. Запустите PCSX2 хотя бы раз, чтобы заработали быстрые сохранения.</div>
+    return <div className="note">{t('Папка данных PCSX2 не найдена. Запустите PCSX2 хотя бы раз, чтобы заработали быстрые сохранения.')}</div>
   }
   if (info.pine === 'enabled') {
     return (
       <div className="note">
-        <strong>Быстрые сохранения через PINE включены:</strong> оверлей сохраняет и загружает нужный слот, не переключая окна, и ставит игру на паузу. {keys}
+        <strong>{t('Быстрые сохранения через PINE включены:')}</strong> {t('оверлей сохраняет и загружает нужный слот, не переключая окна, и ставит игру на паузу.')} {keys}
       </div>
     )
   }
   return (
     <ActionRow
-      label="Быстрые сохранения через PINE"
-      hint={`Сейчас оверлей переключается в игру и нажимает горячие клавиши. С PINE — точные слоты и пауза игры. ${keys} PCSX2 должен быть закрыт.`}
-      button="Включить PINE"
+      label={t('Быстрые сохранения через PINE')}
+      hint={t('Сейчас оверлей переключается в игру и нажимает горячие клавиши. С PINE — точные слоты и пауза игры. {keys} PCSX2 должен быть закрыт.', { keys })}
+      button={t('Включить PINE')}
       onClick={enable}
     />
   )
@@ -794,39 +821,38 @@ function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT
         <IconTrophy /> RetroAchievements <span className="panel-sub">PS2</span>
       </h2>
       <div className="note">
-        Те же трофеи, что выдаёт PCSX2 после входа в RetroAchievements. Ключ: retroachievements.org → Settings → Keys → Web API Key. Игра
-        определяется по образу диска; если образ модифицирован — её можно выбрать вручную в списке трофеев.
+        {t('Те же трофеи, что выдаёт PCSX2 после входа в RetroAchievements. Ключ: retroachievements.org → Settings → Keys → Web API Key. Игра определяется по образу диска; если образ модифицирован — её можно выбрать вручную в списке трофеев.')}
       </div>
-      <Field label="Логин RetroAchievements" value={s.raUser} placeholder="Не указан" onCommit={(v) => save({ raUser: v.trim() })} />
-      <Field label="Web API Key" value={s.raKey} placeholder="Не указан" onCommit={(v) => save({ raKey: v.trim() })} mono />
+      <Field label={t('Логин RetroAchievements')} value={s.raUser} placeholder={t('Не указан')} onCommit={(v) => save({ raUser: v.trim() })} />
+      <Field label="Web API Key" value={s.raKey} placeholder={t('Не указан')} onCommit={(v) => save({ raKey: v.trim() })} mono />
 
       <h2 className="panel-title">
         <IconTrophy /> Steam <span className="panel-sub">PC</span>
       </h2>
       <div className="note">
-        Ключ: steamcommunity.com/dev/apikey (бесплатно, домен можно указать любой). В настройках приватности Steam откройте «Сведения об играх».
-        Steam AppID игры подхватывается сам по файлам игры или при выборе арта из Steam.
+        {t('Ключ: steamcommunity.com/dev/apikey (бесплатно, домен можно указать любой). В настройках приватности Steam откройте «Сведения об играх».')}
+        {t('Steam AppID игры подхватывается сам по файлам игры или при выборе арта из Steam.')}
       </div>
-      <Field label="Ключ Steam Web API" value={s.steamKey} placeholder="Не указан" onCommit={(v) => save({ steamKey: v.trim() })} mono />
+      <Field label={t('Ключ Steam Web API')} value={s.steamKey} placeholder={t('Не указан')} onCommit={(v) => save({ steamKey: v.trim() })} mono />
       <Field
-        label="Профиль Steam"
+        label={t('Профиль Steam')}
         value={s.steamId}
-        placeholder="SteamID64, имя профиля или ссылка"
+        placeholder={t('SteamID64, имя профиля или ссылка')}
         onCommit={(v) => save({ steamId: v.trim() })}
         mono
       />
 
-      <h2 className="panel-title">Во время игры</h2>
+      <h2 className="panel-title">{t('Во время игры')}</h2>
       <Toggle
-        label="Показывать новые трофеи поверх игры"
-        hint="PlayOS проверяет трофеи раз в минуту и показывает уведомление в углу экрана"
+        label={t('Показывать новые трофеи поверх игры')}
+        hint={t('PlayOS проверяет трофеи раз в минуту и показывает уведомление в углу экрана')}
         value={s.trophyPopups}
         onChange={(v) => save({ trophyPopups: v })}
       />
       <ActionRow
-        label="Проверить подключение"
-        hint={test ? `RetroAchievements: ${test.ra}. Steam: ${test.steam}.` : 'Проверим ключи и профили'}
-        button={testing ? 'Проверяем…' : 'Проверить'}
+        label={t('Проверить подключение')}
+        hint={test ? `RetroAchievements: ${test.ra}. Steam: ${test.steam}.` : t('Проверим ключи и профили')}
+        button={testing ? t('Проверяем…') : t('Проверить')}
         onClick={check}
       />
     </>

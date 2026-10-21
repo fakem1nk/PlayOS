@@ -2,6 +2,7 @@ import { app } from 'electron'
 import electronUpdater from 'electron-updater'
 import type { UpdateState } from '@shared/types'
 import { log } from './log'
+import { t } from '@shared/i18n'
 
 /**
  * Обновления PlayOS из релизов GitHub (fakem1nk/PlayOS, см. build.publish в package.json).
@@ -70,12 +71,12 @@ export function startUpdater(onChange: (s: UpdateState) => void, beta: boolean) 
 }
 
 function friendly(msg: string) {
-  if (/ENOTFOUND|ECONN|ETIMEDOUT|net::|network/i.test(msg)) return 'Нет соединения с GitHub'
+  if (/ENOTFOUND|ECONN|ETIMEDOUT|net::|network/i.test(msg)) return t('Нет соединения с GitHub')
   // Стабильных версий ещё нет, а бета-тест выключен — GitHub отвечает, что «latest» не найден
   if (/production release|Unable to find latest/i.test(msg) && !autoUpdater.allowPrerelease)
-    return 'Стабильных версий пока нет. Ранние версии приходят, если включить бета-тест'
-  if (/404|Cannot find latest|No published versions/i.test(msg)) return 'На GitHub пока нет опубликованных версий'
-  return 'Не удалось проверить обновления'
+    return t('Стабильных версий пока нет. Ранние версии приходят, если включить бета-тест')
+  if (/404|Cannot find latest|No published versions/i.test(msg)) return t('На GitHub пока нет опубликованных версий')
+  return t('Не удалось проверить обновления')
 }
 
 /** Включили или выключили бета-тест — сразу проверяем заново с новым правилом */

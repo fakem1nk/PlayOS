@@ -4,6 +4,7 @@ import { media } from '../lib/format'
 import { dismissToast, useToasts } from '../lib/state'
 import { IconTrophy } from './Icons'
 import { Cover } from './Tile'
+import { t } from '@shared/i18n'
 
 const easeOut = [0.23, 1, 0.32, 1] as const
 
@@ -30,7 +31,7 @@ export function LaunchScreen({ game }: { game: Game }) {
           <Cover game={game} />
         </div>
         <div className="launch-title">{game.title}</div>
-        <div className="launch-status">Запуск игры</div>
+        <div className="launch-status">{t('Запуск игры')}</div>
         <div className="launch-bar">
           <span />
         </div>
@@ -45,28 +46,28 @@ export function Toasts() {
   return (
     <div className="toasts">
       <AnimatePresence initial={false}>
-        {toasts.map((t) => (
+        {toasts.map((item) => (
           <motion.div
-            key={t.id}
+            key={item.id}
             layout
-            className={`toast toast-${t.tone ?? 'info'} ${t.kind === 'trophy' ? `toast-trophy trophy-${t.tier}` : ''}`}
+            className={`toast toast-${item.tone ?? 'info'} ${item.kind === 'trophy' ? `toast-trophy trophy-${item.tier}` : ''}`}
             initial={{ opacity: 0, transform: 'translateX(110%)' }}
             animate={{ opacity: 1, transform: 'translateX(0%)' }}
             exit={{ opacity: 0, transform: 'translateX(40%)', transition: { duration: 0.2 } }}
             transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
-            onClick={() => dismissToast(t.id)}
+            onClick={() => dismissToast(item.id)}
           >
-            {t.kind === 'trophy' ? (
+            {item.kind === 'trophy' ? (
               <span className="toast-trophy-icon">
                 <IconTrophy />
               </span>
             ) : (
-              t.image && <img className="toast-img" src={media(t.image)} alt="" />
+              item.image && <img className="toast-img" src={media(item.image)} alt="" />
             )}
             <div className="toast-body">
-              {t.kind === 'trophy' && <div className="toast-eyebrow">Трофей получен</div>}
-              <div className="toast-title">{t.title}</div>
-              {t.message && <div className="toast-text">{t.message}</div>}
+              {item.kind === 'trophy' && <div className="toast-eyebrow">{t('Трофей получен')}</div>}
+              <div className="toast-title">{item.title}</div>
+              {item.message && <div className="toast-text">{item.message}</div>}
             </div>
           </motion.div>
         ))}

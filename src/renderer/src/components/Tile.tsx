@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { PLATFORM_NAMES, type Game } from '@shared/types'
 import { hueOf, media } from '../lib/format'
+import { t } from '@shared/i18n'
 
 export const PLATFORM_SHORT: Record<Game['platform'], string> = { pc: 'PC', ps2: 'PS2', ps3: 'PS3' }
 
@@ -81,7 +82,7 @@ export function Tile({ game, focused, animate, running, onClick, className = '',
       <div className="tile-art">
         <Cover game={game} animate={animate ?? focused} />
         <span className="tile-platform">{PLATFORM_SHORT[game.platform]}</span>
-        {running && <span className="tile-live" title="Запущена" />}
+        {running && <span className="tile-live" title={t('Запущена')} />}
       </div>
     </div>
   )

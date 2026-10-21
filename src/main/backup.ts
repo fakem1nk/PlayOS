@@ -2,6 +2,7 @@ import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
+import { t } from '@shared/i18n'
 
 /**
  * Копия данных PlayOS одним файлом .playos (обычный ZIP без сжатия: обложки и так сжаты).
@@ -102,12 +103,12 @@ function readZip(file: string) {
       break
     }
   }
-  if (eocd < 0) throw new Error('Файл повреждён или это не копия PlayOS')
+  if (eocd < 0) throw new Error(t('Файл повреждён или это не копия PlayOS'))
   const count = buf.readUInt16LE(eocd + 10)
   let p = buf.readUInt32LE(eocd + 16)
   const out = new Map<string, Buffer>()
   for (let i = 0; i < count; i++) {
-    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error('Файл повреждён')
+    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error(t('Файл повреждён'))
     const method = buf.readUInt16LE(p + 10)
     const csize = buf.readUInt32LE(p + 20)
     const nlen = buf.readUInt16LE(p + 28)
@@ -149,7 +150,7 @@ const stamp = () => {
 }
 
 /** Создаёт копию данных; по умолчанию — на рабочем столе. Возвращает путь к файлу. */
-export function exportData(dataDir: string, gamesCount: number, out = path.join(app.getPath('desktop'), `PlayOS-копия-${stamp()}.playos`)) {
+export function exportData(dataDir: string, gamesCount: number, out = path.join(app.getPath('desktop'), t('PlayOS-копия-{v}.playos', { v: stamp() }))) {
   const from = new RegExp(escapeRe(inJson(dataDir)), 'gi')
   const entries: { name: string; data: Buffer }[] = []
   entries.push({
@@ -174,9 +175,9 @@ export function exportData(dataDir: string, gamesCount: number, out = path.join(
 export function inspectBackup(file: string) {
   const files = readZip(file)
   const manifest = files.get('manifest.json')
-  if (!manifest) throw new Error('Это не копия данных PlayOS')
+  if (!manifest) throw new Error(t('Это не копия данных PlayOS'))
   const m = JSON.parse(manifest.toString('utf8')) as { app?: string; version?: string; createdAt?: number; games?: number }
-  if (m.app !== 'PlayOS' || !files.has('library.json')) throw new Error('Это не копия данных PlayOS')
+  if (m.app !== 'PlayOS' || !files.has('library.json')) throw new Error(t('Это не копия данных PlayOS'))
   return { version: m.version ?? '?', createdAt: m.createdAt ?? 0, games: m.games ?? 0 }
 }
 
@@ -187,7 +188,7 @@ export function inspectBackup(file: string) {
 export function importData(file: string, dataDir: string, currentGames: number) {
   const files = readZip(file)
   inspectBackup(file)
-  const safety = exportData(dataDir, currentGames, path.join(dataDir, 'backups', `до-восстановления-${stamp()}.playos`))
+  const safety = exportData(dataDir, currentGames, path.join(dataDir, 'backups', t('до-восстановления-{v}.playos', { v: stamp() })))
   fs.rmSync(path.join(dataDir, 'art'), { recursive: true, force: true })
   for (const f of fs.readdirSync(dataDir)) if (/^avatar-/.test(f)) fs.rmSync(path.join(dataDir, f), { force: true })
   const to = inJson(dataDir)

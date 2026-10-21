@@ -8,6 +8,7 @@ import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconMoon } from './Icons'
 import { LOGO_PLAY, LOGO_RING } from './Logo'
+import { t } from '@shared/i18n'
 
 /**
  * Аутро — зеркало интро:
@@ -34,7 +35,7 @@ const FALLBACK_COLORS = ['#3d8bff', '#8a5cff', '#3fd0ff']
 
 function farewell(name: string, d = new Date()) {
   const h = d.getHours()
-  return h >= 23 || h < 5 ? `Спокойной ночи, ${name}` : `До встречи, ${name}`
+  return h >= 23 || h < 5 ? t('Спокойной ночи, {name}', { name }) : t('До встречи, {name}', { name })
 }
 
 /** Итог дня: сколько сыграно сегодня и во что больше всего */
@@ -50,7 +51,7 @@ function today(games: Game[], running: RunningGame | null) {
     if (sec > 0 && (!top || sec > top.sec)) top = { title: g.title, sec }
   }
   if (!total || !top) return null
-  return `Сегодня вы играли ${playtime(total).toLowerCase()}, больше всего — в «${top.title}»`
+  return t('Сегодня вы играли {v}, больше всего — в «{title}»', { v: playtime(total).toLowerCase(), title: top.title })
 }
 
 interface Props {
@@ -140,7 +141,7 @@ export function Outro({ kind, userName, games, running, colors, onCancel }: Prop
       {kind === 'sleep' ? (
         <div className="outro-moon">
           <IconMoon />
-          <span>Спящий режим</span>
+          <span>{t('Спящий режим')}</span>
         </div>
       ) : (
         <div className="outro-center">
@@ -163,7 +164,7 @@ export function Outro({ kind, userName, games, running, colors, onCancel }: Prop
           <div className="outro-text">
             {pc ? (
               <>
-                <div className="outro-title">{kind === 'shutdown' ? 'Выключение компьютера' : 'Перезагрузка компьютера'}</div>
+                <div className="outro-title">{kind === 'shutdown' ? t('Выключение компьютера') : t('Перезагрузка компьютера')}</div>
                 <div className="outro-sub">{farewell(userName)}</div>
               </>
             ) : (
@@ -178,7 +179,7 @@ export function Outro({ kind, userName, games, running, colors, onCancel }: Prop
 
       {phase === 'show' && kind !== 'sleep' && (
         <footer className="outro-hints">
-          <Hint glyph="back" label="Отмена" />
+          <Hint glyph="back" label={t('Отмена')} />
         </footer>
       )}
     </motion.div>

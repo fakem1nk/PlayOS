@@ -36,6 +36,7 @@ import { scanSteam } from './steam'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
 import { exportData, importData, inspectBackup } from './backup'
+import { getLang, langFromLocale, setLang, t } from '@shared/i18n'
 import { dsxStatus, flashLightbar, holdLightbar, lightbarReady, pulseLightbar, startDsx, testLightbar } from './dsx'
 import { hidControllers, hidStatus, startHid } from './hid'
 import * as launcher from './launcher'
@@ -367,7 +368,7 @@ function listDisplays() {
   const primary = screen.getPrimaryDisplay().id
   return screen.getAllDisplays().map((d, i) => ({
     id: d.id,
-    name: d.label || `Экран ${i + 1}`,
+    name: d.label || t('Экран {v}', { v: i + 1 }),
     width: Math.round(d.size.width * d.scaleFactor),
     height: Math.round(d.size.height * d.scaleFactor),
     primary: d.id === primary
@@ -442,11 +443,11 @@ async function emuState(): Promise<EmuState> {
       ...NO_EMU,
       mode: key ? 'keys' : 'none',
       platform: 'ps3',
-      hint: 'Сохранение состояния RPCS3. Загрузить его можно из списка игр RPCS3.'
+      hint: t('Сохранение состояния RPCS3. Загрузить его можно из списка игр RPCS3.')
     }
   }
   const cfg = ctx.cfg
-  if (!cfg) return { ...NO_EMU, platform: 'ps2', hint: 'Не найдена папка данных PCSX2' }
+  if (!cfg) return { ...NO_EMU, platform: 'ps2', hint: t('Не найдена папка данных PCSX2') }
   let serial = ctx.game.serial
   let mode: EmuState['mode'] = 'keys'
   if (cfg.pineEnabled) {
@@ -464,7 +465,7 @@ async function emuState(): Promise<EmuState> {
     current: keySlot,
     canLoad: true,
     paused: frozen.length > 0,
-    hint: mode === 'keys' ? 'Включите PINE в настройках PlayOS — сохранения будут работать, не переключая окна' : undefined
+    hint: mode === 'keys' ? t('Включите PINE в настройках PlayOS — сохранения будут работать, не переключая окна') : undefined
   }
 }
 
@@ -503,14 +504,14 @@ async function viaKeys(action: (cfg: Pcsx2Config | null) => Promise<boolean>): P
 
 async function saveState(slot: number): Promise<EmuActionResult> {
   const ctx = emuContext()
-  if (!ctx) return { ok: false, message: 'Игра не запущена' }
+  if (!ctx) return { ok: false, message: t('Игра не запущена') }
   if (ctx.game.platform === 'ps3') {
     const key = getDb().settings.rpcs3SaveKey
     const ok = await viaKeys(async () => pressCombo(key))
-    return { ok, message: ok ? 'Состояние сохраняется' : 'Окно RPCS3 не получило фокус', resumed: true }
+    return { ok, message: ok ? t('Состояние сохраняется') : t('Окно RPCS3 не получило фокус'), resumed: true }
   }
   const cfg = ctx.cfg
-  if (!cfg) return { ok: false, message: 'Не найдена папка данных PCSX2' }
+  if (!cfg) return { ok: false, message: t('Не найдена папка данных PCSX2') }
   if (cfg.pineEnabled) {
     const saved = await thawed(async () => {
       const serial = (await pineGameId(cfg.pinePort)) ?? ctx.game.serial
@@ -523,27 +524,27 @@ async function saveState(slot: number): Promise<EmuActionResult> {
       }
       return true
     })
-    if (saved) return { ok: true, message: `Сохранено в слот ${slot}` }
+    if (saved) return { ok: true, message: t('Сохранено в слот {slot}', { slot }) }
   }
   const ok = await viaKeys(async (c) => {
     await selectSlotByKeys(c!, slot)
     return pressCombo(c!.keys.save!)
   })
-  return { ok, message: ok ? `Сохранено в слот ${slot}` : 'Окно PCSX2 не получило фокус', resumed: true }
+  return { ok, message: ok ? t('Сохранено в слот {slot}', { slot }) : t('Окно PCSX2 не получило фокус'), resumed: true }
 }
 
 async function loadState(slot: number): Promise<EmuActionResult> {
   const cfg = emuContext()?.cfg
-  if (!cfg) return { ok: false, message: 'Загрузка доступна только для PS2' }
+  if (!cfg) return { ok: false, message: t('Загрузка доступна только для PS2') }
   if (cfg.pineEnabled && (await thawed(() => pineLoad(cfg.pinePort, slot)))) {
     await closeOverlay('game')
-    return { ok: true, message: `Загружен слот ${slot}`, resumed: true }
+    return { ok: true, message: t('Загружен слот {slot}', { slot }), resumed: true }
   }
   const ok = await viaKeys(async (c) => {
     await selectSlotByKeys(c!, slot)
     return pressCombo(c!.keys.load!)
   })
-  return { ok, message: ok ? `Загружен слот ${slot}` : 'Окно PCSX2 не получило фокус', resumed: true }
+  return { ok, message: ok ? t('Загружен слот {slot}', { slot }) : t('Окно PCSX2 не получило фокус'), resumed: true }
 }
 
 function pcsx2Info(): Pcsx2Info {
@@ -554,15 +555,15 @@ function pcsx2Info(): Pcsx2Info {
 
 function enablePine() {
   const cfg = pcsx2Config(getDb().settings.pcsx2Path)
-  if (!cfg) return { ok: false, message: 'Не найдена папка данных PCSX2. Запустите PCSX2 хотя бы раз.' }
+  if (!cfg) return { ok: false, message: t('Не найдена папка данных PCSX2. Запустите PCSX2 хотя бы раз.') }
   if (listProcesses().some((p) => path.basename(p.path).toLowerCase().startsWith('pcsx2'))) {
-    return { ok: false, message: 'Закройте PCSX2 и попробуйте снова — он перезаписывает настройки при выходе.' }
+    return { ok: false, message: t('Закройте PCSX2 и попробуйте снова — он перезаписывает настройки при выходе.') }
   }
   try {
     enablePineInIni(cfg.dataDir)
-    return { ok: true, message: 'PINE включён. Быстрые сохранения будут работать без переключения окон.' }
+    return { ok: true, message: t('PINE включён. Быстрые сохранения будут работать без переключения окон.') }
   } catch (e) {
-    return { ok: false, message: `Не удалось изменить PCSX2.ini: ${(e as Error).message}` }
+    return { ok: false, message: t('Не удалось изменить PCSX2.ini: {v}', { v: (e as Error).message }) }
   }
 }
 
@@ -570,13 +571,14 @@ function enablePine() {
 
 const ART_FIELDS = ['cover', 'coverAnimated', 'hero', 'logo', 'icon'] as const
 
-const ART_NAMES: Record<(typeof ART_FIELDS)[number], string> = {
-  cover: 'обложка',
-  coverAnimated: 'анимированная обложка',
-  hero: 'фон',
-  logo: 'логотип',
-  icon: 'иконка'
-}
+// Функции, а не константы: язык может смениться, пока PlayOS запущен
+const artNames = (): Record<(typeof ART_FIELDS)[number], string> => ({
+  cover: t('обложка'),
+  coverAnimated: t('анимированная обложка'),
+  hero: t('фон'),
+  logo: t('логотип'),
+  icon: t('иконка')
+})
 
 interface SaveOptions {
   signal?: AbortSignal
@@ -617,7 +619,7 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
         throw new Error('cancelled')
       } else {
         // Сервер не ответил — сохраняем игру без этого файла (или со старым артом)
-        failed.push(ART_NAMES[field])
+        failed.push(artNames()[field])
         if (existing?.[field] && !media.isRemote(existing[field])) game[field] = existing[field]
         else delete game[field]
       }
@@ -626,7 +628,7 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
     }
   }
   if (failed.length && !opts.quiet) {
-    toast('Часть арта не скачалась', `${failed.join(', ')}: сервер не ответил. Попробуйте ещё раз в редакторе игры или выберите другой источник.`)
+    toast(t('Часть арта не скачалась'), t('{v}: сервер не ответил. Попробуйте ещё раз в редакторе игры или выберите другой источник.', { v: failed.join(', ') }))
   }
   for (const key of ['args', 'workDir', 'customCommand', 'trackProcess', 'serial'] as const) {
     if (!game[key]?.trim()) delete game[key]
@@ -681,11 +683,11 @@ function walk(dir: string, exts: string[], depth = 3, out: string[] = []) {
 }
 
 async function scanPs2Folder() {
-  const res = await dialog.showOpenDialog(win!, { title: 'Папка с играми PS2', properties: ['openDirectory'] })
+  const res = await dialog.showOpenDialog(win!, { title: t('Папка с играми PS2'), properties: ['openDirectory'] })
   if (res.canceled || !res.filePaths[0]) return 0
   const known = knownPaths()
   const files = walk(res.filePaths[0], media.PS2_EXTENSIONS).filter((f) => !known.has(f.toLowerCase()))
-  toast('Сканирование', `Найдено новых образов: ${files.length}`)
+  toast(t('Сканирование'), t('Найдено новых образов: {length}', { length: files.length }))
   let added = 0
   // Небольшими пачками, чтобы не забивать сеть при загрузке обложек
   for (let i = 0; i < files.length; i += 4) {
@@ -702,7 +704,7 @@ async function scanPs2Folder() {
 
 async function importRpcs3() {
   const { rpcs3Path } = getDb().settings
-  if (!rpcs3Path || !fs.existsSync(rpcs3Path)) throw new Error('Сначала укажите путь к rpcs3.exe в настройках')
+  if (!rpcs3Path || !fs.existsSync(rpcs3Path)) throw new Error(t('Сначала укажите путь к rpcs3.exe в настройках'))
   const root = path.dirname(rpcs3Path)
   const targets = new Set<string>()
   for (const yml of [path.join(root, 'config', 'games.yml'), path.join(root, 'games.yml')]) {
@@ -728,22 +730,22 @@ async function importRpcs3() {
   return added
 }
 
-const PICK_FILTERS: Record<PickKind, Electron.OpenDialogOptions> = {
-  exe: { title: 'Выберите игру', filters: [{ name: 'Игры и ярлыки', extensions: ['exe', 'lnk', 'bat', 'cmd', 'url'] }] },
-  ps2: { title: 'Образ PS2', filters: [{ name: 'Образы PS2', extensions: media.PS2_EXTENSIONS.map((e) => e.slice(1)) }] },
+const pickFilters = (): Record<PickKind, Electron.OpenDialogOptions> => ({
+  exe: { title: t('Выберите игру'), filters: [{ name: t('Игры и ярлыки'), extensions: ['exe', 'lnk', 'bat', 'cmd', 'url'] }] },
+  ps2: { title: t('Образ PS2'), filters: [{ name: t('Образы PS2'), extensions: media.PS2_EXTENSIONS.map((e) => e.slice(1)) }] },
   ps3: {
-    title: 'EBOOT.BIN или образ PS3',
+    title: t('EBOOT.BIN или образ PS3'),
     filters: [
-      { name: 'Игры PS3', extensions: ['bin', 'BIN', 'iso', 'self', 'elf'] },
-      { name: 'Все файлы', extensions: ['*'] }
+      { name: t('Игры PS3'), extensions: ['bin', 'BIN', 'iso', 'self', 'elf'] },
+      { name: t('Все файлы'), extensions: ['*'] }
     ]
   },
-  ps3folder: { title: 'Папка игры PS3', properties: ['openDirectory'] },
-  image: { title: 'Изображение', filters: [{ name: 'Изображения', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }] },
-  emulator: { title: 'Исполняемый файл эмулятора', filters: [{ name: 'Программы', extensions: ['exe'] }] },
-  folder: { title: 'Папка', properties: ['openDirectory'] },
-  backup: { title: 'Копия данных PlayOS', filters: [{ name: 'Копия PlayOS', extensions: ['playos'] }] }
-}
+  ps3folder: { title: t('Папка игры PS3'), properties: ['openDirectory'] },
+  image: { title: t('Изображение'), filters: [{ name: t('Изображения'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }] },
+  emulator: { title: t('Исполняемый файл эмулятора'), filters: [{ name: t('Программы'), extensions: ['exe'] }] },
+  folder: { title: t('Папка'), properties: ['openDirectory'] },
+  backup: { title: t('Копия данных PlayOS'), filters: [{ name: t('Копия PlayOS'), extensions: ['playos'] }] }
+})
 
 /** Видео для живого фона: отдаём кусками по Range, иначе <video> не умеет перематывать и зацикливать */
 function serveVideo(file: string, range: string | null) {
@@ -774,6 +776,14 @@ function applySettings(prev: Settings, next: Settings) {
     app.setLoginItemSettings({ openAtLogin: next.launchOnStartup })
   }
   if (prev.betaUpdates !== next.betaUpdates) setBetaUpdates(next.betaUpdates)
+  // Сменили язык — перезагружаем окна: тексты собираются при загрузке интерфейса
+  if (prev.language !== next.language) {
+    setLang(next.language)
+    setTimeout(() => {
+      win?.webContents.reload()
+      overlay?.webContents.reload()
+    }, 150)
+  }
   // Выбрали другой экран — переезжаем сразу
   if (prev.displayId !== next.displayId) moveToTargetDisplay()
   // Подсветку включили или выключили посреди игры
@@ -841,8 +851,8 @@ function checkBattery(st: PadStatus) {
   if (!low || charging || !st.connected || batteryWarned) return
   batteryWarned = true
   if (!getDb().settings.lowBatteryWarning) return
-  const left = st.percent !== undefined ? `Осталось ${st.percent}%.` : 'Заряд почти закончился.'
-  const notice: SystemNotice = { kind: 'battery', title: 'Геймпад разряжается', message: `${left} Подключите зарядку, чтобы не прерывать игру.` }
+  const left = st.percent !== undefined ? t('Осталось {percent}%.', { percent: st.percent }) : t('Заряд почти закончился.')
+  const notice: SystemNotice = { kind: 'battery', title: t('Геймпад разряжается'), message: t('{left} Подключите зарядку, чтобы не прерывать игру.', { left }) }
   if (launcher.running()) showOverlayNotice(notice)
   else toast(notice.title, notice.message)
   // Красная пульсация световой панели DualSense (через DSX)
@@ -863,8 +873,8 @@ function checkBreakReminder() {
     const game = findGame(r.gameId)
     const played = due * hours
     new Notification({
-      title: 'Время сделать перерыв',
-      body: `Вы играете в «${game?.title ?? 'игру'}» уже ${played} ч. Разомнитесь и отдохните глазам.`
+      title: t('Время сделать перерыв'),
+      body: t('Вы играете в «{game}» уже {hours} ч. Разомнитесь и отдохните глазам.', { game: game?.title ?? t('игру'), hours: played })
     }).show()
   }
 }
@@ -976,7 +986,7 @@ function controllers(): ControllerInfo[] {
       skipXinput--
       continue
     }
-    list.push({ id: `x${i}`, name: `Геймпад Xbox ${i + 1}`, kind: 'xbox', via: 'XInput', battery: readBattery(i) })
+    list.push({ id: `x${i}`, name: t('Геймпад Xbox {v}', { v: i + 1 }), kind: 'xbox', via: 'XInput', battery: readBattery(i) })
   }
   return list
 }
@@ -1034,7 +1044,7 @@ function registerIpc() {
   })
   ipcMain.handle('game:launch', async (_e, id: string) => {
     const game = findGame(id)
-    if (!game) return { ok: false, error: 'Игра не найдена' }
+    if (!game) return { ok: false, error: t('Игра не найдена') }
     const res = await launcher.launchGame(game, getDb().settings)
     log(res.ok ? 'INFO' : 'WARN', `Запуск «${game.title}» (${game.platform})${res.ok ? '' : `: ${res.error}`}`)
     if (res.ok) {
@@ -1152,7 +1162,7 @@ function registerIpc() {
   })
   ipcMain.handle('ach:test', () => ach.testAccounts())
   ipcMain.handle('dialog:pick', async (_e, kind: PickKind) => {
-    const opts = PICK_FILTERS[kind]
+    const opts = pickFilters()[kind]
     const res = await dialog.showOpenDialog(win!, { properties: ['openFile'], ...opts })
     return res.canceled ? null : (res.filePaths[0] ?? null)
   })
@@ -1228,7 +1238,7 @@ function dataUsage() {
 
 /** Сведения для окна «О системе» */
 async function systemInfo(): Promise<SystemInfo> {
-  let gpu = 'Не удалось определить'
+  let gpu = t('Не удалось определить')
   try {
     const info = (await app.getGPUInfo('complete')) as { auxAttributes?: { glRenderer?: string } }
     // «ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)» → «NVIDIA GeForce RTX 3070»
@@ -1258,7 +1268,7 @@ async function systemInfo(): Promise<SystemInfo> {
     gpu,
     memory: { total: os.totalmem(), free: os.freemem() },
     displays: screen.getAllDisplays().map((d, i) => ({
-      name: d.label || `Экран ${i + 1}`,
+      name: d.label || t('Экран {v}', { v: i + 1 }),
       width: Math.round(d.size.width * d.scaleFactor),
       height: Math.round(d.size.height * d.scaleFactor),
       hz: Math.round(d.displayFrequency),
@@ -1286,7 +1296,7 @@ function ensureStartMenuShortcut() {
       target: process.execPath,
       cwd: path.dirname(process.execPath),
       appUserModelId: APP_ID,
-      description: 'PlayOS — игровой лаунчер'
+      description: t('PlayOS — игровой лаунчер')
     })
   } catch {
     /* без ярлыка уведомления просто будут без имени */
@@ -1313,8 +1323,13 @@ function backfillAccents() {
 
 app.on('second-instance', () => bringToFront())
 
+ipcMain.on('lang:get', (e) => (e.returnValue = getLang()))
+
 app.whenReady().then(() => {
   loadDb()
+  // Первый запуск: язык интерфейса — по языку Windows
+  if (!getDb().settings.language) getDb().settings.language = langFromLocale(app.getLocale())
+  setLang(getDb().settings.language)
   launcher.recoverSession()
 
   protocol.handle('pcs', (req) => {
@@ -1387,7 +1402,7 @@ app.whenReady().then(() => {
   // Прошлый запуск упал — подсказываем, где взять отчёт (после интро, один раз)
   if (lastRunCrashed()) {
     win?.webContents.once('did-finish-load', () =>
-      setTimeout(() => toast('PlayOS в прошлый раз закрылся с ошибкой', 'Если это повторяется, сохраните отчёт: Настройки → Система → «Сохранить отчёт об ошибках».'), 6000)
+      setTimeout(() => toast(t('PlayOS в прошлый раз закрылся с ошибкой'), t('Если это повторяется, сохраните отчёт: Настройки → Система → «Сохранить отчёт об ошибках».')), 6000)
     )
   }
 })

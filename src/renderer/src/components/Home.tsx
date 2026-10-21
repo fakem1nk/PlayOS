@@ -7,14 +7,15 @@ import { useNow } from '../lib/state'
 import { play } from '../lib/sound'
 import { IconDice, IconDots, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
 import { Tile } from './Tile'
+import { t } from '@shared/i18n'
 
 type RowItem = { kind: 'game'; game: Game } | { kind: 'library' } | { kind: 'random' } | { kind: 'add' }
 type SpecialKind = Exclude<RowItem['kind'], 'game'>
 
 const SPECIAL: Record<SpecialKind, { label: string; title: string; sub: string; action: string }> = {
-  library: { label: 'Библиотека', title: 'Библиотека игр', sub: '', action: 'Открыть библиотеку' },
-  random: { label: 'Случайная', title: 'Случайная игра', sub: 'Не можете выбрать? PlayOS выберет за вас', action: 'Выбрать случайно' },
-  add: { label: 'Добавить', title: 'Добавить игру', sub: 'EXE с компьютера, образ PS2 для PCSX2 или игра PS3 для RPCS3', action: 'Добавить игру' }
+  library: { label: t('Библиотека'), title: t('Библиотека игр'), sub: '', action: t('Открыть библиотеку') },
+  random: { label: t('Случайная'), title: t('Случайная игра'), sub: t('Не можете выбрать? PlayOS выберет за вас'), action: t('Выбрать случайно') },
+  add: { label: t('Добавить'), title: t('Добавить игру'), sub: t('EXE с компьютера, образ PS2 для PCSX2 или игра PS3 для RPCS3'), action: t('Добавить игру') }
 }
 
 // Размеры в rem (1rem = 1/108 высоты экрана)
@@ -97,13 +98,13 @@ export function Home(props: Props) {
     if (item.kind !== 'game') return [{ id: item.kind, label: SPECIAL[item.kind].action }]
     if (isRunning)
       return [
-        { id: 'resume', label: 'Вернуться в игру' },
-        { id: 'close', label: 'Закрыть игру' },
+        { id: 'resume', label: t('Вернуться в игру') },
+        { id: 'close', label: t('Закрыть игру') },
         { id: 'info', label: '' },
         { id: 'menu', label: '' }
       ]
     return [
-      { id: 'play', label: 'Играть' },
+      { id: 'play', label: t('Играть') },
       { id: 'info', label: '' },
       { id: 'menu', label: '' }
     ]
@@ -213,7 +214,7 @@ export function Home(props: Props) {
 
   return (
     <div className="home">
-      <div className="row" aria-label="Игры">
+      <div className="row" aria-label={t('Игры')}>
         {items.slice(from, to).map((it, k) => {
           const i = from + k
           const focused = i === idx
@@ -267,7 +268,7 @@ export function Home(props: Props) {
             <div className="info-head">
               <h1 className="info-title">{SPECIAL[item.kind].title}</h1>
               <p className="info-sub">
-                {item.kind === 'library' ? `${gamesCount(games.length)}: PC, PlayStation 2 и PlayStation 3` : SPECIAL[item.kind].sub}
+                {item.kind === 'library' ? t('{v}: PC, PlayStation 2 и PlayStation 3', { v: gamesCount(games.length) }) : SPECIAL[item.kind].sub}
               </p>
             </div>
           )}
@@ -283,7 +284,7 @@ export function Home(props: Props) {
                 className={`btn ${primary ? 'btn-primary' : a.label ? 'btn-glass' : 'btn-round'} ${focused ? 'is-focused' : ''}`}
                 onClick={() => activate(a.id)}
                 tabIndex={-1}
-                aria-label={a.label || (a.id === 'info' ? 'Об игре' : 'Параметры игры')}
+                aria-label={a.label || (a.id === 'info' ? t('Об игре') : t('Параметры игры'))}
               >
                 {a.id === 'play' && <IconPlay />}
                 {a.label || (a.id === 'info' ? <IconInfo /> : <IconDots />)}
@@ -313,28 +314,28 @@ function GameInfo({ game, running, trophies }: { game: Game; running: RunningGam
       </div>
       <dl className="stats">
         <div className="stat">
-          <dt>Наиграно</dt>
+          <dt>{t('Наиграно')}</dt>
           <dd>{playtime(game.playtime + (running ? Math.floor((now - running.startedAt) / 1000) : 0))}</dd>
         </div>
         <div className="stat">
-          <dt>{running ? 'Текущая сессия' : 'Последний запуск'}</dt>
+          <dt>{running ? t('Текущая сессия') : t('Последний запуск')}</dt>
           <dd>{running ? <span className="live-text">{timer(now - running.startedAt)}</span> : lastPlayed(game.lastPlayed)}</dd>
         </div>
         <div className="stat">
-          <dt>Платформа</dt>
+          <dt>{t('Платформа')}</dt>
           <dd>{PLATFORM_NAMES[game.platform]}</dd>
         </div>
         {trophies && trophies.total > 0 && (
           <div className="stat">
-            <dt>Трофеи</dt>
+            <dt>{t('Трофеи')}</dt>
             <dd>
-              {trophies.earned} из {trophies.total}
+              {t('{earned} из {total}', { earned: trophies.earned, total: trophies.total })}
             </dd>
           </div>
         )}
         {sessions > 0 && !running && !trophies && (
           <div className="stat">
-            <dt>Сессий</dt>
+            <dt>{t('Сессий')}</dt>
             <dd>{sessions}</dd>
           </div>
         )}

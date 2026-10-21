@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { ArtCandidate, InspectResult, Platform } from '@shared/types'
 import { httpFetch } from './http'
+import { t } from '@shared/i18n'
 
 // ───────────────────────── Общие утилиты ─────────────────────────
 
@@ -426,7 +427,7 @@ export async function discCandidate(platform: Platform, serial?: string): Promis
   if (!serial) return undefined
   if (platform === 'ps2') {
     const url = PS2_COVER(serial)
-    return (await exists(url)) ? { key: `disc-${serial}`, source: 'disc', title: `Обложка диска ${serial}`, cover: url } : undefined
+    return (await exists(url)) ? { key: `disc-${serial}`, source: 'disc', title: t('Обложка диска {serial}', { serial }), cover: url } : undefined
   }
   if (platform === 'ps3') {
     const id = serial.replace(/[^A-Z0-9]/gi, '').toUpperCase()
@@ -435,7 +436,7 @@ export async function discCandidate(platform: Platform, serial?: string): Promis
     for (const r of region) {
       for (const kind of ['coverHQ', 'cover']) {
         const url = `https://art.gametdb.com/ps3/${kind}/${r}/${id}.jpg`
-        if (await exists(url)) return { key: `disc-${id}`, source: 'disc', title: `Обложка диска ${id}`, cover: url }
+        if (await exists(url)) return { key: `disc-${id}`, source: 'disc', title: t('Обложка диска {id}', { id }), cover: url }
       }
     }
   }
@@ -449,13 +450,13 @@ export async function discCandidate(platform: Platform, serial?: string): Promis
  * Нужен бесплатный ключ API: steamgriddb.com → Preferences → API.
  */
 export async function searchSteamGridDB(query: string, key: string): Promise<ArtCandidate[]> {
-  if (!key.trim()) throw new Error('Добавьте ключ SteamGridDB в настройках (раздел «Обложки»)')
+  if (!key.trim()) throw new Error(t('Добавьте ключ SteamGridDB в настройках (раздел «Обложки»)'))
   const api = async (p: string) => {
     const r = await httpFetch(`https://www.steamgriddb.com/api/v2${p}`, {
       headers: { Authorization: `Bearer ${key.trim()}` },
       signal: AbortSignal.timeout(10000)
     })
-    if (r.status === 401) throw new Error('SteamGridDB не принял ключ API. Проверьте его в настройках.')
+    if (r.status === 401) throw new Error(t('SteamGridDB не принял ключ API. Проверьте его в настройках.'))
     const j = (await r.json()) as { success: boolean; data?: unknown }
     return j.success ? j.data : null
   }

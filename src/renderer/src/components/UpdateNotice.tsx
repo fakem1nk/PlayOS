@@ -7,6 +7,7 @@ import { downloadText, updateHighlights, useUpdate } from '../lib/update'
 import { Hint } from './Glyph'
 import { IconDownload } from './Icons'
 import { LogoMark } from './Logo'
+import { t } from '@shared/i18n'
 
 /** Версия, которую отложили «на потом»: до перезапуска PlayOS больше не спрашиваем */
 let postponed = ''
@@ -43,10 +44,10 @@ export function UpdateNotice({ blocked, booting }: { blocked: boolean; booting: 
               <IconDownload />
             </span>
             <div className="upd-card-body">
-              <div className="upd-card-title">Скачивается PlayOS {u.version}</div>
+              <div className="upd-card-title">{t('Скачивается PlayOS {v}', { v: u.version })}</div>
               <div className="upd-card-meta">
                 {downloadText(u)}
-                <span>можно играть дальше</span>
+                <span>{t('можно играть дальше')}</span>
               </div>
               <div className="upd-bar">
                 <span style={{ transform: `scaleX(${(u.percent ?? 0) / 100})` }} />
@@ -95,8 +96,8 @@ function ReadyDialog({ version, current, notes, onLater }: { version: string; cu
         <header className="upd-head">
           <LogoMark className="upd-logo" />
           <div>
-            <h2 id="upd-title">PlayOS {version} готова</h2>
-            <p>Обновление скачано. Сейчас у вас {current}</p>
+            <h2 id="upd-title">{t('PlayOS {v} готова', { v: version })}</h2>
+            <p>{t('Обновление скачано. Сейчас у вас {v}', { v: current })}</p>
           </div>
         </header>
         {items.length > 0 && (
@@ -106,15 +107,15 @@ function ReadyDialog({ version, current, notes, onLater }: { version: string; cu
             ))}
           </ul>
         )}
-        <p className="upd-note">Перезапуск займёт около минуты. Если отложить, обновление установится само, когда вы выйдете из PlayOS.</p>
+        <p className="upd-note">{t('Перезапуск займёт около минуты. Если отложить, обновление установится само, когда вы выйдете из PlayOS.')}</p>
         <footer className="upd-actions">
-          <Hint glyph="back" label="Позже" />
+          <Hint glyph="back" label={t('Позже')} />
           <span className="upd-buttons">
             <button data-nav className="btn btn-glass" onClick={onLater}>
-              Позже
+              {t('Позже')}
             </button>
             <button data-nav className="btn btn-primary upd-now" onClick={installNow}>
-              Обновить сейчас
+              {t('Обновить сейчас')}
             </button>
           </span>
         </footer>

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Game, SteamLibraryGame } from '@shared/types'
 import { httpFetch } from './http'
+import { t } from '@shared/i18n'
 
 /**
  * Установленные игры Steam: папки библиотек из libraryfolders.vdf, игры — из appmanifest_*.acf.
@@ -68,7 +69,7 @@ async function markSoftware(list: SteamLibraryGame[]) {
 
 export async function scanSteam(games: Game[]): Promise<SteamLibraryGame[]> {
   const root = await steamRoot()
-  if (!root) throw new Error('Steam не найден. Установите клиент Steam или добавьте игры вручную.')
+  if (!root) throw new Error(t('Steam не найден. Установите клиент Steam или добавьте игры вручную.'))
   const folders = new Set<string>([root])
   try {
     const lib = parseVdf(fs.readFileSync(path.join(root, 'steamapps', 'libraryfolders.vdf'), 'utf8'))
