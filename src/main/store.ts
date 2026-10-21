@@ -48,7 +48,8 @@ const defaultSettings = (): Settings => ({
   gameTint: true,
   displayId: 0,
   displayLabel: '',
-  onboarded: false
+  onboarded: false,
+  betaUpdates: false
 })
 
 export const dataDir = () => app.getPath('userData')

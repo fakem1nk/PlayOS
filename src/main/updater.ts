@@ -37,15 +37,15 @@ function notesOf(n: unknown) {
 
 export const updateState = () => state
 
-export function startUpdater(onChange: (s: UpdateState) => void) {
+export function startUpdater(onChange: (s: UpdateState) => void, beta: boolean) {
   notify = onChange
   state = { phase: app.isPackaged ? 'idle' : 'dev', current: app.getVersion() }
   if (!app.isPackaged) return
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
-  // Пока PlayOS выходит ранними версиями (pre-release на GitHub) — без этого они не видны
-  autoUpdater.allowPrerelease = true
+  // Ранние версии (pre-release на GitHub) — только тем, кто участвует в бета-тесте
+  autoUpdater.allowPrerelease = beta
   autoUpdater.logger = {
     info: (m: unknown) => log('INFO', '[обновления]', m),
     warn: (m: unknown) => log('WARN', '[обновления]', m),
@@ -73,6 +73,14 @@ function friendly(msg: string) {
   if (/ENOTFOUND|ECONN|ETIMEDOUT|net::|network/i.test(msg)) return 'Нет соединения с GitHub'
   if (/404|Cannot find latest|No published versions/i.test(msg)) return 'На GitHub пока нет опубликованных версий'
   return 'Не удалось проверить обновления'
+}
+
+/** Включили или выключили бета-тест — сразу проверяем заново с новым правилом */
+export function setBetaUpdates(on: boolean) {
+  if (!app.isPackaged || autoUpdater.allowPrerelease === on) return
+  autoUpdater.allowPrerelease = on
+  log('INFO', `[обновления] бета-тест ${on ? 'включён' : 'выключен'}`)
+  void checkForUpdates()
 }
 
 export async function checkForUpdates() {

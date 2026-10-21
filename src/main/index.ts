@@ -34,7 +34,7 @@ import { fromHex, gameAccent, PLATFORM_COLOR } from './color'
 import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam } from './steam'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
-import { checkForUpdates, installUpdate, startUpdater, updateState } from './updater'
+import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
 import { exportData, importData, inspectBackup } from './backup'
 import { dsxStatus, flashLightbar, holdLightbar, lightbarReady, pulseLightbar, startDsx, testLightbar } from './dsx'
 import { hidControllers, hidStatus, startHid } from './hid'
@@ -773,6 +773,7 @@ function applySettings(prev: Settings, next: Settings) {
   if (app.isPackaged && prev.launchOnStartup !== next.launchOnStartup) {
     app.setLoginItemSettings({ openAtLogin: next.launchOnStartup })
   }
+  if (prev.betaUpdates !== next.betaUpdates) setBetaUpdates(next.betaUpdates)
   // Выбрали другой экран — переезжаем сразу
   if (prev.displayId !== next.displayId) moveToTargetDisplay()
   // Подсветку включили или выключили посреди игры
@@ -1326,7 +1327,7 @@ app.whenReady().then(() => {
 
   registerIpc()
   createWindow()
-  startUpdater((st) => send('update-state', st))
+  startUpdater((st) => send('update-state', st), getDb().settings.betaUpdates)
   // Проснулись после сна — интерфейс убирает затемнение «Спящий режим»
   powerMonitor.on('resume', () => {
     sendTo(win, 'power-resume')

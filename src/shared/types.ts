@@ -106,6 +106,8 @@ export interface Settings {
   displayLabel: string
   /** Мастер первого запуска пройден */
   onboarded: boolean
+  /** Бета-тест: получать и ранние версии (pre-release на GitHub) */
+  betaUpdates: boolean
 }
 
 /** Состояние обновлений PlayOS */

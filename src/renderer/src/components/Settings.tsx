@@ -451,6 +451,12 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               </h2>
               <SystemInfoRow version={state.version} />
               <UpdateRow version={state.version} />
+              <Toggle
+                label="Участвовать в бета-тесте"
+                hint="Получать ранние версии PlayOS раньше всех. В них больше нового, но возможны ошибки. Если выключить, обновления будут приходить только со стабильными версиями."
+                value={s.betaUpdates}
+                onChange={(v) => save({ betaUpdates: v })}
+              />
             </>
           )}
         </motion.section>

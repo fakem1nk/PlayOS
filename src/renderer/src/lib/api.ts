@@ -95,7 +95,8 @@ function createMockApi(): PcsApi {
       gameTint: true,
       displayId: 0,
       displayLabel: '',
-      onboarded: new URLSearchParams(location.search).has('welcome') ? false : true
+      onboarded: new URLSearchParams(location.search).has('welcome') ? false : true,
+      betaUpdates: false
     },
     running: null,
     dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\pcstation',
