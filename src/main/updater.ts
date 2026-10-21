@@ -71,6 +71,9 @@ export function startUpdater(onChange: (s: UpdateState) => void, beta: boolean) 
 
 function friendly(msg: string) {
   if (/ENOTFOUND|ECONN|ETIMEDOUT|net::|network/i.test(msg)) return 'Нет соединения с GitHub'
+  // Стабильных версий ещё нет, а бета-тест выключен — GitHub отвечает, что «latest» не найден
+  if (/production release|Unable to find latest/i.test(msg) && !autoUpdater.allowPrerelease)
+    return 'Стабильных версий пока нет. Ранние версии приходят, если включить бета-тест'
   if (/404|Cannot find latest|No published versions/i.test(msg)) return 'На GitHub пока нет опубликованных версий'
   return 'Не удалось проверить обновления'
 }
