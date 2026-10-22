@@ -43,14 +43,10 @@ html.overlay-mode #root {
   font-weight: 500;
 }
 
-.ov-brand svg {
-  width: 3.6rem;
-  height: 3.6rem;
-  fill: none;
-  stroke: #fff;
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.ov-brand .wordmark {
+  height: 3rem;
+  color: #fff;
+  filter: drop-shadow(0 0 1.2rem rgba(190, 215, 255, 0.35));
 }
 
 .ov-status {

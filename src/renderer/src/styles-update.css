@@ -281,3 +281,10 @@
   font-size: 1.2rem;
   box-shadow: inset 0 -0.2rem 0 rgba(0, 0, 0, 0.35);
 }
+
+/* Название в окне «О системе» */
+.si-wordmark {
+  height: 3.4rem;
+  color: #fff;
+  vertical-align: middle;
+}

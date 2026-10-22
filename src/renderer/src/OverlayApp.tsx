@@ -4,7 +4,7 @@ import { PLATFORM_NAMES, type Achievement, type EmuState, type SaveSlot, type Sy
 import { ControlCenterRow, useControlCenter } from './components/ControlCenter'
 import { GlyphStyleContext, Hint } from './components/Glyph'
 import { IconBattery, IconCheck, IconClose, IconHome, IconPlay, IconPlug, IconTrophy } from './components/Icons'
-import { LogoMark, Wordmark } from './components/Logo'
+import { Wordmark } from './components/Logo'
 import { Cover } from './components/Tile'
 import { api } from './lib/api'
 import { accentOf, clock, DEFAULT_ACCENT, media, playtime, timer } from './lib/format'
@@ -264,7 +264,6 @@ export function OverlayApp() {
 
             <header className="ov-top">
               <div className="ov-brand">
-                <LogoMark />
                 <Wordmark />
               </div>
               <div className="ov-status">

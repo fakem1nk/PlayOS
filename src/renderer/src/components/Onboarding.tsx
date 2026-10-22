@@ -10,7 +10,7 @@ import { Avatar } from './Avatar'
 import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
 import { Glyph, type GlyphName } from './Glyph'
 import { IconDisc, IconDownload, IconFolder, IconImage } from './Icons'
-import { LogoMark } from './Logo'
+import { Wordmark } from './Logo'
 import { DisplayPicker } from './Settings'
 import { t } from '@shared/i18n'
 
@@ -96,10 +96,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
       <div className="wiz-frame" ref={ref}>
         <header className="wiz-top">
           <span className="wiz-brand">
-            <LogoMark className="wiz-brand-logo" />
-            <span>
-              Play<b>OS</b>
-            </span>
+            <Wordmark className="wiz-wordmark" />
           </span>
           <span className="wiz-counter">
             {t('Шаг {n} из {total}', { n: i + 1, total: STEPS.length })}

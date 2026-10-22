@@ -9,7 +9,7 @@ import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconBattery, IconGamepad, IconPlug } from './Icons'
-import { LogoMark } from './Logo'
+import { LogoMark, Wordmark } from './Logo'
 import { locale, t } from '@shared/i18n'
 
 const num = (v: number, digits = 1) => v.toLocaleString(locale(), { maximumFractionDigits: digits })
@@ -90,7 +90,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
           <LogoMark className="si-logo" />
           <div className="si-title">
             <h2>
-              Play<span>OS</span>
+              <Wordmark className="si-wordmark" />
             </h2>
             <p>{info ? t('Версия {v}', { v: info.app.version }) + (info.app.packaged ? '' : ` ${t('(из исходников)')}`) : t('Собираем сведения…')}</p>
           </div>
