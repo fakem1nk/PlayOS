@@ -4,21 +4,30 @@
  *
  * Для каждого размера элемента рисуем свою карту смещения (с учётом скругления углов) и кэшируем фильтр.
  * Элементы находятся сами: по селектору GLASS, при появлении в DOM и при изменении размера.
+ *
+ * Два материала, как UIGlassEffect в iOS 26: regular — панели, окна, меню (толще, заметнее размытие);
+ * clear — кнопки и строки поверх картинки (тоньше и прозрачнее). Реагируют на фокус и нажатие
+ * (interactive) только элементы управления — панели стоят спокойно.
  */
 
 import { pressFx } from './nav'
 
-/** Что считается стеклом — тот же список, что в styles-glass.css */
-const GLASS = [
+/** Панели — материал regular (тот же список, что в styles-glass.css) */
+const REGULAR = [
   '.dialog', '.si', '.upd-dialog', '.pm', '.sheet', '.art-search', '.side-menu', '.steam-import', '.gp-card',
-  '.profile-block', '.si-card', '.cc-card', '.busy-card', '.osk', '.toast', '.upd-card', '.special-art',
-  '.ov-card:not(.is-primary):not(.is-danger)', '.ov-notice', '.ov-trophy',
-  '.setting', '.btn-glass', '.btn-round', '.chip', '.menu-item', '.trophy-row', '.steam-row', '.hltb-item',
-  '.top-item', '.ra-result', '.input', '.osk-key', '.power-btn', '.running-pill', '.section-pill', '.tab-pill'
+  '.profile-block', '.si-card', '.cc-card', '.busy-card', '.osk', '.toast', '.upd-card', '.ov-notice', '.ov-trophy'
 ].join(',')
+/** Элементы управления — материал clear, реагируют на фокус и нажатие */
+const CLEAR = [
+  '.special-art', '.ov-card:not(.is-primary):not(.is-danger)', '.setting', '.btn-glass', '.btn-round', '.chip',
+  '.menu-item', '.trophy-row', '.steam-row', '.hltb-item', '.top-item', '.ra-result', '.input', '.osk-key',
+  '.power-btn', '.running-pill', '.section-pill', '.tab-pill'
+].join(',')
+const GLASS = `${REGULAR},${CLEAR}`
 
-/** Лёгкое ровное размытие толщи стекла, px. Свет не подкрашиваем — ни яркости, ни насыщенности */
-const BLUR = 1.6
+type Material = 'regular' | 'clear'
+/** Ровное размытие толщи стекла, px. Свет не подкрашиваем — ни яркости, ни насыщенности */
+const BLUR: Record<Material, number> = { regular: 6, clear: 1.6 }
 const MAX_FILTERS = 120
 /** Карта считается в половинном разрешении — она плавная, растягивание незаметно */
 const MAP_SCALE = 0.5
@@ -89,8 +98,8 @@ function displacementMap(w: number, h: number, r: number, bezel: number) {
   return canvas.toDataURL()
 }
 
-function filterFor(w: number, h: number, r: number, focused: boolean) {
-  const key = `${w}x${h}r${r}${focused ? 'f' : ''}`
+function filterFor(w: number, h: number, r: number, focused: boolean, material: Material) {
+  const key = `${w}x${h}r${r}${focused ? 'f' : ''}${material[0]}`
   let id = filters.get(key)
   if (id) return id
   if (filters.size >= MAX_FILTERS) {
@@ -126,7 +135,7 @@ function filterFor(w: number, h: number, r: number, focused: boolean) {
   // Толща стекла чуть смягчает картинку — до преломления, как в настоящем стекле
   const blur = document.createElementNS(ns, 'feGaussianBlur')
   blur.setAttribute('in', 'SourceGraphic')
-  blur.setAttribute('stdDeviation', String(BLUR))
+  blur.setAttribute('stdDeviation', String(BLUR[material]))
   blur.setAttribute('edgeMode', 'duplicate')
   blur.setAttribute('result', 'soft')
   f.append(blur)
@@ -171,11 +180,12 @@ function apply(el: HTMLElement) {
   const h = Math.round(el.offsetHeight / 2) * 2
   if (w < 8 || h < 8) return
   const r = Math.min(Math.round(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0), w / 2, h / 2)
-  const focused = el === document.activeElement || el.classList.contains('is-focused')
-  const key = `${w}x${h}r${r}${focused ? 'f' : ''}`
+  const material: Material = el.matches(CLEAR) ? 'clear' : 'regular'
+  const focused = material === 'clear' && (el === document.activeElement || el.classList.contains('is-focused'))
+  const key = `${w}x${h}r${r}${focused ? 'f' : ''}${material[0]}`
   if (applied.get(el) === key) return
   applied.set(el, key)
-  const value = `url(#${filterFor(w, h, r, focused)})`
+  const value = `url(#${filterFor(w, h, r, focused, material)})`
   el.style.setProperty('backdrop-filter', value)
   el.style.setProperty('-webkit-backdrop-filter', value)
 }
@@ -202,7 +212,7 @@ let lastFocus: { x: number; y: number } | null = null
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 function onFocusIn(e: FocusEvent) {
-  const el = (e.target as Element | null)?.closest?.(GLASS) as HTMLElement | null
+  const el = (e.target as Element | null)?.closest?.(CLEAR) as HTMLElement | null
   const target = e.target as HTMLElement
   const rect = target.getBoundingClientRect?.()
   if (el) {
@@ -236,7 +246,7 @@ function onFocusOut(e: FocusEvent) {
 }
 
 function onPointer(e: PointerEvent) {
-  const el = (e.target as Element | null)?.closest?.(GLASS) as HTMLElement | null
+  const el = (e.target as Element | null)?.closest?.(CLEAR) as HTMLElement | null
   if (!el) return
   const r = el.getBoundingClientRect()
   el.style.setProperty('--lx', `${Math.round(((e.clientX - r.left) / r.width) * 100)}%`)
