@@ -1,0 +1,232 @@
+/* ───────────────────────── Жидкое стекло ─────────────────────────
+   Слой поверх остальных стилей: единый материал для панелей, строк и кнопок —
+   графитовое полупрозрачное стекло с размытием подложки, бликом по верхней кромке и тонким контуром,
+   а под ним — фон, видимый сквозь сетку «пикселей», как экран вблизи. */
+
+:root {
+  --bg: #050506;
+  --stroke: rgba(255, 255, 255, 0.12);
+  /* Материал */
+  --glass-fill: rgba(28, 28, 32, 0.4);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.025) 46%, rgba(255, 255, 255, 0.05) 100%);
+  --glass-blur: blur(3rem) saturate(1.6);
+  --glass-edge:
+    inset 0 0.1rem 0 rgba(255, 255, 255, 0.24),
+    inset 0 -0.1rem 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 0.1rem rgba(255, 255, 255, 0.08);
+  --glass-lift: 0 2.4rem 6rem rgba(0, 0, 0, 0.5);
+}
+
+/* ── Фон ── */
+.bg {
+  background: radial-gradient(120% 90% at 72% 8%, #1a1b20 0%, #0a0a0c 46%, var(--bg) 100%);
+}
+
+/* Сетка квадратных «пикселей» поверх арта: тёмные зазоры, сквозь которые свет кажется экраном */
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0.14rem, transparent 0.14rem),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0.14rem, transparent 0.14rem);
+  background-size: 0.56rem 0.56rem;
+  opacity: 0.26;
+}
+
+/* В спокойных разделах арт почти гаснет — остаётся экран из точек, сетка не нужна */
+.bg.is-dim .bg-art {
+  opacity: 0.14 !important;
+  filter: blur(2rem) saturate(0.6);
+}
+
+.bg.is-dim .bg-grid {
+  display: none;
+}
+
+/* В настройках и профиле — спокойный монохромный экран из точек вместо арта */
+.bg-field {
+  opacity: 0;
+  animation: bg-field-in 1.2s 0.2s var(--ease-out) forwards;
+  mix-blend-mode: screen;
+}
+
+@keyframes bg-field-in {
+  to {
+    opacity: 0.7;
+  }
+}
+
+/* ── Крупные панели: окна, листы, карточки ── */
+.dialog,
+.si,
+.upd-dialog,
+.pm,
+.sheet,
+.art-search,
+.side-menu,
+.steam-import,
+.gp-card,
+.profile-block,
+.si-card,
+.cc-card,
+.busy-card,
+.osk,
+.toast,
+.upd-card,
+.ov-card:not(.is-primary):not(.is-danger),
+.ov-notice,
+.ov-trophy,
+.special-art,
+.section-pill {
+  background: var(--glass-sheen), var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: transparent;
+  box-shadow: var(--glass-edge), var(--glass-lift);
+}
+
+/* Окна поверх — чуть плотнее, чтобы текст читался на любом фоне */
+.dialog,
+.si,
+.upd-dialog,
+.pm,
+.art-search,
+.steam-import {
+  --glass-fill: rgba(22, 22, 26, 0.72);
+}
+
+/* Служебные плитки главной — тёмное стекло, чтобы подписи читались на ярком арте */
+.special-art {
+  --glass-fill: rgba(14, 14, 18, 0.46);
+  border-color: transparent;
+}
+
+.section-pill {
+  --glass-fill: rgba(255, 255, 255, 0.1);
+  box-shadow: var(--glass-edge);
+}
+
+/* Карточки внутри окна не дублируют тень окна */
+.si-card,
+.gp-card,
+.profile-block {
+  --glass-fill: rgba(255, 255, 255, 0.035);
+  box-shadow: var(--glass-edge);
+}
+
+.side-menu {
+  --glass-fill: rgba(18, 18, 22, 0.66);
+  border-radius: 3.2rem 0 0 3.2rem;
+}
+
+/* ── Строки и элементы управления ── */
+.setting,
+.btn-glass,
+.btn-round,
+.chip,
+.menu-item,
+.trophy-row,
+.steam-row,
+.hltb-item,
+.top-item,
+.ra-result,
+.input,
+.osk-key,
+.power-btn,
+.running-pill {
+  background: var(--glass-sheen), rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(2.4rem) saturate(1.5);
+  backdrop-filter: blur(2.4rem) saturate(1.5);
+  box-shadow: var(--glass-edge);
+  border-color: transparent;
+}
+
+.setting {
+  --r: 2.4rem;
+  border-radius: var(--r);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-glass:hover,
+  .btn-round:hover,
+  .setting:hover,
+  .menu-item:hover {
+    background: var(--glass-sheen), rgba(255, 255, 255, 0.11);
+  }
+}
+
+/* Элемент в фокусе приподнимается и становится светлее — как стекло под пальцем */
+.setting:focus,
+.menu-item:focus,
+.btn-glass:focus,
+.btn-round:focus,
+.chip:focus,
+.trophy-row:focus,
+.steam-row:focus,
+.top-item:focus,
+.ra-result:focus {
+  background: var(--glass-sheen), rgba(255, 255, 255, 0.14);
+}
+
+/* Главная кнопка — белое стекло с объёмом */
+.btn-primary {
+  background: linear-gradient(180deg, #ffffff 0%, #ececf0 100%);
+  color: #0a0a0c;
+  box-shadow:
+    inset 0 0.1rem 0 rgba(255, 255, 255, 0.9),
+    inset 0 -0.15rem 0 rgba(0, 0, 0, 0.08),
+    0 1.2rem 3.2rem rgba(0, 0, 0, 0.4);
+}
+
+/* ── Вкладки: стеклянная капсула ── */
+.tab-pill,
+.tinted .tab-pill {
+  background: var(--glass-sheen), color-mix(in oklch, var(--tint, #fff) 16%, rgba(255, 255, 255, 0.12));
+  box-shadow: var(--glass-edge);
+}
+
+/* ── Затемнение под окнами: размытие, а не просто темнота ── */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: blur(2.4rem) saturate(1.3);
+  backdrop-filter: blur(2.4rem) saturate(1.3);
+}
+
+.scrim {
+  background: rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: blur(1.2rem);
+  backdrop-filter: blur(1.2rem);
+}
+
+/* ── Переключатель в духе iOS ── */
+.switch {
+  box-shadow: inset 0 0 0 0.1rem rgba(255, 255, 255, 0.1);
+}
+
+/* ── Значки кнопок: маленькие стеклянные капли ── */
+.glyph {
+  background: var(--glass-sheen), rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 0.22), inset 0 0 0 0.1rem rgba(255, 255, 255, 0.06);
+}
+
+/* ── Заголовки: чуть плотнее, как в системных интерфейсах ── */
+.panel-title,
+.dialog-title,
+.side-title,
+.gp-card h3,
+.si-card h3 {
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-fill: rgba(28, 28, 32, 0.94);
+  }
+}
+
+/* Пока открыта боковая шторка, уведомления уходят левее и не закрывают её пункты */
+.app:has(.side-menu) .toasts {
+  right: calc(var(--side-w, 54rem) + 2.4rem);
+  transition: right 0.3s var(--ease-out);
+}
