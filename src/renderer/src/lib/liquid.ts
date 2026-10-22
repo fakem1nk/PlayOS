@@ -6,6 +6,8 @@
  * Элементы находятся сами: по селектору GLASS, при появлении в DOM и при изменении размера.
  */
 
+import { pressFx } from './nav'
+
 /** Что считается стеклом — тот же список, что в styles-glass.css */
 const GLASS = [
   '.dialog', '.si', '.upd-dialog', '.pm', '.sheet', '.art-search', '.side-menu', '.steam-import', '.gp-card',
@@ -87,8 +89,8 @@ function displacementMap(w: number, h: number, r: number, bezel: number) {
   return canvas.toDataURL()
 }
 
-function filterFor(w: number, h: number, r: number) {
-  const key = `${w}x${h}r${r}`
+function filterFor(w: number, h: number, r: number, focused: boolean) {
+  const key = `${w}x${h}r${r}${focused ? 'f' : ''}`
   let id = filters.get(key)
   if (id) return id
   if (filters.size >= MAX_FILTERS) {
@@ -100,8 +102,8 @@ function filterFor(w: number, h: number, r: number) {
   id = `lg${counter++}`
   const bezel = Math.min(Math.min(w, h) * 0.3, 64)
   // Отрицательный масштаб: у кромки берём картинку изнутри элемента и растягиваем её к краю —
-  // так стекло изгибает только то, что под ним, и не затягивает соседний текст
-  const scale = -Math.round(bezel * 0.85)
+  // так стекло изгибает только то, что под ним, и не затягивает соседний текст. В фокусе линза сильнее
+  const scale = -Math.round(bezel * (focused ? 1.35 : 0.85))
   const ns = 'http://www.w3.org/2000/svg'
   const f = document.createElementNS(ns, 'filter')
   f.setAttribute('id', id)
@@ -120,13 +122,38 @@ function filterFor(w: number, h: number, r: number) {
   im.setAttribute('preserveAspectRatio', 'none')
   im.setAttribute('result', 'map')
   im.setAttribute('href', displacementMap(w, h, r, bezel))
-  const dm = document.createElementNS(ns, 'feDisplacementMap')
-  dm.setAttribute('in', 'SourceGraphic')
-  dm.setAttribute('in2', 'map')
-  dm.setAttribute('scale', String(scale))
-  dm.setAttribute('xChannelSelector', 'R')
-  dm.setAttribute('yChannelSelector', 'G')
-  f.append(im, dm)
+  f.append(im)
+  // Дисперсия, как у настоящего стекла: красный преломляется сильнее, синий слабее — у кромки радужная кайма
+  const channel = (k: number, matrix: string, name: string) => {
+    const dm = document.createElementNS(ns, 'feDisplacementMap')
+    dm.setAttribute('in', 'SourceGraphic')
+    dm.setAttribute('in2', 'map')
+    dm.setAttribute('scale', String(Math.round(scale * k)))
+    dm.setAttribute('xChannelSelector', 'R')
+    dm.setAttribute('yChannelSelector', 'G')
+    dm.setAttribute('result', `${name}d`)
+    const cm = document.createElementNS(ns, 'feColorMatrix')
+    cm.setAttribute('in', `${name}d`)
+    cm.setAttribute('type', 'matrix')
+    cm.setAttribute('values', matrix)
+    cm.setAttribute('result', name)
+    f.append(dm, cm)
+  }
+  channel(1.12, '1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0', 'r')
+  channel(1, '0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0', 'g')
+  channel(0.88, '0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0', 'b')
+  const add = (a: string, b: string, out: string) => {
+    const c = document.createElementNS(ns, 'feComposite')
+    c.setAttribute('in', a)
+    c.setAttribute('in2', b)
+    c.setAttribute('operator', 'arithmetic')
+    c.setAttribute('k2', '1')
+    c.setAttribute('k3', '1')
+    c.setAttribute('result', out)
+    f.append(c)
+  }
+  add('r', 'g', 'rg')
+  add('rg', 'b', 'rgb')
   ensureDefs().appendChild(f)
   filters.set(key, id)
   return id
@@ -137,10 +164,11 @@ function apply(el: HTMLElement) {
   const h = Math.round(el.offsetHeight / 2) * 2
   if (w < 8 || h < 8) return
   const r = Math.min(Math.round(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0), w / 2, h / 2)
-  const key = `${w}x${h}r${r}`
+  const focused = el === document.activeElement || el.classList.contains('is-focused')
+  const key = `${w}x${h}r${r}${focused ? 'f' : ''}`
   if (applied.get(el) === key) return
   applied.set(el, key)
-  const value = `url(#${filterFor(w, h, r)}) ${TAIL}`
+  const value = `url(#${filterFor(w, h, r, focused)}) ${TAIL}`
   el.style.setProperty('backdrop-filter', value)
   el.style.setProperty('-webkit-backdrop-filter', value)
 }
@@ -159,6 +187,53 @@ function scan(root: ParentNode) {
     }
     apply(el)
   }
+}
+
+// ── Реакции стекла: фокус «подскакивает», блик въезжает со стороны, откуда пришёл фокус, мышь ведёт блик ──
+
+let lastFocus: { x: number; y: number } | null = null
+const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+function onFocusIn(e: FocusEvent) {
+  const el = (e.target as Element | null)?.closest?.(GLASS) as HTMLElement | null
+  const target = e.target as HTMLElement
+  const rect = target.getBoundingClientRect?.()
+  if (el) {
+    apply(el)
+    if (rect && lastFocus) {
+      // Блик стартует с той стороны, откуда пришёл фокус, и доезжает к верхнему краю
+      const dx = lastFocus.x - (rect.left + rect.width / 2)
+      const dy = lastFocus.y - (rect.top + rect.height / 2)
+      const horizontal = Math.abs(dx) > Math.abs(dy)
+      el.style.setProperty('--lx', horizontal ? (dx < 0 ? '0%' : '100%') : '50%')
+      el.style.setProperty('--ly', horizontal ? '20%' : dy < 0 ? '0%' : '100%')
+      requestAnimationFrame(() => {
+        el.style.setProperty('--lx', '35%')
+        el.style.setProperty('--ly', '0%')
+      })
+    }
+    if (!reduceMotion()) {
+      el.animate([{ transform: 'scale(0.975)' }, { transform: 'scale(1.012)', offset: 0.55 }, { transform: 'scale(1)' }], {
+        duration: 420,
+        easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
+        composite: 'add'
+      })
+    }
+  }
+  if (rect) lastFocus = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+}
+
+function onFocusOut(e: FocusEvent) {
+  const el = (e.target as Element | null)?.closest?.(GLASS) as HTMLElement | null
+  if (el) requestAnimationFrame(() => apply(el))
+}
+
+function onPointer(e: PointerEvent) {
+  const el = (e.target as Element | null)?.closest?.(GLASS) as HTMLElement | null
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  el.style.setProperty('--lx', `${Math.round(((e.clientX - r.left) / r.width) * 100)}%`)
+  el.style.setProperty('--ly', `${Math.round(((e.clientY - r.top) / r.height) * 100)}%`)
 }
 
 /** Включить жидкое стекло во всём окне. Без поддержки (или при «уменьшить прозрачность») остаётся обычный стиль */
@@ -181,4 +256,13 @@ export function startLiquidGlass() {
   })
   mo.observe(document.body, { childList: true, subtree: true })
   scan(document.body)
+  document.addEventListener('focusin', onFocusIn)
+  document.addEventListener('focusout', onFocusOut)
+  document.addEventListener('pointermove', onPointer, { passive: true })
+  // Клик мышью — то же желейное нажатие, что и с геймпада
+  document.addEventListener('pointerdown', (e) => pressFx((e.target as Element | null)?.closest?.('[data-nav]')), { passive: true })
+  // Фокус-класс .is-focused (вкладки, чипсы) меняется без DOM-фокуса — следим за классами
+  new MutationObserver((records) => {
+    for (const r of records) if (r.target instanceof HTMLElement && r.target.matches(GLASS)) apply(r.target)
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true })
 }

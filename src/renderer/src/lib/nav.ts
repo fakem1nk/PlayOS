@@ -111,11 +111,16 @@ function revealBox(el: HTMLElement, room: number) {
 /** Отклик на нажатие ✕ с геймпада: короткое «вдавливание», как у кнопки под пальцем */
 export function pressFx(el: Element | null | undefined) {
   if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  el.animate([{ transform: 'scale(1)' }, { transform: 'scale(0.94)', offset: 0.35 }, { transform: 'scale(1)' }], {
-    duration: 260,
-    easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
-    composite: 'add'
-  })
+  // Желейное нажатие: сплющивается, отпружинивает чуть вытянутым и возвращается — как жидкое стекло
+  el.animate(
+    [
+      { transform: 'scale(1, 1)' },
+      { transform: 'scale(1.04, 0.93)', offset: 0.28 },
+      { transform: 'scale(0.985, 1.025)', offset: 0.6 },
+      { transform: 'scale(1, 1)' }
+    ],
+    { duration: 460, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', composite: 'add' }
+  )
 }
 
 export function focusEl(el: HTMLElement | null | undefined) {

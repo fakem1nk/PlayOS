@@ -331,3 +331,118 @@ html.liquid .steam-import {
 html.liquid .special-art {
   --frost-fill: rgba(0, 0, 0, 0.16);
 }
+
+/* ───────────────────────── Блик, кромка и реакции стекла ─────────────────────────
+   --lx/--ly — где на стекле блик: мышь ведёт его за курсором, при фокусе с геймпада
+   он въезжает со стороны, откуда пришёл фокус (lib/liquid.ts). */
+@property --lx {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 35%;
+}
+
+@property --ly {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+:where(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .steam-row, .hltb-item, .top-item, .gp-card,
+    .profile-block, .si-card, .dialog, .si, .upd-dialog, .pm, .toast, .special-art, .section-pill, .tab-pill, .power-btn) {
+  position: relative;
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .steam-row, .hltb-item, .top-item, .gp-card,
+    .profile-block, .si-card, .dialog, .si, .upd-dialog, .pm, .toast, .special-art, .section-pill, .tab-pill, .power-btn, .side-menu, .ov-card)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Блик + тонкая дисперсия по кромке: холодная сверху-слева, тёплая снизу-справа */
+  background: radial-gradient(90% 75% at var(--lx) var(--ly), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 60%);
+  box-shadow:
+    inset 0.14rem 0.14rem 0 rgba(150, 215, 255, 0.22),
+    inset -0.14rem -0.14rem 0 rgba(255, 170, 120, 0.16);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  transition:
+    opacity 0.35s var(--ease-out),
+    --lx 0.6s var(--ease-out),
+    --ly 0.6s var(--ease-out);
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .steam-row, .top-item, .section-pill, .power-btn, .ov-card):is(:focus, .is-focused)::before,
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .ov-card):hover::before {
+  opacity: 1;
+}
+
+/* Активная «чипса» фильтра — белая капсула, как главная кнопка */
+html.liquid .chip.is-active {
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6ea 100%);
+  color: #0a0a0c;
+  text-shadow: none;
+}
+
+/* ───────────────────────── Свечение плитки в фокусе ─────────────────────────
+   Не тенью (Chromium обрезает большую размытую тень по прямоугольнику слоя), а отдельным градиентом за обложкой */
+.tinted .tile.is-focused .tile-art {
+  box-shadow: 0 2.6rem 5.4rem rgba(0, 0, 0, 0.6);
+}
+
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: -6rem -5rem;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--tint-glow, rgba(120, 160, 255, 0.35)) 35%, transparent);
+  filter: saturate(1.4);
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-out);
+  pointer-events: none;
+}
+
+.tinted .tile.is-focused::before {
+  opacity: 1;
+}
+
+/* ───────────────────────── Настоящая прозрачность ─────────────────────────
+   С жидким стеклом ничего не размывается: ни фон под окнами, ни арт в спокойных разделах.
+   Стекло прозрачное по-честному — видно, что за ним, а форму дают преломление у кромки и блик. */
+html.liquid .modal-backdrop {
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html.liquid .scrim {
+  background: rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Арт за стеклом настроек и профиля — чёткий, только притушен */
+html.liquid .bg.is-dim .bg-art {
+  opacity: 0.6 !important;
+  filter: brightness(0.5) saturate(1.1);
+  transform: none;
+}
+
+html.liquid .dialog,
+html.liquid .si,
+html.liquid .upd-dialog,
+html.liquid .pm,
+html.liquid .side-menu,
+html.liquid .toast,
+html.liquid .art-search,
+html.liquid .steam-import {
+  --frost-fill: rgba(6, 6, 10, 0.16);
+}
+
+/* Текст на прозрачном стекле держится на мягкой тени */
+html.liquid :is(.dialog, .si, .upd-dialog, .pm, .side-menu, .toast, .setting, .menu-item, .gp-card, .profile-block, .si-card, .chip, .btn-glass, .special-art, .ov-card) {
+  text-shadow:
+    0 0.1rem 0.3rem rgba(0, 0, 0, 0.55),
+    0 0 1.6rem rgba(0, 0, 0, 0.45);
+}
