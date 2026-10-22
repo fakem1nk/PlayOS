@@ -26,6 +26,8 @@
   flex-direction: column;
   align-items: center;
   gap: 4.4rem;
+  /* Название рисует экран кинескопа по центру — текст ниже него */
+  margin-top: 40rem;
 }
 
 .outro-lockup {

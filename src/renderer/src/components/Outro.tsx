@@ -7,16 +7,13 @@ import { useInputLayer } from '../lib/input'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconMoon } from './Icons'
-import { CrtField } from './CrtField'
-import { LOGO_PLAY, LOGO_SPARK, WORDMARK_PATH, WORDMARK_SPARKS, WORDMARK_VIEWBOX } from './Logo'
+import { CrtScreen } from './CrtScreen'
 import { t } from '@shared/i18n'
 
 /**
- * Аутро — зеркало интро, на том же экране из точек:
- *  • выход из PlayOS: прощание с итогом дня, затем искры гаснут, название уходит под маску справа налево,
- *    точки тускнеют;
- *  • выключение / перезагрузка ПК: знак Play медленно тускнеет (при перезагрузке — поворачивается),
- *    потом весь экран гаснет как старый телевизор — схлопывается в линию и в точку;
+ * Аутро — зеркало интро, на том же экране кинескопа из символов:
+ *  • выход из PlayOS и выключение / перезагрузка ПК: прощание, затем название рассыпается на знаки,
+ *    поле тускнеет, и кинескоп гаснет — схлопывается в линию и в точку;
  *  • сон: экран мягко темнеет.
  * Пока идёт показ, ○ отменяет, любая другая кнопка — сразу дальше.
  */
@@ -133,7 +130,7 @@ export function Outro({ kind, userName, games, running, colors, onCancel }: Prop
       exit={{ opacity: 0, transition: { duration: 0.3 } }}
       transition={{ duration: kind === 'sleep' ? 0.6 : 0.4, ease: [0.23, 1, 0.32, 1] }}
     >
-      <CrtField colors={palette} openMs={1} intensity={phase === 'show' ? 0.55 : 0.12} className="outro-field" />
+      {kind !== 'sleep' && <CrtScreen colors={palette} phase={phase === 'show' ? 'show' : phase === 'off' ? 'dissolve' : 'off'} className="outro-field" />}
 
       {kind === 'sleep' ? (
         <div className="outro-moon">
@@ -142,21 +139,6 @@ export function Outro({ kind, userName, games, running, colors, onCancel }: Prop
         </div>
       ) : (
         <div className="outro-center">
-          <div className="outro-lockup">
-            {kind === 'quit' ? (
-              <svg className="outro-word" viewBox={WORDMARK_VIEWBOX} role="img" aria-label="PlayOS">
-                <path className="outro-word-fill" d={WORDMARK_PATH} />
-                {WORDMARK_SPARKS.map((d) => (
-                  <path key={d} className="outro-spark" d={d} />
-                ))}
-              </svg>
-            ) : (
-              <svg className="outro-mark" viewBox="0 0 48 48" aria-hidden>
-                <path className="outro-play" d={LOGO_PLAY} />
-                <path className="outro-spark" d={LOGO_SPARK} />
-              </svg>
-            )}
-          </div>
           <div className="outro-text">
             {pc ? (
               <>
