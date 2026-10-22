@@ -34,7 +34,6 @@ uniform float uCell;
 uniform float uOpen;
 uniform float uPulse;
 uniform float uIntensity;
-#define LIFE 1.0
 uniform vec3 uC1;
 uniform vec3 uC2;
 uniform vec3 uC3;
@@ -110,17 +109,8 @@ void main() {
   // Точка: радиус растёт с яркостью, но между точками всегда остаётся тёмный зазор.
   // Край ровно в один пиксель — точка чёткая на любом разрешении
   vec2 local = (frag - center) / uCell;
-  // «Живые» точки: сетка стоит, но каждая точка чуть ползает в своей ячейке по своей траектории
-  // и дышит размером — как жучки на месте. LIFE = 0.0 выключает
-  float id = hash(cell);
-  float id2 = hash(cell + 31.7);
-  // Плавный путь плюс мелкое быстрое подёргивание — как лапки
-  vec2 crawl = vec2(sin(t * (1.1 + id * 1.9) + id * 40.0) + 0.5 * sin(t * (2.7 + id2 * 2.3) + id2 * 17.0) + 0.3 * sin(t * (6.0 + id * 3.0) + id2 * 5.0),
-                    cos(t * (0.9 + id2 * 2.1) + id2 * 23.0) + 0.5 * cos(t * (2.3 + id * 2.9) + id * 9.0) + 0.3 * cos(t * (5.3 + id2 * 3.4) + id * 7.0));
-  local -= crawl * 0.05 * LIFE;
   float d = length(local);
-  // Точка не выходит за свою ячейку даже в крайнем положении
-  float r = mix(0.12, mix(0.41, 0.36, LIFE), pow(lum, 0.6)) * (1.0 + 0.09 * LIFE * sin(t * (1.6 + id * 2.4) + id2 * 31.0));
+  float r = mix(0.12, 0.41, pow(lum, 0.6));
   float aa = 0.9 / uCell;
   float dotMask = 1.0 - smoothstep(r - aa, r + aa, d);
   float halo = exp(-d * d * 16.0) * 0.14;
