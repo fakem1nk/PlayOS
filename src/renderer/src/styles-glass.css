@@ -281,3 +281,53 @@
   right: calc(var(--side-w, 54rem) + 2.4rem);
   transition: right 0.3s var(--ease-out);
 }
+
+/* ───────────────────────── Жидкое стекло (lib/liquid.ts) ─────────────────────────
+   Когда включено преломление, заливки почти нет: фон виден насквозь и изгибается у кромки.
+   Окна поверх оставляем слегка притемнёнными — под ними и так размытый экран. */
+html.liquid {
+  --frost-fill: rgba(255, 255, 255, 0.012);
+  --frost-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+html.liquid .setting,
+html.liquid .btn-glass,
+html.liquid .btn-round,
+html.liquid .chip,
+html.liquid .menu-item,
+html.liquid .trophy-row,
+html.liquid .steam-row,
+html.liquid .hltb-item,
+html.liquid .top-item,
+html.liquid .ra-result,
+html.liquid .input,
+html.liquid .osk-key,
+html.liquid .power-btn,
+html.liquid .running-pill,
+html.liquid .section-pill {
+  background: var(--frost-sheen), rgba(255, 255, 255, 0.015);
+}
+
+html.liquid .gp-card,
+html.liquid .profile-block,
+html.liquid .si-card {
+  --frost-fill: rgba(255, 255, 255, 0.01);
+}
+
+html.liquid .dialog,
+html.liquid .si,
+html.liquid .upd-dialog,
+html.liquid .pm {
+  --frost-fill: rgba(8, 8, 12, 0.3);
+}
+
+html.liquid .side-menu,
+html.liquid .toast,
+html.liquid .art-search,
+html.liquid .steam-import {
+  --frost-fill: rgba(8, 8, 12, 0.32);
+}
+
+html.liquid .special-art {
+  --frost-fill: rgba(0, 0, 0, 0.16);
+}

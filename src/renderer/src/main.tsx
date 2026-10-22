@@ -12,6 +12,7 @@ import './styles-glass.css'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { startInput } from './lib/input'
+import { startLiquidGlass } from './lib/liquid'
 import { OverlayApp } from './OverlayApp'
 import { getLang, missingKeys } from '@shared/i18n'
 
@@ -25,3 +26,4 @@ if (import.meta.env.DEV) Object.assign(window, { __i18nMissing: missingKeys })
 
 startInput()
 createRoot(document.getElementById('root')!).render(isOverlay ? <OverlayApp /> : <App />)
+startLiquidGlass()
