@@ -446,3 +446,30 @@ html.liquid :is(.dialog, .si, .upd-dialog, .pm, .side-menu, .toast, .setting, .m
     0 0.1rem 0.3rem rgba(0, 0, 0, 0.55),
     0 0 1.6rem rgba(0, 0, 0, 0.45);
 }
+
+/* ───────────────────────── Голое стекло ─────────────────────────
+   Только то, что делает настоящее стекло: прозрачность, преломление у кромки, хроматическая аберрация
+   и лёгкое ровное размытие толщи (всё — в фильтре lib/liquid.ts). Никаких заливок, оттенков, бликов,
+   цветных кромок, теней и свечений. Белая рамка фокуса остаётся — это не стекло, а указатель. */
+html.liquid :is(.dialog, .si, .upd-dialog, .pm, .sheet, .art-search, .side-menu, .steam-import, .gp-card, .profile-block,
+    .si-card, .cc-card, .busy-card, .osk, .toast, .upd-card, .special-art, .ov-card:not(.is-primary):not(.is-danger), .ov-notice,
+    .ov-trophy, .setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .steam-row, .hltb-item,
+    .top-item, .ra-result, .input, .osk-key, .power-btn, .running-pill, .section-pill, .tab-pill),
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .steam-row, .top-item,
+    .ra-result, .section-btn, .ov-card:not(.is-primary):not(.is-danger)):is(:hover, :focus, .is-focused) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .steam-row, .hltb-item, .top-item, .gp-card,
+    .profile-block, .si-card, .dialog, .si, .upd-dialog, .pm, .toast, .special-art, .section-pill, .tab-pill, .power-btn,
+    .side-menu, .ov-card)::before {
+  display: none;
+}
+
+/* Без заливки активную вкладку видно по яркости подписи */
+html.liquid .tab:not(.is-active) .tab-label {
+  opacity: 0.6;
+}

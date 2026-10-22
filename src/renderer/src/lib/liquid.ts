@@ -17,8 +17,8 @@ const GLASS = [
   '.top-item', '.ra-result', '.input', '.osk-key', '.power-btn', '.running-pill', '.section-pill', '.tab-pill'
 ].join(',')
 
-/** Дополнительно к преломлению — чуть ярче и сочнее, как настоящее стекло */
-const TAIL = 'saturate(1.6) brightness(1.06)'
+/** Лёгкое ровное размытие толщи стекла, px. Свет не подкрашиваем — ни яркости, ни насыщенности */
+const BLUR = 1.6
 const MAX_FILTERS = 120
 /** Карта считается в половинном разрешении — она плавная, растягивание незаметно */
 const MAP_SCALE = 0.5
@@ -123,10 +123,17 @@ function filterFor(w: number, h: number, r: number, focused: boolean) {
   im.setAttribute('result', 'map')
   im.setAttribute('href', displacementMap(w, h, r, bezel))
   f.append(im)
+  // Толща стекла чуть смягчает картинку — до преломления, как в настоящем стекле
+  const blur = document.createElementNS(ns, 'feGaussianBlur')
+  blur.setAttribute('in', 'SourceGraphic')
+  blur.setAttribute('stdDeviation', String(BLUR))
+  blur.setAttribute('edgeMode', 'duplicate')
+  blur.setAttribute('result', 'soft')
+  f.append(blur)
   // Дисперсия, как у настоящего стекла: красный преломляется сильнее, синий слабее — у кромки радужная кайма
   const channel = (k: number, matrix: string, name: string) => {
     const dm = document.createElementNS(ns, 'feDisplacementMap')
-    dm.setAttribute('in', 'SourceGraphic')
+    dm.setAttribute('in', 'soft')
     dm.setAttribute('in2', 'map')
     dm.setAttribute('scale', String(Math.round(scale * k)))
     dm.setAttribute('xChannelSelector', 'R')
@@ -168,7 +175,7 @@ function apply(el: HTMLElement) {
   const key = `${w}x${h}r${r}${focused ? 'f' : ''}`
   if (applied.get(el) === key) return
   applied.set(el, key)
-  const value = `url(#${filterFor(w, h, r, focused)}) ${TAIL}`
+  const value = `url(#${filterFor(w, h, r, focused)})`
   el.style.setProperty('backdrop-filter', value)
   el.style.setProperty('-webkit-backdrop-filter', value)
 }
