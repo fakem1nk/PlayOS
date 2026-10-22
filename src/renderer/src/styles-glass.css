@@ -1,63 +1,38 @@
-/* ───────────────────────── Жидкое стекло ─────────────────────────
-   Слой поверх остальных стилей: единый материал для панелей, строк и кнопок —
-   графитовое полупрозрачное стекло с размытием подложки, бликом по верхней кромке и тонким контуром,
-   а под ним — фон, видимый сквозь сетку «пикселей», как экран вблизи. */
+/* ───────────────────────── Матовое стекло ─────────────────────────
+   Слой поверх остальных стилей. Один материал на всё: молочное матовое стекло с зерном,
+   сильным размытием подложки, светлой кромкой и мягкой двойной тенью — как стекло с инеем,
+   а не прозрачный пластик. Числа — светодиодными точками (DotText). */
 
 :root {
-  --bg: #050506;
+  --bg: #060607;
   --stroke: rgba(255, 255, 255, 0.12);
-  /* Материал */
-  --glass-fill: rgba(28, 28, 32, 0.4);
-  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.025) 46%, rgba(255, 255, 255, 0.05) 100%);
-  --glass-blur: blur(3rem) saturate(1.6);
-  --glass-edge:
-    inset 0 0.1rem 0 rgba(255, 255, 255, 0.24),
-    inset 0 -0.1rem 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 0.1rem rgba(255, 255, 255, 0.08);
-  --glass-lift: 0 2.4rem 6rem rgba(0, 0, 0, 0.5);
+  /* Зерно инея: мелкий шум поверх стекла */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.075 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --frost-fill: rgba(150, 150, 165, 0.14);
+  --frost-sheen: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 42%, rgba(255, 255, 255, 0.02) 70%, rgba(255, 255, 255, 0.07) 100%);
+  --frost-blur: blur(5.5rem) saturate(1.45);
+  --frost-edge:
+    inset 0 0.12rem 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 0.1rem rgba(255, 255, 255, 0.08),
+    inset 0 -0.1rem 0 rgba(0, 0, 0, 0.25);
+  --frost-shadow:
+    0 0.8rem 2rem rgba(0, 0, 0, 0.22),
+    0 3rem 8rem rgba(0, 0, 0, 0.38);
 }
 
 /* ── Фон ── */
 .bg {
-  background: radial-gradient(120% 90% at 72% 8%, #1a1b20 0%, #0a0a0c 46%, var(--bg) 100%);
+  background: radial-gradient(120% 90% at 72% 8%, #1c1c21 0%, #0b0b0d 46%, var(--bg) 100%);
 }
 
-/* Сетка квадратных «пикселей» поверх арта: тёмные зазоры, сквозь которые свет кажется экраном */
-.bg-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0.14rem, transparent 0.14rem),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0.14rem, transparent 0.14rem);
-  background-size: 0.56rem 0.56rem;
-  opacity: 0.26;
-}
-
-/* В спокойных разделах арт почти гаснет — остаётся экран из точек, сетка не нужна */
+/* В настройках и профиле арт превращается в мягкое цветное свечение за матовым стеклом */
 .bg.is-dim .bg-art {
-  opacity: 0.14 !important;
-  filter: blur(2rem) saturate(0.6);
+  opacity: 0.5 !important;
+  filter: blur(7rem) saturate(1.25) brightness(0.8);
+  transform: scale(1.2);
 }
 
-.bg.is-dim .bg-grid {
-  display: none;
-}
-
-/* В настройках и профиле — спокойный монохромный экран из точек вместо арта */
-.bg-field {
-  opacity: 0;
-  animation: bg-field-in 1.2s 0.2s var(--ease-out) forwards;
-  mix-blend-mode: screen;
-}
-
-@keyframes bg-field-in {
-  to {
-    opacity: 0.7;
-  }
-}
-
-/* ── Крупные панели: окна, листы, карточки ── */
+/* ── Матовые панели: окна, листы, карточки, уведомления ── */
 .dialog,
 .si,
 .upd-dialog,
@@ -74,53 +49,59 @@
 .osk,
 .toast,
 .upd-card,
+.special-art,
 .ov-card:not(.is-primary):not(.is-danger),
 .ov-notice,
-.ov-trophy,
-.special-art,
-.section-pill {
-  background: var(--glass-sheen), var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+.ov-trophy {
+  background: var(--grain), var(--frost-sheen), var(--frost-fill);
+  -webkit-backdrop-filter: var(--frost-blur);
+  backdrop-filter: var(--frost-blur);
   border-color: transparent;
-  box-shadow: var(--glass-edge), var(--glass-lift);
+  box-shadow: var(--frost-edge), var(--frost-shadow);
 }
 
-/* Окна поверх — чуть плотнее, чтобы текст читался на любом фоне */
 .dialog,
 .si,
 .upd-dialog,
-.pm,
+.pm {
+  --frost-fill: rgba(40, 40, 48, 0.62);
+  border-radius: 4rem;
+}
+
 .art-search,
 .steam-import {
-  --glass-fill: rgba(22, 22, 26, 0.72);
+  --frost-fill: rgba(30, 30, 36, 0.72);
 }
 
-/* Служебные плитки главной — тёмное стекло, чтобы подписи читались на ярком арте */
-.special-art {
-  --glass-fill: rgba(14, 14, 18, 0.46);
-  border-color: transparent;
+/* Карточки внутри окна — тоньше и без собственной тени */
+.si-card {
+  --frost-fill: rgba(255, 255, 255, 0.045);
+  border-radius: 3.2rem;
+  box-shadow: var(--frost-edge);
 }
 
-.section-pill {
-  --glass-fill: rgba(255, 255, 255, 0.1);
-  box-shadow: var(--glass-edge);
-}
-
-/* Карточки внутри окна не дублируют тень окна */
-.si-card,
 .gp-card,
 .profile-block {
-  --glass-fill: rgba(255, 255, 255, 0.035);
-  box-shadow: var(--glass-edge);
+  --frost-fill: rgba(150, 150, 165, 0.1);
+  border-radius: 3.2rem;
 }
 
 .side-menu {
-  --glass-fill: rgba(18, 18, 22, 0.66);
-  border-radius: 3.2rem 0 0 3.2rem;
+  --frost-fill: rgba(24, 24, 30, 0.6);
+  border-radius: 4rem 0 0 4rem;
 }
 
-/* ── Строки и элементы управления ── */
+.toast {
+  --frost-fill: rgba(40, 40, 48, 0.55);
+  border-radius: 2.8rem;
+}
+
+/* Служебные плитки главной — тёмный иней, подписи читаются на ярком арте */
+.special-art {
+  --frost-fill: rgba(16, 16, 20, 0.42);
+}
+
+/* ── Строки и элементы управления: тоже иней, но легче ── */
 .setting,
 .btn-glass,
 .btn-round,
@@ -134,17 +115,20 @@
 .input,
 .osk-key,
 .power-btn,
-.running-pill {
-  background: var(--glass-sheen), rgba(255, 255, 255, 0.06);
-  -webkit-backdrop-filter: blur(2.4rem) saturate(1.5);
-  backdrop-filter: blur(2.4rem) saturate(1.5);
-  box-shadow: var(--glass-edge);
+.running-pill,
+.section-pill {
+  background: var(--grain), var(--frost-sheen), rgba(150, 150, 165, 0.1);
+  -webkit-backdrop-filter: blur(3.6rem) saturate(1.4);
+  backdrop-filter: blur(3.6rem) saturate(1.4);
+  box-shadow: var(--frost-edge), 0 0.6rem 1.8rem rgba(0, 0, 0, 0.18);
   border-color: transparent;
 }
 
+/* Строки настроек — крупнее и просторнее */
 .setting {
-  --r: 2.4rem;
+  --r: 2.8rem;
   border-radius: var(--r);
+  padding-block: 2.4rem;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -152,11 +136,11 @@
   .btn-round:hover,
   .setting:hover,
   .menu-item:hover {
-    background: var(--glass-sheen), rgba(255, 255, 255, 0.11);
+    background: var(--grain), var(--frost-sheen), rgba(170, 170, 185, 0.18);
   }
 }
 
-/* Элемент в фокусе приподнимается и становится светлее — как стекло под пальцем */
+/* В фокусе стекло светлеет и приподнимается */
 .setting:focus,
 .menu-item:focus,
 .btn-glass:focus,
@@ -166,51 +150,49 @@
 .steam-row:focus,
 .top-item:focus,
 .ra-result:focus {
-  background: var(--glass-sheen), rgba(255, 255, 255, 0.14);
+  background: var(--grain), var(--frost-sheen), rgba(190, 190, 205, 0.22);
+  box-shadow:
+    var(--frost-edge),
+    0 1.6rem 4rem rgba(0, 0, 0, 0.35);
 }
 
-/* Главная кнопка — белое стекло с объёмом */
+/* Главная кнопка — белый фарфор с объёмом */
 .btn-primary {
-  background: linear-gradient(180deg, #ffffff 0%, #ececf0 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6ea 100%);
   color: #0a0a0c;
   box-shadow:
-    inset 0 0.1rem 0 rgba(255, 255, 255, 0.9),
-    inset 0 -0.15rem 0 rgba(0, 0, 0, 0.08),
-    0 1.2rem 3.2rem rgba(0, 0, 0, 0.4);
+    inset 0 0.12rem 0 #fff,
+    inset 0 -0.2rem 0 rgba(0, 0, 0, 0.1),
+    0 0.8rem 2rem rgba(0, 0, 0, 0.3),
+    0 2.4rem 5rem rgba(0, 0, 0, 0.3);
 }
 
-/* ── Вкладки: стеклянная капсула ── */
+/* ── Вкладки: матовая капсула ── */
 .tab-pill,
 .tinted .tab-pill {
-  background: var(--glass-sheen), color-mix(in oklch, var(--tint, #fff) 16%, rgba(255, 255, 255, 0.12));
-  box-shadow: var(--glass-edge);
+  background: var(--grain), var(--frost-sheen), color-mix(in oklch, var(--tint, #fff) 14%, rgba(200, 200, 215, 0.16));
+  box-shadow: var(--frost-edge), 0 0.6rem 1.8rem rgba(0, 0, 0, 0.2);
 }
 
-/* ── Затемнение под окнами: размытие, а не просто темнота ── */
+/* ── Под окнами: глубокое размытие ── */
 .modal-backdrop {
-  background: rgba(0, 0, 0, 0.42);
-  -webkit-backdrop-filter: blur(2.4rem) saturate(1.3);
-  backdrop-filter: blur(2.4rem) saturate(1.3);
+  background: rgba(0, 0, 0, 0.38);
+  -webkit-backdrop-filter: blur(3.2rem) saturate(1.2);
+  backdrop-filter: blur(3.2rem) saturate(1.2);
 }
 
 .scrim {
-  background: rgba(0, 0, 0, 0.32);
-  -webkit-backdrop-filter: blur(1.2rem);
-  backdrop-filter: blur(1.2rem);
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(1.6rem);
+  backdrop-filter: blur(1.6rem);
 }
 
-/* ── Переключатель в духе iOS ── */
-.switch {
-  box-shadow: inset 0 0 0 0.1rem rgba(255, 255, 255, 0.1);
-}
-
-/* ── Значки кнопок: маленькие стеклянные капли ── */
+/* ── Значки кнопок: маленькие матовые капли ── */
 .glyph {
-  background: var(--glass-sheen), rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 0.22), inset 0 0 0 0.1rem rgba(255, 255, 255, 0.06);
+  background: var(--frost-sheen), rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 0.28), inset 0 0 0 0.1rem rgba(255, 255, 255, 0.06);
 }
 
-/* ── Заголовки: чуть плотнее, как в системных интерфейсах ── */
 .panel-title,
 .dialog-title,
 .side-title,
@@ -219,9 +201,61 @@
   letter-spacing: -0.01em;
 }
 
+/* ───────────────────────── Цифры точками ───────────────────────── */
+.dot-text {
+  display: inline-flex;
+  align-items: flex-end;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.dot-glyph {
+  height: 1em;
+  margin-right: 0.14em;
+  overflow: visible;
+  flex: none;
+}
+
+.dot-on {
+  fill: currentColor;
+}
+
+.dot-off {
+  fill: currentColor;
+  opacity: 0.07;
+}
+
+/* Единицы рядом с цифрами — мельче и тише, как подпись на табло */
+.dot-unit {
+  font-size: 0.56em;
+  line-height: 1.1;
+  margin: 0 0.35em 0 0.05em;
+  opacity: 0.72;
+  letter-spacing: 0;
+}
+
+.dot-text .dot-unit:last-child {
+  margin-right: 0;
+}
+
+/* Итог в профиле — крупное табло */
+.profile-hero-value.dot-text {
+  font-size: 6.4rem;
+}
+
+.si-big .dot-text {
+  font-size: 4.4rem;
+  margin-right: 1.2rem;
+}
+
+.hltb-value .dot-text {
+  font-size: 3.6rem;
+}
+
+/* Без прозрачности — сплошной фон вместо размытия (настройка Windows) */
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --glass-fill: rgba(28, 28, 32, 0.94);
+    --frost-fill: rgba(36, 36, 42, 0.96);
   }
 }
 

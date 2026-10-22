@@ -9,6 +9,7 @@ import { Avatar } from './Avatar'
 import { IconImage, IconTrophy } from './Icons'
 import { Cover } from './Tile'
 import { locale, t } from '@shared/i18n'
+import { DotText } from './DotText'
 
 const DAYS = 14
 const weekday = new Intl.DateTimeFormat(locale(), { weekday: 'short' })
@@ -87,7 +88,7 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
         <p className="profile-since">{t('В PlayOS с {date}', { date: dayMonth.format(stats.since) })}</p>
 
         <div className="profile-hero">
-          <span className="profile-hero-value">{stats.total ? playtime(stats.total) : t('0 мин')}</span>
+          <DotText className="profile-hero-value" text={stats.total ? playtime(stats.total) : t('0 мин')} />
           <span className="profile-hero-label">{t('наиграно всего')}</span>
         </div>
         <dl className="profile-stats">

@@ -8,6 +8,7 @@ import { useNow } from '../lib/state'
 import { Hint } from './Glyph'
 import { IconClock, IconClose, IconEdit, IconPlay, IconTrophy } from './Icons'
 import { locale, plural, t } from '@shared/i18n'
+import { DotText } from './DotText'
 
 const dayFmt = new Intl.DateTimeFormat(locale(), { weekday: 'short' })
 const dateFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long' })
@@ -172,7 +173,7 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                       ] as const
                     ).map(([label, sec]) => (
                       <div key={label} className="hltb-item">
-                        <span className="hltb-value">{sec ? hours(sec) : '—'}</span>
+                        <span className="hltb-value">{sec ? <DotText text={hours(sec)} /> : '—'}</span>
                         <span className="hltb-label">{label}</span>
                       </div>
                     ))}

@@ -11,6 +11,7 @@ import { Hint } from './Glyph'
 import { IconBattery, IconGamepad, IconPlug } from './Icons'
 import { LogoMark, Wordmark } from './Logo'
 import { locale, t } from '@shared/i18n'
+import { DotText } from './DotText'
 
 const num = (v: number, digits = 1) => v.toLocaleString(locale(), { maximumFractionDigits: digits })
 const gb = (b: number) => t('{v} ГБ', { v: num(b / 2 ** 30) })
@@ -140,7 +141,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
               <section className="si-card">
                 <h3>{t('Память')}</h3>
                 <div className="si-big">
-                  {gb(info.memory.total)}
+                  <DotText text={gb(info.memory.total)} />
                   <span>{t('занято {pct}%', { pct: usedPct })}</span>
                 </div>
                 <div className="si-meter" role="img" aria-label={t('Занято {v} из {v2}', { v: gb(used), v2: gb(info.memory.total) })}>
@@ -204,7 +205,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
               <section className="si-card">
                 <h3>{t('Библиотека и место')}</h3>
                 <div className="si-big">
-                  {gamesCount(info.library.games)}
+                  <DotText text={gamesCount(info.library.games)} />
                   <span>{t('{h} ч в играх', { h: num(info.library.hours) })}</span>
                 </div>
                 <div className="si-stack" role="img" aria-label={t('Данные PlayOS занимают {v}', { v: size(info.library.totalBytes) })}>

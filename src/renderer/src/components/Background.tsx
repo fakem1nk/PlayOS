@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import type { Game, LiveBackground } from '@shared/types'
 import { api } from '../lib/api'
 import { hueOf, media } from '../lib/format'
-import { CrtField } from './CrtField'
 
 interface Art {
   key: string
@@ -36,9 +35,6 @@ function preload(src: string) {
     setTimeout(() => resolve(false), 2500)
   })
 }
-
-/** Серебро и графит — фон настроек и профиля не спорит с содержимым */
-const FIELD_COLORS = ['#a6a6ad', '#7a7a82', '#2e2e33']
 
 // Живой фон включается, если задержаться на игре
 const LIVE_DELAY = 2200
@@ -108,9 +104,6 @@ export function Background({ game, dim = false, live = false }: Props) {
         </motion.div>
       </AnimatePresence>
       <div className="bg-shade" />
-      {/* В спокойных разделах — монохромный экран из точек, на главной — сетка поверх арта */}
-      {dim && <CrtField key="field" colors={FIELD_COLORS} intensity={0.42} className="bg-field" />}
-      <div className="bg-grid" />
       <div className="bg-glow" />
     </div>
   )
