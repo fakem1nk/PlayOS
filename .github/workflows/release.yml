@@ -1,0 +1,49 @@
+name: Релиз
+
+# Тег v<версия> → установщик собирается здесь и попадает в черновик релиза на GitHub.
+# Опубликовать черновик — вручную, на странице Releases.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Тег совпадает с версией в package.json
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            Write-Error "Тег ${{ github.ref_name }} не совпадает с версией $version в package.json"
+            exit 1
+          }
+
+      - run: npm ci
+      - run: npm run typecheck
+
+      # Помощник для звука и яркости собираем из исходников, а не берём готовый exe из репозитория
+      - name: Сборка PlayOSHelper.exe
+        run: npm run build:helper
+
+      - name: Сборка и загрузка в черновик
+        run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ключи OAuth-приложений облаков: electron-vite встраивает MAIN_VITE_* в main-процесс.
+          # Без них в сборке остаётся только «Папка синхронизации»
+          MAIN_VITE_YANDEX_CLIENT_ID: ${{ secrets.MAIN_VITE_YANDEX_CLIENT_ID }}
+          MAIN_VITE_YANDEX_CLIENT_SECRET: ${{ secrets.MAIN_VITE_YANDEX_CLIENT_SECRET }}
+          MAIN_VITE_GOOGLE_CLIENT_ID: ${{ secrets.MAIN_VITE_GOOGLE_CLIENT_ID }}
+          MAIN_VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.MAIN_VITE_GOOGLE_CLIENT_SECRET }}

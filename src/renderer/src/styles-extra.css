@@ -1,0 +1,727 @@
+/* ───────────────────────── Аватар и статус геймпада ───────────────────────── */
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-lg {
+  width: 9rem;
+  height: 9rem;
+  font-size: 3.8rem;
+}
+
+.avatar-xl {
+  width: 17rem;
+  height: 17rem;
+  font-size: 7rem;
+  box-shadow: none;
+}
+
+.avatar-setting {
+  justify-content: flex-start;
+}
+
+.avatar-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.battery {
+  display: grid;
+  font-size: 2.6rem;
+}
+
+.battery-low {
+  color: #ffc46b;
+}
+
+.battery-empty {
+  color: var(--danger);
+}
+
+/* ───────────────────────── Профиль ───────────────────────── */
+.profile-page {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 46rem minmax(0, 1fr);
+  gap: 6rem;
+  padding-top: 2.6rem;
+  min-height: 0;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-top: 1rem;
+}
+
+.profile-avatar-btn {
+  --r: 8.5rem;
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  transition: transform 160ms var(--ease-out);
+}
+
+.profile-avatar-btn:active {
+  transform: scale(0.97);
+}
+
+.profile-avatar-edit {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2.2rem;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.4);
+}
+
+.profile-title {
+  margin-top: 2.8rem;
+  font-size: 4.8rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.profile-since {
+  margin-top: 0.8rem;
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.profile-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 4.4rem;
+}
+
+.profile-hero-value {
+  font-size: 6.4rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-hero-label {
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.profile-stats {
+  display: flex;
+  gap: 4.4rem;
+  margin: 3.6rem 0 0;
+}
+
+.profile-stats dt {
+  font-size: 1.5rem;
+  color: var(--mist);
+  margin-bottom: 0.6rem;
+}
+
+.profile-stats dd {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 500;
+}
+
+.profile-main {
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+  padding: 1rem 1rem 6rem;
+  margin: -1rem -1rem 0;
+}
+
+.profile-block {
+  padding: 2.6rem 3rem 2.8rem;
+  border-radius: 2.2rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(2rem);
+}
+
+.block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2rem;
+  margin-bottom: 2.2rem;
+}
+
+.block-title {
+  font-size: 2.2rem;
+  font-weight: 500;
+}
+
+.block-meta {
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.block-empty {
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+.activity-bars {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 0.8rem;
+  height: 17rem;
+}
+
+.activity-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.activity-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.activity-bar {
+  width: 64%;
+  max-width: 3.4rem;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--accent);
+  transition: background-color 0.15s ease;
+}
+
+.activity-col.is-hover .activity-bar {
+  background: #7fb0ff;
+}
+
+.activity-empty {
+  width: 64%;
+  max-width: 3.4rem;
+  height: 0.3rem;
+  border-radius: 0.2rem 0.2rem 0 0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.activity-day {
+  font-size: 1.3rem;
+  color: var(--faint);
+}
+
+.activity-col.is-today .activity-day,
+.activity-col.is-hover .activity-day {
+  color: var(--ink);
+}
+
+.activity-caption {
+  margin-top: 1.8rem;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+.activity-caption strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.top-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.top-item {
+  --r: 1.4rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: 5.4rem minmax(0, 1fr) auto;
+  gap: 1.8rem;
+  align-items: center;
+  padding: 1rem 1.4rem;
+  border-radius: var(--r);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.top-item:focus {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.top-cover {
+  position: relative;
+  width: 5.4rem;
+  aspect-ratio: 3 / 4;
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.top-cover .cover-title {
+  font-size: 1rem;
+}
+
+.top-cover .cover-platform,
+.top-cover .cover-icon {
+  display: none;
+}
+
+.top-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.top-title {
+  font-size: 1.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-track {
+  height: 0.6rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.top-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.top-time {
+  font-size: 1.8rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────── Трофеи ───────────────────────── */
+.trophy-bronze,
+.tier-bronze {
+  --tier: #dd9a64;
+}
+
+.trophy-silver,
+.tier-silver {
+  --tier: #cfd8e6;
+}
+
+.trophy-gold,
+.tier-gold {
+  --tier: #f5cd55;
+}
+
+.trophy-platinum,
+.tier-platinum {
+  --tier: #a9cbff;
+}
+
+.trophies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.6rem, 1fr));
+  gap: 1.4rem;
+}
+
+.trophy {
+  --r: 1.6rem;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 3.4rem;
+  color: rgba(255, 255, 255, 0.16);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.trophy svg {
+  stroke-width: 1.5;
+}
+
+.trophy.is-earned {
+  color: var(--tier);
+  border-color: color-mix(in oklab, var(--tier) 38%, transparent);
+  background:
+    radial-gradient(80% 80% at 50% 25%, color-mix(in oklab, var(--tier) 26%, transparent), transparent 75%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.trophy:focus {
+  transform: scale(1.06);
+}
+
+.trophy-detail {
+  min-height: 2.6rem;
+  margin-top: 2.2rem;
+  font-size: 1.7rem;
+  line-height: 1.5;
+  color: var(--mist);
+}
+
+.trophy-detail strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.tier-badge {
+  display: inline-block;
+  margin: 0 0.6rem;
+  padding: 0.15rem 0.8rem;
+  border-radius: 0.8rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  vertical-align: 0.15em;
+  color: var(--tier);
+  background: color-mix(in oklab, var(--tier) 16%, transparent);
+}
+
+.toast-trophy {
+  border-color: color-mix(in oklab, var(--tier) 45%, transparent);
+}
+
+.toast-trophy-icon {
+  flex: none;
+  width: 5.6rem;
+  height: 5.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 3rem;
+  color: var(--tier);
+  background: radial-gradient(circle, color-mix(in oklab, var(--tier) 30%, transparent), transparent 70%);
+}
+
+.toast-eyebrow {
+  margin-bottom: 0.3rem;
+  font-size: 1.3rem;
+  color: var(--mist);
+}
+
+
+.battery-percent {
+  font-size: 1.6rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────── Трофеи игры ───────────────────────── */
+.trophy-head {
+  display: flex;
+  align-items: center;
+  gap: 2.8rem;
+  margin-bottom: 3rem;
+}
+
+.trophy-cover {
+  position: relative;
+  flex: none;
+  width: 10rem;
+  aspect-ratio: 3 / 4;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.45);
+}
+
+.trophy-cover .cover-title {
+  font-size: 1.2rem;
+}
+
+.trophy-head-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.trophy-progress {
+  display: flex;
+  align-items: center;
+  gap: 1.8rem;
+}
+
+.trophy-percent {
+  font-size: 3.2rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.trophy-bar {
+  flex: 0 1 50rem;
+  height: 0.8rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.trophy-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3d8bff, #8fbaff);
+  transition: width 0.6s var(--ease-out);
+}
+
+.trophy-count,
+.trophy-sub {
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.trophy-tiers {
+  display: flex;
+  align-items: center;
+  gap: 2.4rem;
+  font-size: 1.9rem;
+}
+
+.tier-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--tier);
+  font-variant-numeric: tabular-nums;
+}
+
+.tier-count svg {
+  font-size: 2.4rem;
+}
+
+.trophy-source {
+  margin-left: auto;
+  padding: 0.4rem 1.2rem;
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+
+.trophy-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem;
+  margin: -1rem;
+}
+
+.trophy-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62rem, 1fr));
+  gap: 1rem 2rem;
+}
+
+.trophy-row {
+  --r: 1.6rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: 6.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2rem;
+  min-height: 9rem;
+  padding: 1.2rem 2rem 1.2rem 1.2rem;
+  border-radius: var(--r);
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: left;
+  opacity: 0.62;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.trophy-row.is-earned {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.trophy-row:focus {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.trophy-row:focus::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: calc(var(--r) + 0.55rem);
+  border: 0.3rem solid #fff;
+  pointer-events: none;
+}
+
+.trophy-row.is-skeleton {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.trophy-icon {
+  width: 6.4rem;
+  height: 6.4rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  display: grid;
+  place-items: center;
+}
+
+.trophy-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trophy-row:not(.is-earned) .trophy-icon img {
+  filter: grayscale(1) brightness(0.7);
+}
+
+.trophy-secret {
+  font-size: 3rem;
+  color: var(--faint);
+}
+
+.trophy-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.trophy-name {
+  font-size: 1.9rem;
+  font-weight: 500;
+}
+
+.trophy-desc {
+  font-size: 1.55rem;
+  line-height: 1.35;
+  color: var(--mist);
+}
+
+.trophy-tier {
+  font-size: 3.2rem;
+  color: rgba(255, 255, 255, 0.2);
+  display: grid;
+}
+
+.trophy-row.is-earned .trophy-tier {
+  color: var(--tier);
+}
+
+.trophy-detail-hint {
+  color: var(--ink);
+}
+
+.trophy-warn {
+  margin-bottom: 1.6rem;
+}
+
+.trophy-problem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2rem;
+  max-width: 90rem;
+}
+
+.trophy-problem-text {
+  font-size: 2rem;
+  line-height: 1.5;
+  color: var(--mist);
+}
+
+.ra-search {
+  width: 70rem;
+}
+
+.ra-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 70rem;
+}
+
+.ra-result {
+  --r: 1.4rem;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1rem 1.6rem;
+  border-radius: var(--r);
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: left;
+}
+
+.ra-result:focus {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.ra-result:focus::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: calc(var(--r) + 0.55rem);
+  border: 0.3rem solid #fff;
+  pointer-events: none;
+}
+
+.ra-result img {
+  width: 4.8rem;
+  height: 4.8rem;
+  border-radius: 0.8rem;
+}
+
+.ra-title {
+  flex: 1;
+  font-size: 1.9rem;
+}
+
+.ra-count {
+  font-size: 1.5rem;
+  color: var(--mist);
+}
+
+/* Блок «Трофеи игр» в профиле */
+.game-trophies {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.trophy-icon-fallback {
+  font-size: 3.4rem;
+  color: var(--tier);
+}
+
+.trophy-row:not(.is-earned) .trophy-icon-fallback {
+  color: rgba(255, 255, 255, 0.25);
+}

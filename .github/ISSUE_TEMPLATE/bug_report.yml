@@ -1,0 +1,73 @@
+name: Ошибка · Bug report
+description: Что-то работает не так, как должно · Something doesn't work as it should
+labels: [ошибка]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что сообщаете! Проверьте, что стоит последняя версия PlayOS, загляните в [вопросы и проблемы](https://github.com/fakem1nk/PlayOS/blob/main/docs/FAQ.md) и поищите похожую задачу среди открытых. Как написать хороший отчёт — в [руководстве](https://github.com/fakem1nk/PlayOS/blob/main/docs/BUG_REPORT.ru.md).
+
+        Thanks for reporting! Make sure you have the latest PlayOS, check the [FAQ](https://github.com/fakem1nk/PlayOS/blob/main/docs/FAQ.en.md) and search the open issues first. See the [guide](https://github.com/fakem1nk/PlayOS/blob/main/docs/BUG_REPORT.md) for writing a good report. English is welcome.
+  - type: input
+    id: version
+    attributes:
+      label: Версия PlayOS · PlayOS version
+      description: Настройки → Система → «О системе» · Settings → System → “System info”
+      placeholder: '1.0.0'
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Что произошло · What happened
+      description: Коротко опишите проблему и что вы ожидали увидеть · Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить · Steps to reproduce
+      description: Шаги по порядку, начиная с запуска PlayOS · Step by step, starting from launching PlayOS.
+      placeholder: |
+        1. Открыть библиотеку · Open the library
+        2. Выбрать игру PS2 · Pick a PS2 game
+        3. Нажать ✕ · Press ✕
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Где проблема · Area
+      options:
+        - Интерфейс PlayOS · PlayOS interface
+        - Игры PC или Steam · PC or Steam games
+        - Игры PS2 (PCSX2) · PS2 games (PCSX2)
+        - Игры PS3 (RPCS3) · PS3 games (RPCS3)
+        - Меню поверх игры · In-game overlay
+        - Геймпад или подсветка DualSense · Controller or DualSense light bar
+        - Трофеи · Trophies
+        - Обновления или установка · Updates or installation
+        - Другое · Other
+    validations:
+      required: true
+  - type: input
+    id: gamepad
+    attributes:
+      label: Геймпад · Controller
+      description: Модель и подключение, если проблема с управлением · Model and connection, if it's about controls
+      placeholder: DualSense, Bluetooth, DSX
+  - type: textarea
+    id: report
+    attributes:
+      label: Отчёт об ошибках · Error report
+      description: |
+        Настройки → Система → «Сохранить отчёт об ошибках» — перетащите сюда файл с рабочего стола. Ключей API в нём нет.
+        Settings → System → “Save error report” — drag the file from your desktop here. It contains no API keys.
+        Если PlayOS не запускается · If PlayOS doesn't start: %APPDATA%\PlayOS\logs\playos.log
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Скриншоты и подробности · Screenshots and details
+      description: Скриншот, видео, название игры, версия эмулятора · A screenshot, video, game title, emulator version.

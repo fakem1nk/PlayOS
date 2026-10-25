@@ -1,0 +1,850 @@
+/* ───────────────────────── Прозрачное стекло (Clear) ─────────────────────────
+   Слой поверх остальных стилей. Один материал на всё — прозрачное стекло, как Clear в iOS:
+   почти без заливки и с лёгким размытием, фон виден насквозь; форму дают яркая кромка-блик,
+   внутреннее свечение по краям и мягкая тень. Окна поверх чуть темнее, чтобы текст читался.
+   Числа — светодиодными точками (DotText). */
+
+:root {
+  --bg: #060607;
+  --stroke: rgba(255, 255, 255, 0.12);
+  --grain: none;
+  --frost-fill: rgba(255, 255, 255, 0.025);
+  --frost-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0.06) 100%);
+  --frost-blur: blur(1rem) saturate(1.7) brightness(1.06);
+  --frost-edge:
+    inset 0 0.14rem 0 rgba(255, 255, 255, 0.55),
+    inset 0 -0.12rem 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 0.1rem rgba(255, 255, 255, 0.16),
+    inset 0 0 3rem rgba(255, 255, 255, 0.05);
+  --frost-shadow: 0 1.6rem 4rem rgba(0, 0, 0, 0.28);
+}
+
+/* Текст на прозрачном стекле — с лёгкой тенью, чтобы держался на ярком фоне */
+.setting,
+.btn-glass,
+.btn-round,
+.chip,
+.menu-item,
+.special-art,
+.toast,
+.gp-card,
+.profile-block,
+.ov-card {
+  text-shadow: 0 0.1rem 0.8rem rgba(0, 0, 0, 0.45);
+}
+
+/* ── Фон ── */
+.bg {
+  background: radial-gradient(120% 90% at 72% 8%, #1c1c21 0%, #0b0b0d 46%, var(--bg) 100%);
+}
+
+/* В настройках и профиле арт превращается в мягкое цветное свечение за стеклом */
+.bg.is-dim .bg-art {
+  opacity: 0.5 !important;
+  filter: blur(7rem) saturate(1.25) brightness(0.8);
+  transform: scale(1.2);
+}
+
+/* ── Стеклянные панели: окна, листы, карточки, уведомления ── */
+.dialog,
+.si,
+.upd-dialog,
+.pm,
+.sheet,
+.art-search,
+.side-menu,
+.steam-import,
+.gp-card,
+.profile-block,
+.si-card,
+.cc-card,
+.busy-card,
+.osk,
+.toast,
+.upd-card,
+.special-art,
+.ov-card:not(.is-primary):not(.is-danger),
+.ov-notice,
+.ov-trophy {
+  background: var(--grain), var(--frost-sheen), var(--frost-fill);
+  -webkit-backdrop-filter: var(--frost-blur);
+  backdrop-filter: var(--frost-blur);
+  border-color: transparent;
+  box-shadow: var(--frost-edge), var(--frost-shadow);
+}
+
+.dialog,
+.si,
+.upd-dialog,
+.pm {
+  --frost-fill: rgba(10, 10, 14, 0.45);
+  --frost-blur: blur(2.4rem) saturate(1.6);
+  border-radius: 4rem;
+}
+
+.art-search,
+.steam-import {
+  --frost-fill: rgba(10, 10, 14, 0.6);
+  --frost-blur: blur(2.4rem) saturate(1.6);
+}
+
+/* Карточки внутри окна — тоньше и без собственной тени */
+.si-card {
+  --frost-fill: rgba(255, 255, 255, 0.02);
+  border-radius: 3.2rem;
+  box-shadow: var(--frost-edge);
+}
+
+.gp-card,
+.profile-block {
+  --frost-fill: rgba(255, 255, 255, 0.025);
+  border-radius: 3.2rem;
+}
+
+.side-menu {
+  --frost-fill: rgba(10, 10, 14, 0.4);
+  --frost-blur: blur(2rem) saturate(1.6);
+  border-radius: 4rem 0 0 4rem;
+}
+
+.toast {
+  --frost-fill: rgba(10, 10, 14, 0.42);
+  --frost-blur: blur(2rem) saturate(1.6);
+  border-radius: 2.8rem;
+}
+
+/* Служебные плитки главной — чуть притемнённое стекло, подписи читаются на ярком арте */
+.special-art {
+  --frost-fill: rgba(0, 0, 0, 0.22);
+}
+
+/* ── Строки и элементы управления: то же стекло, тоньше ── */
+.setting,
+.btn-glass,
+.btn-round,
+.chip,
+.menu-item,
+.trophy-row,
+.steam-row,
+.hltb-item,
+.top-item,
+.ra-result,
+.input,
+.osk-key,
+.power-btn,
+.running-pill,
+.section-pill {
+  background: var(--grain), var(--frost-sheen), rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: blur(0.8rem) saturate(1.6);
+  backdrop-filter: blur(0.8rem) saturate(1.6);
+  box-shadow: var(--frost-edge), 0 0.6rem 1.8rem rgba(0, 0, 0, 0.18);
+  border-color: transparent;
+}
+
+/* Строки настроек — крупнее и просторнее */
+.setting {
+  --r: 2.8rem;
+  border-radius: var(--r);
+  padding-block: 2.4rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-glass:hover,
+  .btn-round:hover,
+  .setting:hover,
+  .menu-item:hover {
+    background: var(--grain), var(--frost-sheen), rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* В фокусе стекло светлеет и приподнимается */
+.setting:focus,
+.menu-item:focus,
+.btn-glass:focus,
+.btn-round:focus,
+.chip:focus,
+.trophy-row:focus,
+.steam-row:focus,
+.top-item:focus,
+.ra-result:focus {
+  background: var(--grain), var(--frost-sheen), rgba(255, 255, 255, 0.12);
+  box-shadow:
+    var(--frost-edge),
+    0 1.6rem 4rem rgba(0, 0, 0, 0.35);
+}
+
+/* Главная кнопка — белый фарфор с объёмом */
+.btn-primary {
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6ea 100%);
+  color: #0a0a0c;
+  box-shadow:
+    inset 0 0.12rem 0 #fff,
+    inset 0 -0.2rem 0 rgba(0, 0, 0, 0.1),
+    0 0.8rem 2rem rgba(0, 0, 0, 0.3),
+    0 2.4rem 5rem rgba(0, 0, 0, 0.3);
+}
+
+/* ── Вкладки: стеклянная капсула ── */
+.tab-pill,
+.tinted .tab-pill {
+  background: var(--grain), var(--frost-sheen), color-mix(in oklch, var(--tint, #fff) 14%, rgba(255, 255, 255, 0.08));
+  box-shadow: var(--frost-edge), 0 0.6rem 1.8rem rgba(0, 0, 0, 0.2);
+}
+
+/* ── Под окнами: глубокое размытие ── */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.38);
+  -webkit-backdrop-filter: blur(3.2rem) saturate(1.2);
+  backdrop-filter: blur(3.2rem) saturate(1.2);
+}
+
+.scrim {
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(1.6rem);
+  backdrop-filter: blur(1.6rem);
+}
+
+/* ── Значки кнопок: маленькие стеклянные капли ── */
+.glyph {
+  background: var(--frost-sheen), rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 0.28), inset 0 0 0 0.1rem rgba(255, 255, 255, 0.06);
+}
+
+.panel-title,
+.dialog-title,
+.side-title,
+.gp-card h3,
+.si-card h3 {
+  letter-spacing: -0.01em;
+}
+
+/* ───────────────────────── Цифры точками ───────────────────────── */
+.dot-text {
+  display: inline-flex;
+  align-items: flex-end;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.dot-glyph {
+  height: 1em;
+  margin-right: 0.14em;
+  overflow: visible;
+  flex: none;
+}
+
+.dot-on {
+  fill: currentColor;
+}
+
+.dot-off {
+  fill: currentColor;
+  opacity: 0.07;
+}
+
+/* Единицы рядом с цифрами — мельче и тише, как подпись на табло */
+.dot-unit {
+  font-size: 0.56em;
+  line-height: 1.1;
+  margin: 0 0.35em 0 0.05em;
+  opacity: 0.72;
+  letter-spacing: 0;
+}
+
+.dot-text .dot-unit:last-child {
+  margin-right: 0;
+}
+
+/* Итог в профиле — крупное табло */
+.profile-hero-value.dot-text {
+  font-size: 6.4rem;
+}
+
+.si-big .dot-text {
+  font-size: 4.4rem;
+  margin-right: 1.2rem;
+}
+
+.hltb-value .dot-text {
+  font-size: 3.6rem;
+}
+
+/* Без прозрачности — сплошной фон вместо размытия (настройка Windows) */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --frost-fill: rgba(36, 36, 42, 0.96);
+  }
+}
+
+/* Пока открыта боковая шторка, уведомления уходят левее и не закрывают её пункты */
+.app:has(.side-menu) .toasts {
+  right: calc(var(--side-w, 54rem) + 2.4rem);
+  transition: right 0.3s var(--ease-out);
+}
+
+/* ───────────────────────── Жидкое стекло (lib/liquid.ts) ─────────────────────────
+   Когда включено преломление, заливки почти нет: фон виден насквозь и изгибается у кромки.
+   Окна поверх оставляем слегка притемнёнными — под ними и так размытый экран. */
+html.liquid {
+  --frost-fill: rgba(255, 255, 255, 0.012);
+  --frost-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+html.liquid .setting,
+html.liquid .btn-glass,
+html.liquid .btn-round,
+html.liquid .chip,
+html.liquid .menu-item,
+html.liquid .trophy-row,
+html.liquid .steam-row,
+html.liquid .hltb-item,
+html.liquid .top-item,
+html.liquid .ra-result,
+html.liquid .input,
+html.liquid .osk-key,
+html.liquid .power-btn,
+html.liquid .running-pill,
+html.liquid .section-pill {
+  background: var(--frost-sheen), rgba(255, 255, 255, 0.015);
+}
+
+html.liquid .gp-card,
+html.liquid .profile-block,
+html.liquid .si-card {
+  --frost-fill: rgba(255, 255, 255, 0.01);
+}
+
+html.liquid .dialog,
+html.liquid .si,
+html.liquid .upd-dialog,
+html.liquid .pm {
+  --frost-fill: rgba(8, 8, 12, 0.3);
+}
+
+html.liquid .side-menu,
+html.liquid .toast,
+html.liquid .art-search,
+html.liquid .steam-import {
+  --frost-fill: rgba(8, 8, 12, 0.32);
+}
+
+html.liquid .special-art {
+  --frost-fill: rgba(0, 0, 0, 0.16);
+}
+
+/* ───────────────────────── Блик, кромка и реакции стекла ─────────────────────────
+   --lx/--ly — где на стекле блик: мышь ведёт его за курсором, при фокусе с геймпада
+   он въезжает со стороны, откуда пришёл фокус (lib/liquid.ts). */
+@property --lx {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 35%;
+}
+
+@property --ly {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+:where(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .hltb-item, .top-item, .gp-card,
+    .profile-block, .si-card, .dialog, .si, .upd-dialog, .pm, .toast, .special-art, .section-pill, .tab-pill, .power-btn) {
+  position: relative;
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .hltb-item, .top-item, .gp-card,
+    .profile-block, .si-card, .dialog, .si, .upd-dialog, .pm, .toast, .special-art, .section-pill, .tab-pill, .power-btn, .side-menu, .ov-card)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Блик + тонкая дисперсия по кромке: холодная сверху-слева, тёплая снизу-справа */
+  background: radial-gradient(90% 75% at var(--lx) var(--ly), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 60%);
+  box-shadow:
+    inset 0.14rem 0.14rem 0 rgba(150, 215, 255, 0.22),
+    inset -0.14rem -0.14rem 0 rgba(255, 170, 120, 0.16);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  transition:
+    opacity 0.35s var(--ease-out),
+    --lx 0.6s var(--ease-out),
+    --ly 0.6s var(--ease-out);
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .top-item, .section-pill, .power-btn, .ov-card):is(:focus, .is-focused)::before,
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .ov-card):hover::before {
+  opacity: 1;
+}
+
+/* Активная «чипса» фильтра — белая капсула, как главная кнопка */
+html.liquid .chip.is-active {
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6ea 100%);
+  color: #0a0a0c;
+  text-shadow: none;
+}
+
+/* ───────────────────────── Свечение плитки в фокусе ─────────────────────────
+   Не тенью (Chromium обрезает большую размытую тень по прямоугольнику слоя), а отдельным градиентом за обложкой */
+.tinted .tile.is-focused .tile-art {
+  box-shadow: 0 2.6rem 5.4rem rgba(0, 0, 0, 0.6);
+}
+
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: -6rem -5rem;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--tint-glow, rgba(120, 160, 255, 0.35)) 35%, transparent);
+  filter: saturate(1.4);
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-out);
+  pointer-events: none;
+}
+
+.tinted .tile.is-focused::before {
+  opacity: 1;
+}
+
+/* ───────────────────────── Настоящая прозрачность ─────────────────────────
+   С жидким стеклом ничего не размывается: ни фон под окнами, ни арт в спокойных разделах.
+   Стекло прозрачное по-честному — видно, что за ним, а форму дают преломление у кромки и блик. */
+html.liquid .modal-backdrop {
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html.liquid .scrim {
+  background: rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Арт за стеклом настроек и профиля — чёткий, только притушен */
+html.liquid .bg.is-dim .bg-art {
+  opacity: 0.6 !important;
+  filter: brightness(0.5) saturate(1.1);
+  transform: none;
+}
+
+html.liquid .dialog,
+html.liquid .si,
+html.liquid .upd-dialog,
+html.liquid .pm,
+html.liquid .side-menu,
+html.liquid .toast,
+html.liquid .art-search,
+html.liquid .steam-import {
+  --frost-fill: rgba(6, 6, 10, 0.16);
+}
+
+/* Текст на прозрачном стекле держится на мягкой тени */
+html.liquid :is(.dialog, .si, .upd-dialog, .pm, .side-menu, .toast, .setting, .menu-item, .gp-card, .profile-block, .si-card, .chip, .btn-glass, .special-art, .ov-card) {
+  text-shadow:
+    0 0.1rem 0.3rem rgba(0, 0, 0, 0.55),
+    0 0 1.6rem rgba(0, 0, 0, 0.45);
+}
+
+/* ───────────────────────── Голое стекло ─────────────────────────
+   Только то, что делает настоящее стекло: прозрачность, преломление у кромки, хроматическая аберрация
+   и лёгкое ровное размытие толщи (всё — в фильтре lib/liquid.ts). Никаких заливок, оттенков, бликов,
+   цветных кромок, теней и свечений. Белая рамка фокуса остаётся — это не стекло, а указатель.
+   Селекторы в :where() — без веса, чтобы слои ниже (кромка, подложки окон) их перекрывали. */
+html.liquid :where(.dialog, .si, .upd-dialog, .pm, .sheet, .art-search, .side-menu, .steam-import, .gp-card, .profile-block,
+    .si-card, .cc-card, .busy-card, .osk, .toast, .upd-card, .special-art, .ov-card:not(.is-primary):not(.is-danger), .ov-notice,
+    .ov-trophy, .setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .hltb-item,
+    .top-item, .ra-result, .input, .osk-key, .power-btn, .running-pill, .section-pill, .tab-pill),
+html.liquid :where(.setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .top-item,
+    .ra-result, .section-btn, .ov-card:not(.is-primary):not(.is-danger)):where(:hover, :focus, .is-focused) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip, .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .hltb-item, .top-item, .gp-card,
+    .profile-block, .si-card, .dialog, .si, .upd-dialog, .pm, .toast, .special-art, .section-pill, .tab-pill, .power-btn,
+    .side-menu, .ov-card)::before {
+  display: none;
+}
+
+/* Без заливки активную вкладку видно по яркости подписи */
+html.liquid .tab:not(.is-active) .tab-label {
+  opacity: 0.6;
+}
+
+/* ───────────────────────── Стекло как линза Apple ─────────────────────────
+   Поверх голого стекла: прозрачное, фон за ним мягко размыт, без заливки и без шума.
+   Форму даёт тонкая кромка, которая светится не по всему кругу, а на двух дугах — сверху справа
+   и снизу слева, как у стеклянной линзы на свету; у этих дуг внутри — едва заметное свечение.
+   В фокусе оттенок не меняется: фон за стеклом чуть светлее, кромка ярче. */
+html.liquid {
+  --rim: conic-gradient(from 0deg,
+      rgba(255, 255, 255, 0.1) 0deg, rgba(255, 255, 255, 0.7) 50deg, rgba(255, 255, 255, 0.1) 120deg,
+      rgba(255, 255, 255, 0.06) 180deg, rgba(255, 255, 255, 0.45) 230deg, rgba(255, 255, 255, 0.06) 300deg,
+      rgba(255, 255, 255, 0.1) 360deg);
+  --rim-glow:
+    radial-gradient(70% 120% at 100% 0%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(70% 120% at 0% 100%, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 60%);
+}
+
+html.liquid :is(.dialog, .si, .upd-dialog, .pm, .sheet, .art-search, .side-menu, .steam-import, .gp-card, .profile-block,
+    .si-card, .cc-card, .busy-card, .osk, .toast, .upd-card, .ov-notice, .ov-trophy) {
+  background: var(--rim-glow) !important;
+  -webkit-backdrop-filter: blur(2rem);
+  backdrop-filter: blur(2rem);
+}
+
+html.liquid :is(.special-art, .ov-card:not(.is-primary):not(.is-danger), .setting, .btn-glass, .btn-round, .chip:not(.is-active),
+    .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .hltb-item, .top-item, .ra-result, .input, .osk-key, .power-btn, .running-pill,
+    .section-pill, .tab-pill) {
+  background: var(--rim-glow) !important;
+  -webkit-backdrop-filter: blur(1.4rem);
+  backdrop-filter: blur(1.4rem);
+  transition: backdrop-filter 0.2s var(--ease-out);
+}
+
+:where(.sheet, .art-search, .side-menu, .steam-import, .cc-card, .upd-card, .ov-notice, .hltb-item, .ra-result, .input,
+    .running-pill, .ov-card) {
+  position: relative;
+}
+
+/* Кромка — кольцо толщиной в пиксель: градиент по кругу, середина вырезана маской */
+html.liquid :is(.dialog, .si, .upd-dialog, .pm, .sheet, .art-search, .side-menu, .steam-import, .gp-card, .profile-block,
+    .si-card, .cc-card, .toast, .upd-card, .ov-notice, .special-art, .ov-card:not(.is-primary):not(.is-danger), .setting,
+    .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .hltb-item, .top-item, .ra-result,
+    .input, .power-btn, .running-pill, .section-pill, .tab-pill)::before {
+  display: block;
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--rim);
+  box-shadow: none;
+  mix-blend-mode: normal;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.75;
+  pointer-events: none;
+  transition: opacity 0.2s var(--ease-out);
+}
+
+/* Фокус и активная вкладка: фон за стеклом светлее, кромка ярче — без подкраски */
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .top-item,
+    .ra-result, .hltb-item, .input, .osk-key, .power-btn, .section-pill, .ov-card:not(.is-primary):not(.is-danger), .special-art):is(:focus, .is-focused),
+html.liquid .tab-pill {
+  /* На тёмном фоне одна яркость незаметна — добавляем едва видимую нейтральную подложку */
+  background: var(--rim-glow), rgba(255, 255, 255, 0.05) !important;
+  -webkit-backdrop-filter: blur(1.4rem) brightness(1.18);
+  backdrop-filter: blur(1.4rem) brightness(1.18);
+}
+
+html.liquid :is(.setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .trophy-row, .save-card, .save-version, .steam-row, .top-item,
+    .ra-result, .hltb-item, .input, .power-btn, .section-pill, .ov-card:not(.is-primary):not(.is-danger), .special-art):is(:focus, .is-focused)::before,
+html.liquid .tab-pill::before {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html.liquid :is(.setting, .btn-glass, .btn-round, .chip:not(.is-active), .menu-item, .top-item, .ov-card:not(.is-primary):not(.is-danger)):hover {
+    -webkit-backdrop-filter: blur(1.4rem) brightness(1.1);
+    backdrop-filter: blur(1.4rem) brightness(1.1);
+  }
+}
+
+/* ── Окна — frosted ──
+   Под окном всё слегка размыто отдельным слоем (::before), а не самим фоном окна: элемент с backdrop-filter
+   становится «корнем» для вложенных, и окно внутри него размывало бы пустоту. Так окно размывает
+   страницу заново — сильно, как матовое стекло, — и почти без заливки. */
+html.liquid .modal-backdrop {
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html.liquid .modal-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(0.8rem);
+  backdrop-filter: blur(0.8rem);
+  pointer-events: none;
+}
+
+html.liquid .scrim {
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(0.6rem);
+  backdrop-filter: blur(0.6rem);
+}
+
+html.liquid :is(.dialog, .si, .upd-dialog, .pm, .side-menu, .steam-import, .art-search) {
+  background: var(--rim-glow), rgba(255, 255, 255, 0.045) !important;
+  -webkit-backdrop-filter: blur(4rem) saturate(1.4);
+  backdrop-filter: blur(4rem) saturate(1.4);
+}
+
+/* Внутри окна карточки — без своего размытия: под ними уже матовое стекло */
+html.liquid .si .si-card {
+  background: var(--rim-glow), rgba(255, 255, 255, 0.03) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Часы — точками, как цифры в профиле */
+.clock.dot-text,
+.ov-clock.dot-text {
+  font-size: 2.2rem;
+}
+
+/* ── «О системе»: диски ── */
+.si-disks {
+  display: grid;
+  gap: 1.8rem;
+  margin: 1.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.si-disk-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.4rem;
+  color: var(--mist, rgba(255, 255, 255, 0.7));
+  font-size: 1.6rem;
+}
+
+.si-disk-name {
+  font-size: 2.4rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+}
+
+.si-disks .si-meter {
+  margin-top: 1.2rem;
+}
+
+/* Почти заполненный диск — полоса тёплая, чтобы бросалось в глаза */
+.si-disks .is-low .si-meter span {
+  background: linear-gradient(90deg, #ff8a5c, #ffb38f);
+}
+
+/* ── Главная: затемнение под текстом мягче, арт игры виден больше (в светлой теме — так же мягче белое) ── */
+.app[data-tab='home'] .bg-shade {
+  background:
+    linear-gradient(90deg, rgba(4, 6, 12, 0.74) 0%, rgba(4, 6, 12, 0.44) 34%, rgba(4, 6, 12, 0) 66%),
+    linear-gradient(0deg, rgba(4, 6, 12, 0.82) 0%, rgba(4, 6, 12, 0.32) 32%, rgba(4, 6, 12, 0) 56%),
+    linear-gradient(180deg, rgba(4, 6, 12, 0.5) 0%, rgba(4, 6, 12, 0) 22%);
+}
+
+/* ── Значок платформы на обложке в фокусе: стеклянная капля с иконкой вместо подписи ── */
+.tile-platform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 3.2rem;
+  height: 3.2rem;
+  padding: 0 0.6rem;
+  border-radius: 1rem;
+  font-size: 2.3rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: blur(1rem) saturate(1.4);
+  backdrop-filter: blur(1rem) saturate(1.4);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* Логотип PS2 / PS3 — надпись: ниже монитора по высоте, плашка шире */
+.tile-platform .icon-ps {
+  font-size: 0.56em;
+}
+
+.tile-platform:has(.icon-ps) {
+  padding: 0 0.9rem;
+}
+
+/* ── Облачные сохранения ── */
+
+.cloud-code-value {
+  margin-top: 1.2rem;
+  font-family: var(--mono);
+  font-size: 4.4rem;
+  letter-spacing: 0.3em;
+  color: var(--ink);
+}
+
+.cloud-quota {
+  display: block;
+  width: 36rem;
+  height: 0.6rem;
+  margin: 1.2rem 0 0.6rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.cloud-quota-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* Статус окрашивается только при проблеме: обычное состояние — тихий текст */
+.cloud-state.is-conflict,
+.cloud-state.is-error,
+.gp-cloud.is-conflict,
+.gp-cloud.is-error {
+  color: #ffb36b;
+}
+
+.cloud-state.is-offline,
+.gp-cloud.is-offline,
+.gp-cloud.is-nosaves {
+  color: var(--faint);
+}
+
+.save-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6rem;
+  margin: 2.4rem 0 1rem;
+}
+
+.save-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 2.2rem 2.4rem;
+  border-radius: 2rem;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  text-align: left;
+}
+
+.save-card-label {
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.save-card-time {
+  font-size: 2.4rem;
+  font-weight: 500;
+}
+
+.save-card-meta {
+  font-size: 1.6rem;
+  color: var(--faint);
+}
+
+.save-version-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 44rem;
+  overflow-y: auto;
+  margin: 2rem 0 1rem;
+}
+
+.save-version {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2rem;
+  padding: 1.6rem 2rem;
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-size: 1.9rem;
+  text-align: left;
+}
+
+.save-version:disabled {
+  opacity: 1;
+}
+
+.save-version-meta {
+  font-size: 1.6rem;
+  color: var(--faint);
+}
+
+.cloud-restore {
+  width: 78rem;
+}
+
+.cloud-restore-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 2.4rem 0 1rem;
+}
+
+/* Игра из облака без файла на этом ПК */
+.gp-meta .gp-missing {
+  color: #ffb36b;
+}
+
+/* QR для входа по коду: белая подложка в любой теме — иначе камера не прочитает */
+.cloud-qr {
+  flex: none;
+  width: 16rem;
+  height: 16rem;
+  margin: 0 2.4rem;
+  border-radius: 1.2rem;
+}
+
+/* Идёт синхронизация: стрелки крутятся ровно, без рывков */
+.is-spinning {
+  animation: cloud-spin 1s linear infinite;
+}
+
+@keyframes cloud-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Без вращения — мягкое мерцание, чтобы процесс всё равно был виден */
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: cloud-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes cloud-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.cloud-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+/* Заголовок меню питания с круглой кнопкой темы справа */
+.side-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-switch {
+  width: 4.8rem;
+  height: 4.8rem;
+  font-size: 2rem;
+}

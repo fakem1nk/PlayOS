@@ -1,0 +1,230 @@
+/* ───────────────────────── Интро PlayOS ─────────────────────────
+   Тайминги совпадают с константами в Intro.tsx:
+   кинескоп раскрывается 80–720 мс → название проявляется 620–1400 → POWER 1120 (волна, искры). */
+
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.intro > .intro-lockup,
+.intro > .intro-welcome {
+  grid-area: 1 / 1;
+}
+
+/* ── Фон: экран из точек (CrtField) ── */
+.crt-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Без WebGL — спокойный градиент тех же цветов */
+.crt-field.is-fallback {
+  background:
+    radial-gradient(60% 50% at 30% 30%, color-mix(in oklch, var(--a1, #3d8bff) 45%, transparent), transparent 70%),
+    radial-gradient(50% 50% at 70% 70%, color-mix(in oklch, var(--a2, #8a5cff) 35%, transparent), transparent 70%), #000;
+}
+
+.intro-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(70% 70% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.7) 100%);
+  pointer-events: none;
+}
+
+/* ── Название ── */
+.intro-lockup {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* Мягкая тёмная подложка — чтобы белые буквы читались на ярких полосах */
+.intro-lockup::before {
+  content: '';
+  position: absolute;
+  inset: -12rem -16rem;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.32), transparent);
+  opacity: 0;
+  animation: word-backdrop 1s 0.5s var(--ease-out) forwards;
+}
+
+.intro-word {
+  position: relative;
+  width: 74rem;
+  height: auto;
+  overflow: visible;
+  color: #fff;
+  filter: drop-shadow(0 0 2.4rem rgba(190, 215, 255, 0.35));
+}
+
+/* Проявление из-под маски слева направо с размытием */
+.intro-word-fill {
+  fill: currentColor;
+  clip-path: inset(0 100% 0 0);
+  animation: word-reveal 0.8s 0.62s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes word-reveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    filter: blur(14px);
+    opacity: 0.3;
+  }
+  60% {
+    filter: blur(3px);
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 -5% 0 0);
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+@keyframes word-backdrop {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Искры вспыхивают в момент POWER: поворот на четверть оборота, перелёт и мерцание */
+.intro-spark {
+  fill: #fff;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  transform: scale(0) rotate(-90deg);
+  animation:
+    spark-pop 0.7s 1.12s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    spark-twinkle 2.6s 1.9s ease-in-out infinite;
+  filter: drop-shadow(0 0 1.2rem rgba(220, 235, 255, 0.9));
+}
+
+.intro-spark.is-small {
+  animation-delay: 1.24s, 2.3s;
+}
+
+@keyframes spark-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-90deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.35) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes spark-twinkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(0.82) rotate(12deg);
+  }
+}
+
+/* ── Приветствие ── */
+.intro-welcome {
+  position: relative;
+  margin-top: 22rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.intro-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3.2rem;
+}
+
+.intro-avatar-ring {
+  position: absolute;
+  inset: -1.1rem;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--a1), var(--a2), var(--a3), var(--a1));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 0.45rem), #000 calc(100% - 0.4rem));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 0.45rem), #000 calc(100% - 0.4rem));
+  animation: spin 5s linear infinite;
+}
+
+.intro-greet {
+  font-size: 2.4rem;
+  color: var(--mist);
+}
+
+.intro-name {
+  margin-top: 0.6rem;
+  font-size: 6.6rem;
+  font-weight: 450;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.intro-sub {
+  margin-top: 1.8rem;
+  font-size: 2rem;
+  color: var(--mist);
+}
+
+/* ── Название и искры вне интро ── */
+.wordmark {
+  height: 1em;
+  width: auto;
+  overflow: visible;
+}
+
+.logo-spark {
+  fill: var(--logo-spark, currentColor);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-word-fill,
+  .intro-spark,
+  .intro-lockup::before,
+  .intro-avatar-ring {
+    animation: none;
+    clip-path: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Экран кинескопа (CrtScreen) ── */
+.crt-screen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.crt-screen.is-fallback {
+  background: radial-gradient(60% 50% at 50% 50%, #1b2233, #000);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

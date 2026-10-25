@@ -1,0 +1,97 @@
+/* ───────────────────────── Цвет интерфейса под игру ─────────────────────────
+   --game-accent — цвет обложки игры в фокусе (main считает его по арту).
+   Зарегистрированное свойство анимируется: при переходе между играми акценты перетекают плавно. */
+@property --game-accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #3d8bff;
+}
+
+.tinted {
+  transition: --game-accent 0.9s var(--ease-out);
+  /* Цвет обложки приводим к ровной яркости: и жёлтая, и тёмно-синяя обложка дают одинаково читаемый акцент */
+  --tint: oklch(from var(--game-accent) 0.66 min(c, 0.17) h);
+  --tint-light: oklch(from var(--game-accent) 0.82 min(c, 0.12) h);
+  --tint-glow: oklch(from var(--game-accent) 0.62 min(c, 0.2) h / 0.4);
+  --tint-haze: oklch(from var(--game-accent) 0.5 min(c, 0.16) h / 0.24);
+  --ring-glow: oklch(from var(--game-accent) 0.85 min(c, 0.1) h / 0.22);
+  --accent: var(--tint);
+}
+
+/* Фон без арта и мягкое свечение снизу и под рядом игр */
+.tinted .bg {
+  background: radial-gradient(120% 90% at 72% 8%, color-mix(in oklch, var(--tint) 32%, #070d1c) 0%, #070d1c 46%, var(--bg) 100%);
+}
+
+.bg-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(52% 42% at 12% 56%, var(--tint-haze), transparent 72%),
+    radial-gradient(75% 28% at 45% 106%, var(--tint-glow), transparent 72%);
+  mix-blend-mode: screen;
+  transition: opacity 0.5s ease;
+}
+
+.bg.is-dim .bg-glow {
+  opacity: 0.4;
+}
+
+/* Плитка в фокусе светится цветом своей обложки */
+.tinted .tile.is-focused .tile-art {
+  box-shadow:
+    0 2.6rem 5.4rem rgba(0, 0, 0, 0.6),
+    0 0 7rem var(--tint-glow);
+}
+
+.tinted .btn-primary {
+  box-shadow:
+    0 1rem 3rem rgba(0, 0, 0, 0.35),
+    0 0 3.6rem var(--tint-haze);
+}
+
+.tinted .tab-pill {
+  background: color-mix(in oklch, var(--tint) 28%, rgba(255, 255, 255, 0.12));
+}
+
+.tinted .info-logo {
+  filter: drop-shadow(0 0.4rem 2rem rgba(0, 0, 0, 0.5)) drop-shadow(0 0 4rem var(--tint-haze));
+}
+
+.tinted .trophy-bar span {
+  background: linear-gradient(90deg, var(--tint), var(--tint-light));
+}
+
+/* Страница игры: свечение в нижнем углу под карточками */
+.game-page .gp-shade {
+  background:
+    radial-gradient(60% 45% at 8% 100%, var(--tint-haze), transparent 72%),
+    linear-gradient(180deg, rgba(4, 6, 12, 0.2) 0%, rgba(4, 6, 12, 0.55) 30%, var(--bg) 60%),
+    linear-gradient(90deg, rgba(4, 6, 12, 0.85) 0%, rgba(4, 6, 12, 0.2) 60%);
+}
+
+.gp-bar-fill {
+  background: color-mix(in oklch, var(--accent) 72%, transparent);
+}
+
+.steam-row.is-on {
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+}
+
+.osk-key.is-on {
+  background: color-mix(in oklch, var(--accent) 50%, transparent);
+}
+
+/* Оверлей поверх игры: свечение снизу под панелью в цвет запущенной игры */
+.ov-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(85% 38% at 50% 108%, var(--tint-glow), transparent 72%);
+  mix-blend-mode: screen;
+}
+
+.tinted .ov-card.is-primary {
+  box-shadow: 0 0 4rem var(--tint-haze);
+}
