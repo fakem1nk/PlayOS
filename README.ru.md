@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-    <img src="docs/assets/logo-light.svg" alt="PlayOS" width="420">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-ascii-dark.png">
+    <img src="docs/assets/logo-ascii-light.png" alt="PlayOS" width="100%">
   </picture>
 </p>
 
