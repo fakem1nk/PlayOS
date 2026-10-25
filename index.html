@@ -1,25 +1,52 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PlayOS</title>
+<title>PlayOS — console-style game launcher for Windows</title>
+<meta name="description" content="PlayOS is a free, open-source PS5-style game launcher for Windows with gamepad control, playtime tracking, trophies and optional cloud saves in your own Google Drive or Yandex Disk.">
 <style>
-  :root { color-scheme: light dark; --bg: #f6f7fb; --ink: #14171f; --mist: #5b6272; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #0b0e15; --ink: #eef1f7; --mist: #9aa3b5; } }
+  :root { color-scheme: light dark; --bg: #f6f7fb; --ink: #14171f; --mist: #5b6272; --line: #dde1ea; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0b0e15; --ink: #eef1f7; --mist: #9aa3b5; --line: #232a38; } }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 64px 20px; }
-  h1 { font-size: 40px; margin: 0 0 8px; }
-  p { color: var(--mist); }
+  main { max-width: 760px; margin: 0 auto; padding: 56px 20px 80px; }
+  h1 { font-size: 44px; margin: 0 0 4px; }
+  h2 { font-size: 22px; margin: 40px 0 8px; }
+  .lead { font-size: 20px; color: var(--mist); margin: 0 0 24px; }
+  li { margin: 4px 0; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 56px 0; }
   a { color: #3d7cf0; }
+  nav a { margin-right: 16px; }
 </style>
 </head>
 <body>
 <main>
   <h1>PlayOS</h1>
-  <p>Консольный лаунчер игр для Windows в стиле PS5: игры PC, PS2 и PS3, управление геймпадом, время игры, трофеи и облачные сохранения.</p>
-  <p lang="en">A PS5-style console launcher for Windows: PC, PS2 and PS3 games, gamepad control, playtime, trophies and cloud saves.</p>
-  <p><a href="https://github.com/fakem1nk/PlayOS">GitHub</a> · <a href="https://github.com/fakem1nk/PlayOS/releases">Скачать / Download</a> · <a href="privacy.html">Политика конфиденциальности / Privacy Policy</a></p>
+  <p class="lead">A free, open-source game launcher for Windows that turns your PC into a game console: a PS5-style interface you control with a gamepad from the couch.</p>
+  <nav><a href="https://github.com/fakem1nk/PlayOS/releases">Download</a><a href="https://github.com/fakem1nk/PlayOS">Source code</a><a href="privacy.html">Privacy Policy</a></nav>
+
+  <h2>What PlayOS does</h2>
+  <ul>
+    <li>Launches PC games (Steam and non-Steam), PlayStation 2 games via the PCSX2 emulator and PlayStation 3 games via the RPCS3 emulator from one console-style library.</li>
+    <li>Works entirely with a gamepad (DualSense, DualShock 4, Xbox and others): navigation, an in-game overlay, quick saves for emulators.</li>
+    <li>Tracks playtime and play sessions, shows trophies (Steam and RetroAchievements), game descriptions and cover art.</li>
+    <li>Optionally syncs game saves, your profile and your game library between your own PCs through your own cloud storage.</li>
+  </ul>
+
+  <h2>How PlayOS uses Google Drive</h2>
+  <p>Google Drive access is optional and only used for cloud saves. When you choose “Sign in” with Google Drive in PlayOS settings, PlayOS requests the <code>drive.file</code> scope and creates a “PlayOS” folder in your Drive. It stores there only the files it creates itself: copies of your game saves, your PlayOS profile and your game list, so that another PC signed in to the same Google account can download them. PlayOS cannot see or change any other files in your Drive. PlayOS has no servers: data travels only between your PC and your own Google Drive, and the developer never receives it.</p>
+  <p>Read the full <a href="privacy.html">Privacy Policy</a>.</p>
+
+  <h2>Open source</h2>
+  <p>PlayOS is licensed under GPL-3.0. Source code, releases and issue tracker: <a href="https://github.com/fakem1nk/PlayOS">github.com/fakem1nk/PlayOS</a>.</p>
+
+  <hr>
+
+  <h2 lang="ru">PlayOS по-русски</h2>
+  <div lang="ru">
+    <p>Бесплатный лаунчер игр для Windows с открытым кодом в стиле PS5: игры PC, PS2 (PCSX2) и PS3 (RPCS3) в одной библиотеке, управление геймпадом, время игры, трофеи и облачные сохранения.</p>
+    <p>Google Drive нужен только для облачных сохранений, по желанию: PlayOS создаёт папку «PlayOS» на вашем Диске и видит только свои файлы — сохранения, профиль и список игр. Своих серверов у PlayOS нет. Подробнее — в <a href="privacy.html">политике конфиденциальности</a>.</p>
+  </div>
 </main>
 </body>
 </html>

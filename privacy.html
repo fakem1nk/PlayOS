@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PlayOS — политика конфиденциальности</title>
+<title>PlayOS Privacy Policy</title>
 <style>
   :root { color-scheme: light dark; --bg: #f6f7fb; --ink: #14171f; --mist: #5b6272; --line: #dde1ea; }
   @media (prefers-color-scheme: dark) { :root { --bg: #0b0e15; --ink: #eef1f7; --mist: #9aa3b5; --line: #232a38; } }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
-  h1 { font-size: 30px; margin: 0 0 4px; }
-  h2 { font-size: 20px; margin: 36px 0 8px; }
-  p, li { color: var(--ink); }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { font-size: 32px; margin: 0 0 4px; }
+  h2 { font-size: 21px; margin: 36px 0 8px; }
   .meta { color: var(--mist); margin: 0 0 24px; }
+  li { margin: 4px 0; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 56px 0; }
   a { color: #3d7cf0; }
   code { font-size: 15px; }
@@ -20,54 +20,60 @@
 </head>
 <body>
 <main>
-  <h1>Политика конфиденциальности PlayOS</h1>
-  <p class="meta">Действует с 25 октября 2026 г.</p>
+  <h1>PlayOS Privacy Policy</h1>
+  <p class="meta">Effective October 25, 2026 · <a href="./">PlayOS home page</a></p>
 
-  <p>PlayOS — бесплатный лаунчер игр для Windows с открытым исходным кодом (<a href="https://github.com/fakem1nk/PlayOS">github.com/fakem1nk/PlayOS</a>). У PlayOS нет своих серверов: разработчик не получает, не хранит и не передаёт ваши данные.</p>
+  <p>PlayOS (“the app”) is a free, open-source game launcher for Windows developed by fakem1nk (<a href="https://github.com/fakem1nk/PlayOS">github.com/fakem1nk/PlayOS</a>). This policy explains what data PlayOS accesses, how it is used, stored and shared, and how you can delete it. PlayOS has no servers of its own: the developer does not collect, receive, store or sell any of your data.</p>
 
-  <h2>Что хранится на вашем ПК</h2>
-  <p>Библиотека игр, время игры, настройки, кэш обложек и описаний хранятся только на вашем компьютере, в папке <code>%APPDATA%\PlayOS</code>.</p>
+  <h2>1. Data stored on your computer</h2>
+  <p>PlayOS stores your game library (game titles, file paths, cover art), playtime and play sessions, PlayOS trophies, settings and API keys you enter yourself only on your computer, in <code>%APPDATA%\PlayOS</code>. This data never leaves your computer unless you turn on cloud sync.</p>
 
-  <h2>Облачные сохранения (по желанию)</h2>
-  <p>Если вы сами подключите облако в настройках, PlayOS сохраняет сохранения игр, профиль и список игр в <strong>вашем собственном</strong> хранилище:</p>
+  <h2>2. Google user data accessed by PlayOS</h2>
+  <p>Cloud sync is optional. If you choose to sign in with Google Drive, PlayOS requests one OAuth scope:</p>
   <ul>
-    <li><strong>Google Drive</strong> — в папку «PlayOS» на вашем Диске. PlayOS запрашивает только доступ <code>drive.file</code>: он видит лишь файлы, которые создал сам, а остальные ваши файлы ему недоступны.</li>
-    <li><strong>Яндекс Диск</strong> — в папку «Приложения/PlayOS» (доступ только к папке приложения и к информации о размере Диска).</li>
-    <li><strong>Папка синхронизации</strong> (OneDrive, Dropbox и т. п.) — PlayOS пишет файлы в выбранную вами папку, вход не нужен.</li>
+    <li><code>https://www.googleapis.com/auth/drive.file</code> — access only to files that PlayOS itself creates in your Google Drive. PlayOS cannot list, read, change or delete any other files in your Drive.</li>
   </ul>
-  <p>Данные передаются напрямую между вашим ПК и вашим облаком. Токены входа хранятся только на вашем ПК в зашифрованном виде (средствами Windows). Данные, полученные через API Google, используются только для синхронизации ваших сохранений и не передаются третьим лицам; их использование соответствует <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, включая требования Limited Use.</p>
+  <p>PlayOS also reads your Google account display name and your Drive storage usage (through the Drive <code>about</code> endpoint) to show which account is connected and how much space is left.</p>
 
-  <h2>Сетевые запросы</h2>
-  <p>Для обложек, описаний и трофеев PlayOS обращается к открытым сервисам (Steam, SteamGridDB, Википедия, HowLongToBeat, RetroAchievements, манифест Ludusavi на GitHub) — без передачи ваших личных данных, кроме ключей API, которые вы сами указали.</p>
+  <h2>3. How the data is used</h2>
+  <p>PlayOS uses Google Drive only to provide the cloud sync feature you turned on: it creates a “PlayOS” folder in your Drive and stores there copies of your game save files, your PlayOS profile (name, avatar, settings, trophies) and your game list (titles, playtime, sessions, art links), so that your other PCs signed in to the same Google account can download them. Your display name and storage usage are shown only inside the app.</p>
 
-  <h2>Как отключить и удалить</h2>
-  <p>Нажмите «Выйти из облака» в настройках PlayOS. Доступ можно отозвать в настройках аккаунта: <a href="https://myaccount.google.com/permissions">Google</a>, <a href="https://id.yandex.ru/security/apps">Яндекс ID</a>. Файлы PlayOS в облаке можно удалить как обычную папку.</p>
+  <h2>4. Storage and security</h2>
+  <p>Data travels directly between your computer and your own Google Drive over HTTPS. OAuth tokens are stored only on your computer, encrypted with the Windows Data Protection API. The developer has no copy of your tokens or your files.</p>
 
-  <h2>Контакты</h2>
-  <p>Вопросы — через <a href="https://github.com/fakem1nk/PlayOS/issues">Issues на GitHub</a>.</p>
+  <h2>5. Sharing</h2>
+  <p>PlayOS does not share, sell, transfer or disclose Google user data to anyone, including the developer. Google user data is not used for advertising, is not used to train AI or machine-learning models, and is not read by humans.</p>
+  <p>PlayOS’s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+  <h2>6. Other services</h2>
+  <p>You can also choose Yandex Disk (stored in “Apps/PlayOS”, app-folder access only) or a local sync folder (OneDrive, Dropbox and similar) instead of Google Drive. For cover art, game descriptions and trophies PlayOS contacts public services (Steam, SteamGridDB, Wikipedia, HowLongToBeat, RetroAchievements, the Ludusavi manifest on GitHub) without sending your personal data, except API keys you entered yourself for those services.</p>
+
+  <h2>7. Retention and deletion</h2>
+  <p>Files stay in your Drive until you delete them. To stop sync, choose “Sign out of the cloud” in PlayOS settings; PlayOS then deletes its stored tokens. You can revoke PlayOS access at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> and delete the “PlayOS” folder from your Drive like any other folder. Uninstalling PlayOS and deleting <code>%APPDATA%\PlayOS</code> removes all local data.</p>
+
+  <h2>8. Children</h2>
+  <p>PlayOS does not knowingly collect data from anyone; it has no accounts or servers of its own.</p>
+
+  <h2>9. Changes</h2>
+  <p>Changes to this policy are published on this page and in the project repository.</p>
+
+  <h2>10. Contact</h2>
+  <p>Questions about privacy: <a href="https://github.com/fakem1nk/PlayOS/issues">GitHub Issues</a> or the support email shown on the Google sign-in screen.</p>
 
   <hr>
 
-  <h1 lang="en">PlayOS Privacy Policy</h1>
-  <p class="meta" lang="en">Effective October 25, 2026.</p>
-  <div lang="en">
-    <p>PlayOS is a free, open-source game launcher for Windows (<a href="https://github.com/fakem1nk/PlayOS">github.com/fakem1nk/PlayOS</a>). PlayOS has no servers of its own: the developer does not receive, store or share your data.</p>
-    <h2>Data on your PC</h2>
-    <p>Your game library, playtime, settings and art cache are stored only on your computer, in <code>%APPDATA%\PlayOS</code>.</p>
-    <h2>Cloud saves (optional)</h2>
-    <p>If you connect a cloud in settings, PlayOS stores game saves, your profile and your game list in <strong>your own</strong> storage:</p>
-    <ul>
-      <li><strong>Google Drive</strong> — in a “PlayOS” folder on your Drive. PlayOS requests only the <code>drive.file</code> scope: it can see only files it created and cannot access your other files.</li>
-      <li><strong>Yandex Disk</strong> — in the “Apps/PlayOS” folder (app folder access and disk size only).</li>
-      <li><strong>Sync folder</strong> (OneDrive, Dropbox, etc.) — PlayOS writes files to a folder you choose; no sign-in needed.</li>
-    </ul>
-    <p>Data goes directly between your PC and your cloud. Sign-in tokens are stored only on your PC, encrypted by Windows. Data obtained through Google APIs is used only to sync your saves and is never shared with third parties; its use adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
-    <h2>Network requests</h2>
-    <p>For covers, descriptions and trophies PlayOS uses public services (Steam, SteamGridDB, Wikipedia, HowLongToBeat, RetroAchievements, the Ludusavi manifest on GitHub) without sending your personal data, except API keys you entered yourself.</p>
-    <h2>Turning it off</h2>
-    <p>Choose “Sign out of the cloud” in PlayOS settings. You can revoke access in your <a href="https://myaccount.google.com/permissions">Google</a> or <a href="https://id.yandex.ru/security/apps">Yandex ID</a> account settings, and delete the PlayOS folder from your cloud like any other folder.</p>
-    <h2>Contact</h2>
-    <p>Questions: <a href="https://github.com/fakem1nk/PlayOS/issues">GitHub Issues</a>.</p>
+  <div lang="ru">
+    <h1>Политика конфиденциальности PlayOS</h1>
+    <p class="meta">Действует с 25 октября 2026 г.</p>
+    <p>PlayOS — бесплатный лаунчер игр для Windows с открытым кодом. У PlayOS нет своих серверов: разработчик не собирает, не получает и не хранит ваши данные.</p>
+    <h2>На вашем ПК</h2>
+    <p>Библиотека игр, время, трофеи, настройки и ключи API хранятся только в <code>%APPDATA%\PlayOS</code>.</p>
+    <h2>Облачные сохранения (по желанию)</h2>
+    <p>При входе в Google Drive PlayOS запрашивает только доступ <code>drive.file</code> — к файлам, которые создал сам, в папке «PlayOS» на вашем Диске: копии сохранений игр, профиль и список игр. Остальные файлы Диска PlayOS не видит. Также читаются имя аккаунта и занятое место — только для показа в приложении. Яндекс Диск — папка «Приложения/PlayOS». Данные передаются напрямую между ПК и вашим облаком, токены хранятся на ПК в зашифрованном виде. Данные Google не передаются третьим лицам, не используются для рекламы и обучения ИИ; использование соответствует Google API Services User Data Policy (Limited Use).</p>
+    <h2>Удаление</h2>
+    <p>«Выйти из облака» в настройках PlayOS удаляет токены. Доступ можно отозвать на <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> или <a href="https://id.yandex.ru/security/apps">id.yandex.ru</a>, папку PlayOS в облаке — удалить как обычную папку.</p>
+    <h2>Контакты</h2>
+    <p><a href="https://github.com/fakem1nk/PlayOS/issues">Issues на GitHub</a>.</p>
   </div>
 </main>
 </body>
