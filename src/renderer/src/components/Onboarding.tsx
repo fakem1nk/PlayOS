@@ -284,7 +284,7 @@ function GamesArt({ state }: { state: AppState }) {
                 '--glow': g ? accentOf(g) : undefined
               } as React.CSSProperties}
             >
-              {g ? <img src={media(g.cover)} alt="" /> : <span className="wiz-fan-blank">{['PC', 'PS2', 'PS3'][k]}</span>}
+              {g ? <img src={media(g.cover, 'tile')} alt="" /> : <span className="wiz-fan-blank">{['PC', 'PS2', 'PS3'][k]}</span>}
             </span>
           )
         })}

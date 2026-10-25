@@ -114,6 +114,8 @@ export interface Settings {
   rpcs3SaveKey: string
   /** Пауза игры, пока открыт оверлей: заморозка процесса */
   pauseOnOverlay: 'all' | 'emulators' | 'off'
+  /** Выгружать интерфейс на время игры (остаётся только оверлей); undefined — включено */
+  freeMemoryInGame?: boolean
   /** Оверлей поверх игр: false — кнопка PS/Guide в игре не вызывает PlayOS */
   overlayEnabled: boolean
   /** Облачные сохранения и профиль; без входа и с выключенными переключателями всё остаётся локальным */

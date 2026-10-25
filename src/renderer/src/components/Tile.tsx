@@ -33,7 +33,7 @@ export function Cover({ game, animate = false }: { game: Game; animate?: boolean
 
   const still =
     game.cover && !failed ? (
-      <img className="cover-img" src={media(game.cover)} alt="" draggable={false} onError={() => setFailed(true)} />
+      <img className="cover-img" src={media(game.cover, 'tile')} alt="" draggable={false} onError={() => setFailed(true)} />
     ) : (
       <div className="cover-fallback" style={{ '--hue': hueOf(game) } as React.CSSProperties}>
         {game.icon && <img className="cover-icon" src={media(game.icon)} alt="" />}

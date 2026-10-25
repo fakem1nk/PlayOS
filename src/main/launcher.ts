@@ -5,7 +5,7 @@ import path from 'node:path'
 import { shell } from 'electron'
 import type { Game, RunningGame, Settings } from '@shared/types'
 import { commitSession, getDb, saveDb } from './store'
-import { listProcesses } from './win32'
+import { listProcesses, processAlive } from './win32'
 import { t } from '@shared/i18n'
 
 /** Разбивает командную строку на аргументы с учётом кавычек (как cmd.exe). */
@@ -68,7 +68,15 @@ interface Tracker {
   timer: NodeJS.Timeout
   checkpoint: NodeJS.Timeout
   phase: RunningGame['phase']
+  /** Найденные процессы игры (pid → exe) и когда их последний раз искали перебором всех процессов */
+  pids: Map<number, string>
+  scannedAt: number
 }
+
+/** Полный перебор процессов системы — раз в столько, в остальное время проверяем уже найденные */
+const RESCAN_MS = 15_000
+/** Первые секунды игра и лаунчеры порождают новые процессы — ищем каждый раз */
+const SETTLE_MS = 30_000
 
 let tracker: Tracker | null = null
 export const events = new EventEmitter()
@@ -172,7 +180,9 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
     grace: viaSteam ? 60000 : 12000,
     phase: 'launching',
     timer: setInterval(poll, 2000),
-    checkpoint: setInterval(checkpoint, 30000)
+    checkpoint: setInterval(checkpoint, 30000),
+    pids: new Map(),
+    scannedAt: 0
   }
   getDb().activeSession = { gameId: game.id, start: now, lastSeen: now }
   saveDb()
@@ -180,24 +190,37 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
   return { ok: true }
 }
 
+/** Все процессы игры — точный перебор (для паузы, закрытия игры) */
 export function trackedPids(): number[] {
   if (!tracker) return []
   const t = tracker
-  return listProcesses()
-    .filter(
-      (p) =>
-        p.pid !== process.pid &&
-        (p.pid === t.pid ||
-          (t.trackName && path.basename(p.path).toLowerCase() === t.trackName) ||
-          (t.exeDir && p.path.toLowerCase().startsWith(t.exeDir)))
-    )
-    .map((p) => p.pid)
+  t.pids = new Map(
+    listProcesses()
+      .filter(
+        (p) =>
+          p.pid !== process.pid &&
+          (p.pid === t.pid ||
+            (t.trackName && path.basename(p.path).toLowerCase() === t.trackName) ||
+            (t.exeDir && p.path.toLowerCase().startsWith(t.exeDir)))
+      )
+      .map((p) => [p.pid, p.path])
+  )
+  t.scannedAt = Date.now()
+  return [...t.pids.keys()]
+}
+
+/** Уже найденные живые процессы игры — дёшево, для частых проверок (фокус, окна эмулятора) */
+export function knownPids(): number[] {
+  if (!tracker) return []
+  for (const [pid, exe] of tracker.pids) if (!processAlive(pid, exe)) tracker.pids.delete(pid)
+  return [...tracker.pids.keys()]
 }
 
 function poll() {
   if (!tracker) return
   const now = Date.now()
-  if (trackedPids().length > 0) {
+  const rescan = now - tracker.startedAt < SETTLE_MS || now - tracker.scannedAt > RESCAN_MS || !knownPids().length
+  if ((rescan ? trackedPids() : knownPids()).length > 0) {
     tracker.lastAlive = now
     tracker.misses = 0
     return

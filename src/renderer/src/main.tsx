@@ -11,10 +11,8 @@ import './styles-update.css'
 import './styles-glass.css'
 import './styles-light.css'
 import { createRoot } from 'react-dom/client'
-import { App } from './App'
 import { startInput } from './lib/input'
 import { startLiquidGlass } from './lib/liquid'
-import { OverlayApp } from './OverlayApp'
 import { setTheme } from './lib/theme'
 import { getLang, missingKeys } from '@shared/i18n'
 import type { ThemeMode } from '@shared/types'
@@ -30,5 +28,8 @@ setTheme((new URLSearchParams(location.search).get('theme') ?? (window as { pcsT
 if (import.meta.env.DEV) Object.assign(window, { __i18nMissing: missingKeys })
 
 startInput()
-createRoot(document.getElementById('root')!).render(isOverlay ? <OverlayApp /> : <App />)
+// Окна грузят только свой код: оверлею не нужны библиотека, настройки и интро
+const root = createRoot(document.getElementById('root')!)
+if (isOverlay) void import('./OverlayApp').then(({ OverlayApp }) => root.render(<OverlayApp />))
+else void import('./App').then(({ App }) => root.render(<App />))
 startLiquidGlass()

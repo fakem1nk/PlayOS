@@ -109,13 +109,13 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
       exit={{ transform: 'translateY(100%)', transition: { duration: 0.24, ease: [0.32, 0.72, 0, 1] } }}
       transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
     >
-      {(game.hero || game.cover) && <img className={`gp-hero ${game.hero ? '' : 'is-blur'}`} src={media(game.hero ?? game.cover)} alt="" />}
+      {(game.hero || game.cover) && <img className={`gp-hero ${game.hero ? '' : 'is-blur'}`} src={game.hero ? media(game.hero, 'screen') : media(game.cover, 'tile')} alt="" />}
       <div className="gp-shade" />
       <div className="gp-inner" ref={ref}>
         <header className="gp-head">
           <div className="gp-title-wrap">
             {game.logo && logoOk ? (
-              <img className="gp-logo" src={media(game.logo)} alt={game.title} onError={() => setLogoOk(false)} />
+              <img className="gp-logo" src={media(game.logo, 'logo')} alt={game.title} onError={() => setLogoOk(false)} />
             ) : (
               <h1 className="gp-title">{game.title}</h1>
             )}

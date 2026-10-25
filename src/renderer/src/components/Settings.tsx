@@ -466,6 +466,15 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 onChange={(v) => save({ breakReminder: Number(v) })}
               />
               <h2 className="panel-title">
+                <IconGamepad /> {t('Во время игры')}
+              </h2>
+              <Toggle
+                label={t('Освобождать память')}
+                hint={t('Пока идёт игра, интерфейс PlayOS выгружается — работает только оверлей, а процессор и память достаются игре. Возвращение в PlayOS займёт пару секунд.')}
+                value={s.freeMemoryInGame !== false}
+                onChange={(v) => save({ freeMemoryInGame: v })}
+              />
+              <h2 className="panel-title">
                 <IconFolder /> {t('Данные и отчёты')}
               </h2>
               <ActionRow label={t('Папка с данными')} hint={state.dataDir} button={t('Открыть')} icon={<IconFolder />} onClick={() => api.openFolder(state.dataDir)} />

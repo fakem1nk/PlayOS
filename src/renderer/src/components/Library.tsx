@@ -37,6 +37,44 @@ function useGridColumns(ref: React.RefObject<HTMLDivElement | null>, deps: unkno
   return cols
 }
 
+/**
+ * Какие ряды сетки рисовать: видимые и по два ряда запаса. Остальные плитки — пустые места той же высоты:
+ * большая библиотека не держит в памяти сотни обложек и не нагружает стекло, а прокрутка и раскладка те же.
+ */
+function useVisibleRows(
+  scrollRef: React.RefObject<HTMLDivElement | null>,
+  gridRef: React.RefObject<HTMLDivElement | null>,
+  cols: number,
+  count: number
+) {
+  const [rows, setRows] = useState<[number, number]>([0, 5])
+  useEffect(() => {
+    const box = scrollRef.current
+    const grid = gridRef.current
+    if (!box || !grid) return
+    const update = () => {
+      const first = grid.children[0] as HTMLElement | undefined
+      if (!first) return
+      const next = grid.children[cols] as HTMLElement | undefined
+      const rowH = next ? next.offsetTop - first.offsetTop : first.offsetHeight
+      if (!rowH) return
+      const top = box.scrollTop - first.offsetTop
+      const from = Math.max(0, Math.floor(top / rowH) - 2)
+      const to = Math.ceil((top + box.clientHeight) / rowH) + 2
+      setRows((r) => (r[0] === from && r[1] === to ? r : [from, to]))
+    }
+    update()
+    box.addEventListener('scroll', update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(box)
+    return () => {
+      box.removeEventListener('scroll', update)
+      ro.disconnect()
+    }
+  }, [scrollRef, gridRef, cols, count])
+  return rows
+}
+
 interface Props {
   games: Game[]
   running: RunningGame | null
@@ -82,6 +120,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
 
   // Выбранный ряд держим в верхней трети: видно и его, и следующий ряд — понятно, куда листать дальше
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [fromRow, toRow] = useVisibleRows(scrollRef, gridRef, COLS, list.length)
   useEffect(() => {
     if (zone !== 'grid') return
     const el = gridRef.current?.children[idx] as HTMLElement | undefined
@@ -199,17 +238,21 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
       {list.length ? (
         <div className="grid-scroll" ref={scrollRef}>
           <div className="grid" ref={gridRef}>
-            {list.map((g, i) => (
-              <Tile
-                key={g.id}
-                game={g}
-                focused={zone === 'grid' && active && i === idx}
-                animate={active && i === idx}
-                running={running?.gameId === g.id}
-                className="grid-tile"
-                onClick={() => (i === idx ? onLaunch(g) : (setIndex(i), setZone('grid')))}
-              />
-            ))}
+            {list.map((g, i) => {
+              const row = Math.floor(i / COLS)
+              if (row < fromRow || row > toRow) return <div key={g.id} className="grid-tile" aria-hidden />
+              return (
+                <Tile
+                  key={g.id}
+                  game={g}
+                  focused={zone === 'grid' && active && i === idx}
+                  animate={active && i === idx}
+                  running={running?.gameId === g.id}
+                  className="grid-tile"
+                  onClick={() => (i === idx ? onLaunch(g) : (setIndex(i), setZone('grid')))}
+                />
+              )
+            })}
           </div>
         </div>
       ) : (

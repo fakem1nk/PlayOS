@@ -831,4 +831,6 @@ export const EN: Record<string, string> = {
   'Сохранения, библиотека и профиль на Яндекс Диске, Google Drive или в папке синхронизации. Если PlayOS уже стоял на другом ПК, всё вернётся. Шаг можно пропустить.': 'Saves, library and profile on Yandex Disk, Google Drive or a sync folder. If you used PlayOS on another PC, everything comes back. You can skip this step.',
   'Облако не подключено': 'Cloud not connected',
   'Сохранения останутся только на этом ПК': 'Saves stay on this PC only',
+  'Освобождать память': 'Free up memory',
+  'Пока идёт игра, интерфейс PlayOS выгружается — работает только оверлей, а процессор и память достаются игре. Возвращение в PlayOS займёт пару секунд.': 'While a game is running, the PlayOS interface is unloaded and only the overlay stays, so the game gets the CPU and memory. Coming back to PlayOS takes a couple of seconds.',
 }

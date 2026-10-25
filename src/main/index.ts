@@ -43,9 +43,10 @@ import * as cloud from './cloud/account'
 import * as sync from './cloud/sync'
 import { isPortableSetting, libraryKey } from './cloud/library'
 import { savePreview } from './cloud/locate'
+import { pruneThumbs, thumbFile } from './thumbs'
 import { getLang, setLang, t } from '@shared/i18n'
 import { dsxStatus, flashLightbar, holdLightbar, lightbarReady, pulseLightbar, startDsx, testLightbar } from './dsx'
-import { hidControllers, hidStatus, startHid } from './hid'
+import { hidControllers, hidStatus, rescanHid, startHid } from './hid'
 import * as launcher from './launcher'
 import * as media from './media'
 import { enablePineInIni, listSlots, pcsx2Config, slotTime, type Pcsx2Config } from './pcsx2'
@@ -55,6 +56,7 @@ import { setAudioDevice, setBrightness, setMute, setVolume, stopHelper, systemSt
 import {
   forceForeground,
   foregroundWindow,
+  isMinimized,
   listProcesses,
   moveWindow,
   pressCombo,
@@ -63,6 +65,7 @@ import {
   readPad,
   resumeProcess,
   rumble,
+  setEfficiencyMode,
   suspendProcess,
   windowPid,
   windowRect
@@ -73,6 +76,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 const APP_ID = 'com.playos.app'
+const WM_DEVICECHANGE = 0x0219
 app.setName('PlayOS')
 app.setAppUserModelId(APP_ID)
 migrateLegacyData()
@@ -122,6 +126,8 @@ let frozen: number[] = []
 /** Текущий слот PCSX2 в режиме горячих клавиш (каждый запуск эмулятор начинает с первого) */
 let keySlot = 1
 let overlayOpenedAt = 0
+/** Сколько раз за это открытие оверлей забирал фокус обратно у игры */
+let focusRetries = 0
 /** Текущее сохранение из редактора — его можно отменить */
 let editorSave: AbortController | null = null
 
@@ -189,11 +195,38 @@ function createOverlayWindow() {
     }
   })
   watchWindow(overlay, 'overlay')
+  // Скрытый оверлей не должен рисовать кадры всю игру: притормаживаем его, а будит wakeOverlay() перед показом.
+  // Окно, созданное скрытым, рисует, пока его ни разу не показали, — один раз показываем его невидимым и прячем.
+  overlay.on('hide', () => overlay?.webContents.setBackgroundThrottling(true))
+  overlay.once('ready-to-show', () => {
+    if (!alive(overlay) || overlay.isVisible()) return
+    overlay.setIgnoreMouseEvents(true)
+    overlay.setOpacity(0)
+    overlay.showInactive()
+    setTimeout(() => {
+      if (!alive(overlay) || overlayOpen) return
+      overlay.hide()
+      overlay.setOpacity(1)
+    }, 100)
+  })
+  overlay.hookWindowMessage(WM_DEVICECHANGE, rescanHid)
   overlay.setAlwaysOnTop(true, 'screen-saver')
   overlay.on('closed', () => (overlay = null))
   // Alt+Tab или клик в другое окно — прячем панель и снимаем паузу, чтобы игра не «зависла» за спиной
   overlay.on('blur', () => {
-    if (overlayOpen && Date.now() - overlayOpenedAt > 400) void closeOverlay('none')
+    if (!overlayOpen) return
+    const since = Date.now() - overlayOpenedAt
+    // Полноэкранная игра в первые секунды после показа оверлея часто забирает фокус обратно — это не уход
+    // пользователя, а «мелькание»: возвращаем фокус оверлею (не больше трёх раз за открытие)
+    if (since < 2500 && focusRetries < 3 && gameInForeground()) {
+      focusRetries++
+      log('INFO', `Игра забрала фокус у оверлея — возвращаем (${focusRetries})`)
+      setTimeout(() => overlayOpen && forceForeground(hwndOf(overlay)), 60)
+      return
+    }
+    if (since < 400) return
+    // Ушли в другое окно — оверлей прячем. Игру, свернувшуюся на рабочий стол, разворачиваем обратно
+    void closeOverlay(isMinimized(gameHwnd) || gameInForeground() ? 'game' : 'none')
   })
   loadRenderer(overlay, 'overlay')
 }
@@ -223,7 +256,46 @@ function syncPadBlock() {
 
 function gameInForeground() {
   const fg = foregroundWindow()
-  return !!fg && launcher.trackedPids().includes(windowPid(fg))
+  if (!fg || fg === hwndOf(win) || fg === hwndOf(overlay)) return false
+  return launcher.knownPids().includes(windowPid(fg))
+}
+
+/**
+ * Пока идёт игра и PlayOS не на экране, его процессы работают в режиме эффективности Windows.
+ * Главный процесс оставляем с обычным приоритетом: он ловит кнопку PS/Guide, и под полной загрузкой
+ * процессора игрой пониженный приоритет мог бы задержать открытие оверлея.
+ */
+let ecoOn = false
+let ecoApplied = new Set<number>()
+let ecoAt = 0
+/** Оверлей открывается (снимок экрана для фона занимает время) — режим эффективности не возвращаем */
+let overlayOpening = false
+function syncEcoMode() {
+  const want =
+    launcher.running()?.phase === 'running' &&
+    !overlayOpen &&
+    !overlayOpening &&
+    !(alive(overlay) && overlay.isVisible()) &&
+    !(alive(win) && win.isVisible() && !win.isMinimized())
+  if (want === ecoOn && (!want || Date.now() - ecoAt < 10_000)) return
+  setEco(want)
+}
+
+function setEco(on: boolean) {
+  if (!on && !ecoOn) return
+  // Раз в 10 с добираем новые процессы (например, перезагруженный интерфейс). Процесс видеокарты не трогаем:
+  // он рисует оверлей, и под нагрузкой игры с пониженным приоритетом оверлей мог не появиться
+  const pids = app
+    .getAppMetrics()
+    .filter((m) => m.type !== 'GPU')
+    .map((m) => ({ pid: m.pid, main: m.type === 'Browser' }))
+  for (const { pid, main } of pids) {
+    if (on && ecoApplied.has(pid)) continue
+    setEfficiencyMode(pid, on, !main)
+  }
+  ecoApplied = on ? new Set(pids.map((p) => p.pid)) : new Set()
+  ecoOn = on
+  ecoAt = Date.now()
 }
 
 /** Ставить ли игру на паузу (заморозкой процесса), пока открыт оверлей */
@@ -261,8 +333,17 @@ async function captureBackdrop(display: Electron.Display): Promise<string | unde
   }
 }
 
+/** Перед показом оверлей должен рисовать сразу — снимаем торможение до того, как отправить ему данные */
+function wakeOverlay() {
+  if (alive(overlay)) overlay.webContents.setBackgroundThrottling(false)
+}
+
 async function openOverlay() {
+  // Оверлей должен открыться без задержек — снимаем режим эффективности сразу
+  overlayOpening = true
+  setEco(false)
   if (!alive(overlay)) createOverlayWindow()
+  wakeOverlay()
   if (toastTimer) clearTimeout(toastTimer)
   const fg = foregroundWindow()
   if (fg && fg !== hwndOf(win) && fg !== hwndOf(overlay)) gameHwnd = fg
@@ -273,14 +354,18 @@ async function openOverlay() {
     : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const backdrop = await captureBackdrop(display)
   overlayOpen = true
+  overlayOpening = false
   overlayOpenedAt = Date.now()
+  focusRetries = 0
   overlay!.setBounds(display.bounds)
   overlay!.setFocusable(true)
   overlay!.setIgnoreMouseEvents(false)
   sendTo(overlay, 'overlay', { open: true, backdrop } satisfies OverlayEvent)
+  overlay!.setOpacity(1)
   overlay!.show()
-  forceForeground(hwndOf(overlay))
+  const focused = forceForeground(hwndOf(overlay))
   overlay!.focus()
+  log('INFO', `Оверлей открыт: экран ${display.label || display.id}, окно игры ${rect ? `${rect.width}×${rect.height}` : 'не найдено'}, фокус ${focused ? 'получен' : 'не получен'}`)
   // Замораживаем после показа: игре в эксклюзивном полноэкранном режиме нужно успеть свернуться
   setTimeout(() => overlayOpen && freezeGame(), 150)
 }
@@ -490,7 +575,7 @@ function placeGameWindows(game: Game) {
       placeTimer = null
       return
     }
-    for (const hwnd of processWindows(launcher.trackedPids())) {
+    for (const hwnd of processWindows(launcher.knownPids())) {
       const r = windowRect(hwnd)
       // Крошечные служебные окна пропускаем
       if (!r || r.width < 160 || r.height < 120) continue
@@ -527,6 +612,41 @@ function lightTheme() {
   return theme === 'light' || (theme === 'system' && !nativeTheme.shouldUseDarkColors)
 }
 
+// ───────────────────────── Интерфейс во время игры ─────────────────────────
+// Свёрнутый интерфейс всё равно держит сотни мегабайт: обложки, React, стекло. Пока идёт игра, подменяем его
+// пустой страницей — Chromium завершает процесс интерфейса целиком, остаются главный процесс и оверлей.
+// Вернуться в PlayOS — секунда-две: интерфейс загружается заново, без интро, сразу на странице игры.
+
+const UNLOAD_AFTER_MS = 10_000
+let uiUnloaded = false
+let unloadTimer: NodeJS.Timeout | null = null
+
+function scheduleUnload() {
+  if (unloadTimer) clearTimeout(unloadTimer)
+  unloadTimer = setTimeout(unloadUi, UNLOAD_AFTER_MS)
+}
+
+function unloadUi() {
+  unloadTimer = null
+  if (uiUnloaded || !alive(win) || overlayOpen || getDb().settings.freeMemoryInGame === false) return
+  if (launcher.running()?.phase !== 'running' || !win.isMinimized()) return
+  uiUnloaded = true
+  log('INFO', 'Интерфейс выгружен на время игры')
+  void win.loadURL(`data:text/html,<body style="background:${lightTheme() ? '%23f5f6f9' : '%2304060c'}"></body>`)
+}
+
+/** Загрузить интерфейс обратно. ended — игра только что закрылась: итог сессии покажет сам интерфейс */
+function restoreUi(ended?: { gameId: string; duration: number }) {
+  if (unloadTimer) clearTimeout(unloadTimer)
+  unloadTimer = null
+  if (!uiUnloaded || !alive(win)) return false
+  uiUnloaded = false
+  log('INFO', ended ? 'Интерфейс загружен снова: игра закрылась' : 'Интерфейс загружен снова')
+  const gameId = ended?.gameId ?? launcher.running()?.gameId
+  loadRenderer(win, ['resume', gameId, ended?.duration].filter((v) => v !== undefined).join('/'))
+  return true
+}
+
 function createWindow() {
   const { fullscreen } = getDb().settings
   win = new BrowserWindow({
@@ -548,7 +668,13 @@ function createWindow() {
     }
   })
   watchWindow(win, 'main')
+  // Подключили или отключили устройство — ищем DualSense/DS4 (вместо постоянного перебора HID)
+  win.hookWindowMessage(WM_DEVICECHANGE, rescanHid)
   win.once('ready-to-show', () => win?.show())
+  win.on('minimize', scheduleUnload)
+  // Вернулись в PlayOS (Alt+Tab, «На главную» в оверлее, конец игры) — интерфейс снова нужен. Только по
+  // разворачиванию: свёрнутое окно Windows может на миг сделать активным, когда прячется оверлей, — это не возврат
+  win.on('restore', () => restoreUi())
   win.on('blur', () => {
     // Окно игры перехватило фокус — значит, она запустилась. Сворачиваемся.
     const r = launcher.running()
@@ -567,7 +693,8 @@ function createWindow() {
   })
   // Закрытие окна (Alt+F4) — сначала аутро в интерфейсе, выход по его окончании
   win.on('close', (e) => {
-    if (allowQuit || sessionEnding || !win || win.webContents.isLoading()) return
+    // Без загруженного интерфейса аутро показать некому — выходим сразу
+    if (allowQuit || sessionEnding || !win || win.webContents.isLoading() || uiUnloaded) return
     e.preventDefault()
     requestQuitOutro()
   })
@@ -1081,6 +1208,8 @@ function showOverlayPassive() {
   overlay.setBounds(display.bounds)
   overlay.setIgnoreMouseEvents(true)
   overlay.setFocusable(false)
+  wakeOverlay()
+  overlay.setOpacity(1)
   overlay.showInactive()
   if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
@@ -1622,11 +1751,15 @@ app.whenReady().then(() => {
   launcher.recoverSession()
 
   protocol.handle('pcs', (req) => {
-    const p = new URL(req.url).searchParams.get('p')
+    const url = new URL(req.url)
+    const p = url.searchParams.get('p')
     if (!p || !/\.(png|jpe?g|webp|gif|bmp|ico|mp4|webm)$/i.test(p)) return new Response(null, { status: 404 })
     if (!fs.existsSync(p)) return new Response(null, { status: 404 })
     if (/\.(mp4|webm)$/i.test(p)) return serveVideo(p, req.headers.get('range'))
-    return net.fetch(pathToFileURL(p).toString()).catch(() => new Response(null, { status: 404 }))
+    // w — интерфейсу нужна копия не шире стольких пикселей (см. media() в renderer)
+    const width = Number(url.searchParams.get('w'))
+    const file = width > 0 && /\.(png|jpe?g)$/i.test(p) ? thumbFile(p, width) : Promise.resolve(p)
+    return file.then((f) => net.fetch(pathToFileURL(f).toString())).catch(() => new Response(null, { status: 404 }))
   })
 
   registerIpc()
@@ -1647,6 +1780,7 @@ app.whenReady().then(() => {
   }
   // Игры, добавленные до 0.6.1, ещё без цвета обложки — считаем один раз, не задерживая старт
   setTimeout(backfillAccents, 1500)
+  setTimeout(pruneThumbs, 60_000)
 
   launcher.events.on('change', () => {
     const r = launcher.running()
@@ -1667,15 +1801,17 @@ app.whenReady().then(() => {
     // Обновляем трофеи сыгранной игры для профиля и главного экрана
     void ach.getAchievements(e.gameId, true).then(() => send('ach-summary'))
     if (overlayOpen) void closeOverlay('none')
+    const reloaded = restoreUi(e)
     bringToFront()
-    send('session-end', e)
+    if (reloaded) sendTo(overlay, 'session-end', e)
+    else send('session-end', e)
     // Игра закрылась — её сохранения уходят в облако
     const ended = findGame(e.gameId)
     if (ended) sync.afterExit(ended)
   })
 
   createOverlayWindow()
-  startHid()
+  startHid(() => !!launcher.running())
   startDsx()
   startGamepad({
     onHotkey,
@@ -1685,12 +1821,17 @@ app.whenReady().then(() => {
   })
   globalShortcut.register('Control+Alt+H', onHotkey)
   setInterval(pollPadStatus, 3000)
-  setInterval(syncPadBlock, 400)
+  setInterval(() => {
+    syncPadBlock()
+    syncEcoMode()
+  }, 400)
   setInterval(checkBreakReminder, 60_000)
   setInterval(checkTrophies, 60_000)
   win?.webContents.on('did-finish-load', () => {
     lastPadStatus = ''
     pollPadStatus()
+    // Интерфейс могли загрузить заново посреди игры — он должен знать, что геймпад сейчас у игры
+    sendTo(win, 'pad-block', padBlocked)
     sendTo(win, 'window-mode', !!win?.isFullScreen())
   })
   // Вне полного экрана у окна без рамки появляется полоса для перетаскивания

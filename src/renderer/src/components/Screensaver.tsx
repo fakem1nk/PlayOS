@@ -85,7 +85,7 @@ function Show({ slides }: { slides: Game[] }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 2.2, ease: 'easeInOut' }}
           >
-            <img src={media(game.hero ?? game.cover)} alt="" draggable={false} />
+            <img src={game.hero ? media(game.hero, 'screen') : media(game.cover, 'tile')} alt="" draggable={false} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -106,7 +106,7 @@ function Show({ slides }: { slides: Game[] }) {
             exit={{ opacity: 0, transition: { duration: 0.6 } }}
             transition={{ duration: 1.2, ease: [0.23, 1, 0.32, 1], delay: 0.8 }}
           >
-            {game.logo ? <img className="saver-logo" src={media(game.logo)} alt={game.title} /> : <span className="saver-title">{game.title}</span>}
+            {game.logo ? <img className="saver-logo" src={media(game.logo, 'logo')} alt={game.title} /> : <span className="saver-title">{game.title}</span>}
             <span className="saver-meta">
               {game.playtime ? t('Наиграно {v}', { v: playtime(game.playtime).toLowerCase() }) : t('Ещё не запускалась')}
               {game.lastPlayed ? t(', последний запуск {v}', { v: lastPlayed(game.lastPlayed).toLowerCase() }) : ''}

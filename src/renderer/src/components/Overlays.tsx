@@ -19,7 +19,7 @@ export function LaunchScreen({ game }: { game: Game }) {
       exit={{ opacity: 0, transition: { duration: 0.4 } }}
       transition={{ duration: 0.35 }}
     >
-      {(game.hero || game.cover) && <img className={`launch-bg ${game.hero ? '' : 'is-blur'}`} src={media(game.hero ?? game.cover)} alt="" />}
+      {(game.hero || game.cover) && <img className={`launch-bg ${game.hero ? '' : 'is-blur'}`} src={game.hero ? media(game.hero, 'screen') : media(game.cover, 'tile')} alt="" />}
       <div className="launch-shade" />
       <motion.div
         className="launch-card"
@@ -62,7 +62,7 @@ export function Toasts() {
                 <IconTrophy />
               </span>
             ) : (
-              item.image && <img className="toast-img" src={media(item.image)} alt="" />
+              item.image && <img className="toast-img" src={media(item.image, 'tile')} alt="" />
             )}
             <div className="toast-body">
               {item.kind === 'trophy' && <div className="toast-eyebrow">{t('Трофей получен')}</div>}

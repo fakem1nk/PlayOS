@@ -1,26 +1,18 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 import type { AchievementSummaryItem, Game, PowerAction, SaveConflict } from '@shared/types'
 import { Background } from './components/Background'
 import { RestoreDialog, SaveConflictDialog, useCloudStatus } from './components/Cloud'
-import { GameEditor } from './components/GameEditor'
 import { GamePage } from './components/GamePage'
 import { GlyphStyleContext, Hint } from './components/Glyph'
 import { Home } from './components/Home'
 import { Library } from './components/Library'
 import { GameMenu, PowerMenu } from './components/Menus'
-import { Intro } from './components/Intro'
-import { Onboarding } from './components/Onboarding'
 import { OnScreenKeyboard } from './components/OnScreenKeyboard'
-import { Outro } from './components/Outro'
 import { padName } from './components/PadMapper'
 import { LaunchScreen, Toasts } from './components/Overlays'
-import { Profile } from './components/Profile'
 import { Screensaver } from './components/Screensaver'
-import { Settings } from './components/Settings'
-import { SteamImport } from './components/SteamImport'
 import { AnimatedCoversContext } from './components/Tile'
-import { TrophyList } from './components/TrophyList'
 import { UpdateNotice } from './components/UpdateNotice'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { api } from './lib/api'
@@ -33,10 +25,47 @@ import { useTrophyWatcher } from './lib/trophies'
 import { useUpdate } from './lib/update'
 import { t } from '@shared/i18n'
 
+/** Редко нужные части грузятся отдельным файлом при первом показе: старт быстрее, памяти меньше */
+function deferred<P extends object>(load: () => Promise<ComponentType<P>>) {
+  const Part = lazy(() => load().then((C) => ({ default: C })))
+  return (props: P) => (
+    <Suspense fallback={null}>
+      <Part {...props} />
+    </Suspense>
+  )
+}
+
+const GameEditor = deferred(() => import('./components/GameEditor').then((m) => m.GameEditor))
+const Intro = deferred(() => import('./components/Intro').then((m) => m.Intro))
+const Onboarding = deferred(() => import('./components/Onboarding').then((m) => m.Onboarding))
+const Outro = deferred(() => import('./components/Outro').then((m) => m.Outro))
+const Profile = deferred(() => import('./components/Profile').then((m) => m.Profile))
+const Settings = deferred(() => import('./components/Settings').then((m) => m.Settings))
+const SteamImport = deferred(() => import('./components/SteamImport').then((m) => m.SteamImport))
+const TrophyList = deferred(() => import('./components/TrophyList').then((m) => m.TrophyList))
+
 /** Цвета обложек последних игр — для сияния в интро */
 function introColors(games: Game[]) {
   const recent = [...games].filter((g) => g.accent).sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))
   return [...new Set(recent.map((g) => g.accent!))].slice(0, 3)
+}
+
+/**
+ * Интерфейс выгружали на время игры и загрузили снова (#resume/<id игры>/<длительность сессии>):
+ * без интро, сразу на странице игры; длительность есть, если игра уже закрылась
+ */
+const RESUME = (() => {
+  const m = location.hash.match(/^#resume(?:\/([^/]+))?(?:\/(\d+))?$/)
+  if (!m) return null
+  history.replaceState(null, '', location.pathname + location.search)
+  return { gameId: m[1], duration: m[2] ? Number(m[2]) : undefined }
+})()
+
+/** Итог сессии после закрытия игры */
+function sessionToast(games: Game[], gameId: string, duration: number) {
+  const g = games.find((x) => x.id === gameId)
+  play('select')
+  toast({ title: g?.title ?? t('Игра закрыта'), message: duration ? t('Сессия: {v}', { v: playtime(duration).toLowerCase() }) : t('Игра закрыта'), image: g?.cover, tone: 'success' })
 }
 
 export function App() {
@@ -44,6 +73,7 @@ export function App() {
   const update = useUpdate()
   // После смены языка окно перезагружается — интро второй раз не показываем
   const [booting, setBooting] = useState(() => {
+    if (RESUME) return false
     try {
       if (sessionStorage.getItem('playos-skip-intro')) {
         sessionStorage.removeItem('playos-skip-intro')
@@ -75,7 +105,7 @@ export function App() {
   const cloudOffer = useCloudStatus()?.restore
   // Трофеи открыты со страницы игры — «Назад» возвращает на неё, а не на главную
   const trophyFromPage = useRef(false)
-  const [pageGameId, setPageGameId] = useState<string | null>(null)
+  const [pageGameId, setPageGameId] = useState<string | null>(RESUME?.gameId ?? null)
   const [steamImport, setSteamImport] = useState(false)
   const [saver, setSaver] = useState(false)
   const [outro, setOutro] = useState<PowerAction | null>(null)
@@ -99,12 +129,17 @@ export function App() {
     () =>
       api.onSessionEnd(({ gameId, duration }) => {
         setLaunching(null)
-        const g = (state?.games ?? []).find((x) => x.id === gameId)
-        play('select')
-        toast({ title: g?.title ?? t('Игра закрыта'), message: duration ? t('Сессия: {v}', { v: playtime(duration).toLowerCase() }) : t('Игра закрыта'), image: g?.cover, tone: 'success' })
+        sessionToast(state?.games ?? [], gameId, duration)
       }),
     [state?.games]
   )
+  // Игра закрылась, пока интерфейс был выгружен: итог показываем, как только загрузилась библиотека
+  const resumeToast = useRef(RESUME?.duration !== undefined)
+  useEffect(() => {
+    if (!state || !resumeToast.current || !RESUME?.gameId) return
+    resumeToast.current = false
+    sessionToast(state.games, RESUME.gameId, RESUME.duration ?? 0)
+  }, [state])
 
   useEffect(() => api.onToast((n) => toast({ ...n })), [])
   useEffect(() => api.onWindowMode((full) => document.documentElement.classList.toggle('is-windowed', !full)), [])

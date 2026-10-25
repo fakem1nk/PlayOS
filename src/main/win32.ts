@@ -129,7 +129,27 @@ export function listProcesses(): ProcInfo[] {
   return out
 }
 
+const GetExitCodeProcess = kernel32.func('int __stdcall GetExitCodeProcess(void *h, _Out_ uint32_t *code)')
+const STILL_ACTIVE = 259
+
+/** Процесс pid ещё работает и это тот же exe (номер мог достаться новому процессу). Без перебора всех процессов. */
+export function processAlive(pid: number, exe: string) {
+  const h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid)
+  if (!h) return false
+  try {
+    const code = [0]
+    if (!GetExitCodeProcess(h, code) || code[0] !== STILL_ACTIVE) return false
+    const size = [1000]
+    return !!QueryFullProcessImageNameW(h, 0, nameBuf, size) && nameBuf.toString('utf16le', 0, size[0] * 2) === exe
+  } finally {
+    CloseHandle(h)
+  }
+}
+
 export const foregroundWindow = (): bigint | null => GetForegroundWindow() || null
+
+/** Окно свёрнуто (полноэкранная игра сворачивается, потеряв фокус) */
+export const isMinimized = (hwnd: bigint | null) => !!hwnd && !!IsWindow(hwnd) && !!IsIconic(hwnd)
 
 export function windowPid(hwnd: bigint) {
   const pid = [0]
@@ -216,6 +236,35 @@ function withProcess(pid: number, fn: (h: unknown) => number) {
 /** Замораживает все потоки процесса: игра встаёт на паузу и не читает ввод с геймпада. */
 export const suspendProcess = (pid: number) => withProcess(pid, (h) => NtSuspendProcess(h))
 export const resumeProcess = (pid: number) => withProcess(pid, (h) => NtResumeProcess(h))
+
+// ───────────────────────── Фоновый режим процессов PlayOS во время игры ─────────────────────────
+
+const SetPriorityClass = kernel32.func('int __stdcall SetPriorityClass(void *h, uint32_t cls)')
+const SetProcessInformation = kernel32.func('int __stdcall SetProcessInformation(void *h, int cls, void *info, uint32_t size)')
+const PROCESS_SET_INFORMATION = 0x0200
+const NORMAL_PRIORITY = 0x20
+const BELOW_NORMAL_PRIORITY = 0x4000
+
+/**
+ * Режим эффективности Windows 11 (EcoQoS: энергоэффективные ядра, низкие частоты) и, по желанию, пониженный
+ * приоритет — процессор в первую очередь достаётся игре. На старых Windows EcoQoS молча не включится.
+ */
+export function setEfficiencyMode(pid: number, on: boolean, lowPriority: boolean) {
+  const h = OpenProcess(PROCESS_SET_INFORMATION, 0, pid)
+  if (!h) return false
+  try {
+    // PROCESS_POWER_THROTTLING_STATE: Version, ControlMask, StateMask — управляем только скоростью выполнения
+    const st = Buffer.alloc(12)
+    st.writeUInt32LE(1, 0)
+    st.writeUInt32LE(1, 4)
+    st.writeUInt32LE(on ? 1 : 0, 8)
+    SetProcessInformation(h, 4 /* ProcessPowerThrottling */, st, st.length)
+    if (lowPriority) SetPriorityClass(h, on ? BELOW_NORMAL_PRIORITY : NORMAL_PRIORITY)
+    return true
+  } finally {
+    CloseHandle(h)
+  }
+}
 
 // ───────────────────────── XInput ─────────────────────────
 

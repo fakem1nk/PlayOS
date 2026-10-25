@@ -15,8 +15,8 @@ interface Art {
 function artOf(game: Game | null): Art {
   if (!game) return { key: 'empty', mode: 'none', hue: 220 }
   const hue = hueOf(game)
-  if (game.hero) return { key: game.hero, gameId: game.id, src: media(game.hero), mode: 'hero', hue }
-  if (game.cover) return { key: game.cover, gameId: game.id, src: media(game.cover), mode: 'blur', hue }
+  if (game.hero) return { key: game.hero, gameId: game.id, src: media(game.hero, 'screen'), mode: 'hero', hue }
+  if (game.cover) return { key: game.cover, gameId: game.id, src: media(game.cover, 'tile'), mode: 'blur', hue }
   return { key: `hue-${hue}`, gameId: game.id, mode: 'none', hue }
 }
 

@@ -307,7 +307,7 @@ function GameInfo({ game, running, trophies }: { game: Game; running: RunningGam
     <>
       <div className="info-head">
         {game.logo && logoOk ? (
-          <img className="info-logo" src={media(game.logo)} alt={game.title} onError={() => setLogoOk(false)} />
+          <img className="info-logo" src={media(game.logo, 'logo')} alt={game.title} onError={() => setLogoOk(false)} />
         ) : (
           <h1 className="info-title">{game.title}</h1>
         )}

@@ -66,11 +66,26 @@ export function hueOf(game: Pick<Game, 'title'>) {
   return h
 }
 
+/**
+ * Под что нужна картинка: tile — обложка в плитке и размытый фон, logo — логотип игры, screen — фон во весь экран.
+ * PlayOS отдаёт копию нужной ширины: так огромный арт не распаковывается в память целиком.
+ */
+export type MediaSize = 'tile' | 'logo' | 'screen'
+const MEDIA_WIDTH: Record<Exclude<MediaSize, 'screen'>, number> = { tile: 480, logo: 720 }
+
+/** Ширина копии в пикселях экрана: интерфейс рассчитан на 1080p, на 4K нужна вдвое шире; шаг — чтобы копий было немного */
+function mediaWidth(size: MediaSize) {
+  const px = window.screen.width * devicePixelRatio
+  const scale = Math.max(1, (window.screen.height * devicePixelRatio) / 1080)
+  const w = size === 'screen' ? px : MEDIA_WIDTH[size] * scale
+  return Math.min(3840, Math.ceil(w / 240) * 240)
+}
+
 /** Локальный путь → URL нашего протокола pcs://, http-ссылки как есть. */
-export function media(p?: string) {
+export function media(p?: string, size?: MediaSize) {
   if (!p) return undefined
   if (/^(https?|data|blob|pcs):/i.test(p)) return p
-  return `pcs://media/f?p=${encodeURIComponent(p)}`
+  return `pcs://media/f?p=${encodeURIComponent(p)}${size ? `&w=${mediaWidth(size)}` : ''}`
 }
 
 /** Акцент интерфейса по умолчанию (не игра: библиотека, «добавить», настройки) */

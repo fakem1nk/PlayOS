@@ -121,9 +121,23 @@ async function scan() {
   }
 }
 
-export function startHid() {
+/**
+ * Перебор HID-устройств дорогой: в некоторых играх он даёт микрофризы. Поэтому сканируем по событию
+ * Windows «устройства изменились» (rescanHid), а по таймеру — редко и только когда игра не запущена.
+ */
+export function startHid(gameRunning: () => boolean) {
   void scan()
-  setInterval(scan, 3000)
+  setInterval(() => !gameRunning() && void scan(), 30_000)
+}
+
+let rescanTimer: NodeJS.Timeout | null = null
+/** Подключили или отключили устройство: Windows шлёт пачку событий, сканируем один раз после неё */
+export function rescanHid() {
+  if (rescanTimer) clearTimeout(rescanTimer)
+  rescanTimer = setTimeout(() => {
+    rescanTimer = null
+    void scan()
+  }, 700)
 }
 
 export function hidPads(): { key: string; bits: number }[] {
