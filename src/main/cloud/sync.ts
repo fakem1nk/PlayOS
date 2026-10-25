@@ -195,7 +195,7 @@ async function syncSet(r: Remote, game: Game, set: SaveSet, force?: 'local' | 'c
   deps.onChange()
   try {
     if (blocked(set)) {
-      setStatus.set(set.key, { ...status, state: 'pending' })
+      setStatus.set(set.key, { ...status, state: 'playing' })
       return null
     }
     const local = await localState(set)
@@ -294,6 +294,11 @@ export async function beforeLaunch(game: Game): Promise<SaveConflict | null> {
   return Promise.race([syncGames([game]).catch(() => null), timeout])
 }
 
+/** Игру изменили в редакторе (папка игры, папка сохранений, AppID) — проверяем сразу, а не через 10 минут */
+export function syncGame(game: Game) {
+  if (enabled()) void syncGames([game])
+}
+
 /** После выхода из игры: процессы закрылись, но игра могла дописывать файлы — ждём пару секунд */
 export function afterExit(game: Game) {
   if (!enabled()) return
@@ -306,10 +311,11 @@ export function resolve(game: Game, choice: 'local' | 'cloud') {
 
 export function gameStatus(game: Game): GameCloudStatus {
   if (!enabled()) return { state: 'off' }
+  if (game.launcher === 'steam') return { state: 'steam' }
   const sets = saveSetsFor(game, deps.settings())
   if (!sets.length) return { state: 'nosaves' }
   const list = sets.map((s) => setStatus.get(s.key)).filter((s) => !!s)
-  const order: CloudSyncState[] = ['conflict', 'error', 'offline', 'syncing', 'pending', 'synced', 'nosaves']
+  const order: CloudSyncState[] = ['conflict', 'error', 'offline', 'syncing', 'playing', 'pending', 'synced', 'nosaves']
   const worst = order.find((o) => list.some((s) => s.state === o)) ?? 'pending'
   const lastSync = Math.max(0, ...sets.map((s) => file.sets[s.key]?.lastSync ?? 0)) || undefined
   return {

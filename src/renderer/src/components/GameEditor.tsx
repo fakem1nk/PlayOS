@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useInputLayer } from '../lib/input'
-import type { ArtCandidate, Game, GameDraft, Platform, SaveProgress, Settings } from '@shared/types'
+import type { ArtCandidate, Game, GameDraft, Platform, SavePreview, SaveProgress, Settings } from '@shared/types'
 import { api } from '../lib/api'
 import { hueOf, media } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
@@ -42,6 +42,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
           title: game.title,
           platform: game.platform,
           path: game.path,
+          installDir: game.installDir,
           args: game.args ?? '',
           workDir: game.workDir,
           customCommand: game.customCommand ?? '',
@@ -69,6 +70,24 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
   const inspectToken = useRef(0)
   const [searching, setSearching] = useState(false)
   const [searchedOnce, setSearchedOnce] = useState(false)
+  // Что облако найдёт для игры: папка сохранений и AppID. Пересчитывается, когда меняются влияющие поля
+  const [preview, setPreview] = useState<SavePreview | null | undefined>(undefined)
+  const previewKey = [draft.platform, draft.path, draft.installDir, draft.serial, draft.steamAppId, draft.launcher, draft.cloudSaves, draft.saveDirs?.join('|'), draft.title].join('|')
+  useEffect(() => {
+    if (step !== 'form' || !draft.path) return setPreview(null)
+    let live = true
+    setPreview(undefined)
+    const timer = setTimeout(() => {
+      api
+        .savePreview(draft)
+        .then((p) => live && setPreview(p))
+        .catch(() => live && setPreview(null))
+    }, 400)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [previewKey, step])
   const autoTitle = useRef<string | undefined>(undefined)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -112,6 +131,9 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
           // Выбрали EXE — дальше запускаем его напрямую, а не через Steam
           launcher: undefined,
           path: info.path ?? file,
+          // Новый EXE внутри уже выбранной папки игры — папку не трогаем
+          installDir:
+            d.installDir && (info.path ?? file).toLowerCase().startsWith(d.installDir.toLowerCase()) ? d.installDir : info.installDir ?? d.installDir,
           title: titleWasAuto && info.title ? info.title : d.title,
           serial: info.serial ?? d.serial,
           args: info.args ?? d.args,
@@ -152,6 +174,23 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     // GIF на месте обложки — анимированная обложка: статичная остаётся для плиток вне фокуса
     if (field === 'cover' && /\.gif$/i.test(file)) set({ coverAnimated: file })
     else set({ [field]: file })
+  }
+
+  const saveHint = draft.saveDirs?.length
+    ? t('Указана вручную: {path}', { path: shortPath(draft.saveDirs[0], 56) })
+    : preview === undefined
+      ? t('Ищем сохранения…')
+      : preview?.skipped === 'off'
+        ? t('Облако для этой игры выключено')
+        : preview?.dir
+          ? t('Найдена автоматически: {path}', { path: shortPath(preview.dir, 56) })
+          : preview?.registry
+            ? t('Найдены автоматически в реестре Windows')
+            : t('Пока не найдена. Сохранитесь в игре или укажите папку вручную.')
+
+  const pickInstallDir = async () => {
+    const dir = await api.pickFile('folder')
+    if (dir) set({ installDir: dir })
   }
 
   const pickSaveDir = async () => {
@@ -273,49 +312,77 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
               transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
             >
               <div className="editor-form">
-                <div className="field">
-                  <span className="field-label">
-                    {draft.launcher === 'steam' ? t('Папка игры в Steam') : draft.platform === 'pc' ? t('Файл игры') : draft.platform === 'ps2' ? t('Образ диска') : t('EBOOT.BIN или образ')}
-                  </span>
-                  <div className="field-row">
-                    <div className={`path-display ${draft.path ? '' : 'is-empty'}`} title={draft.path}>
-                      {draft.path ? shortPath(draft.path) : t('Файл не выбран')}
-                    </div>
-                    <button data-nav data-autofocus={!draft.path || undefined} className="btn btn-glass btn-sm" onClick={() => pickGameFile()}>
-                      <IconFolder /> {t('Выбрать файл')}
-                    </button>
-                    {draft.platform === 'ps3' && (
-                      <button data-nav className="btn btn-glass btn-sm" onClick={() => pickGameFile('ps3', true)}>
-                        {t('Папка')}
+                {draft.platform === 'pc' && draft.launcher !== 'steam' ? (
+                  <div className="field">
+                    <span className="field-label">{t('Папка игры')}</span>
+                    <div className="field-row">
+                      <div className={`path-display ${draft.installDir ? '' : 'is-empty'}`} title={draft.installDir}>
+                        {draft.installDir ? shortPath(draft.installDir) : t('Папка не выбрана')}
+                      </div>
+                      <button data-nav className="btn btn-glass btn-sm" onClick={pickInstallDir}>
+                        <IconFolder /> {t('Выбрать папку')}
                       </button>
+                    </div>
+                    <span className="field-hint">{t('По ней считаются размер игры, локальные файлы, сохранения и процессы игры.')}</span>
+                  </div>
+                ) : (
+                  <div className="field">
+                    <span className="field-label">
+                      {draft.launcher === 'steam' ? t('Папка игры в Steam') : draft.platform === 'pc' ? t('Файл игры') : draft.platform === 'ps2' ? t('Образ диска') : t('EBOOT.BIN или образ')}
+                    </span>
+                    <div className="field-row">
+                      <div className={`path-display ${draft.path ? '' : 'is-empty'}`} title={draft.path}>
+                        {draft.path ? shortPath(draft.path) : t('Файл не выбран')}
+                      </div>
+                      <button data-nav data-autofocus={!draft.path || undefined} className="btn btn-glass btn-sm" onClick={() => pickGameFile()}>
+                        <IconFolder /> {t('Выбрать файл')}
+                      </button>
+                      {draft.platform === 'ps3' && (
+                        <button data-nav className="btn btn-glass btn-sm" onClick={() => pickGameFile('ps3', true)}>
+                          {t('Папка')}
+                        </button>
+                      )}
+                    </div>
+                    {draft.serial && <span className="field-hint">{t('Серийный номер диска: {serial}', { serial: draft.serial })}</span>}
+                    {draft.launcher === 'steam' && (
+                      <span className="field-hint">
+                        {t('Игра запускается через Steam, время считается по процессам в этой папке. Выберите EXE, чтобы запускать её напрямую.')}
+                      </span>
                     )}
                   </div>
-                  {draft.serial && <span className="field-hint">{t('Серийный номер диска: {serial}', { serial: draft.serial })}</span>}
-                  {draft.launcher === 'steam' && (
-                    <span className="field-hint">
-                      {t('Игра запускается через Steam, время считается по процессам в этой папке. Выберите EXE, чтобы запускать её напрямую.')}
-                    </span>
-                  )}
-                </div>
+                )}
 
                 <Field label={t('Название')} value={draft.title} onChange={(v) => set({ title: v })} placeholder={t('Как игра будет называться в библиотеке')} />
 
                 {draft.platform === 'pc' ? (
                   <>
+                    {draft.launcher !== 'steam' && (
+                      <div className="field">
+                        <span className="field-label">{t('EXE запуска')}</span>
+                        <div className="field-row">
+                          <div className={`path-display ${draft.path ? '' : 'is-empty'}`} title={draft.path}>
+                            {draft.path ? shortPath(draft.path) : t('Файл не выбран')}
+                          </div>
+                          <button data-nav data-autofocus={!draft.path || undefined} className="btn btn-glass btn-sm" onClick={() => pickGameFile()}>
+                            <IconFolder /> {t('Выбрать файл')}
+                          </button>
+                        </div>
+                        <span className="field-hint">{t('Файл, которым запускается игра: EXE, ярлык или лаунчер. Время считается по всем процессам из папки игры.')}</span>
+                      </div>
+                    )}
                     <Field label={t('Параметры запуска')} value={draft.args ?? ''} onChange={(v) => set({ args: v })} placeholder={t('Необязательно, например -windowed')} mono />
-                    <Field
-                      label={t('Процесс игры')}
-                      value={draft.trackProcess ?? ''}
-                      onChange={(v) => set({ trackProcess: v })}
-                      placeholder={t('Необязательно, например Game-Win64-Shipping.exe')}
-                      hint={t('Если выбранный EXE — лаунчер, укажите процесс самой игры, чтобы время считалось точно.')}
-                      mono
-                    />
                     <Field
                       label="Steam AppID"
                       value={draft.steamAppId ? String(draft.steamAppId) : ''}
                       onChange={(v) => set({ steamAppId: Number(v.replace(/\D/g, '')) || undefined })}
-                      placeholder={t('Определится сам — для трофеев Steam')}
+                      placeholder={preview?.appId ? t('Найден автоматически: {id}', { id: preview.appId }) : t('Не найден — укажите для трофеев Steam')}
+                      hint={
+                        draft.steamAppId
+                          ? t('Указан вручную или взят из Steam при поиске арта.')
+                          : preview?.appId
+                            ? t('Найден в файлах игры (steam_appid.txt и подобных). По нему работают трофеи Steam и поиск сохранений.')
+                            : t('Нужен для трофеев Steam. Его можно найти в адресе страницы игры в магазине Steam.')
+                      }
                       mono
                     />
                   </>
@@ -365,8 +432,8 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                     <div className="setting setting-static">
                       <span className="setting-text">
                         <span className="setting-label">{t('Папка сохранений')}</span>
-                        <span className="setting-hint" title={draft.saveDirs?.[0]}>
-                          {draft.saveDirs?.length ? shortPath(draft.saveDirs[0]) : t('Определяется сама: по манифесту Ludusavi, Steam AppID и папкам эмуляторов')}
+                        <span className="setting-hint" title={draft.saveDirs?.[0] ?? preview?.dir}>
+                          {saveHint}
                         </span>
                       </span>
                       <span className="avatar-buttons">

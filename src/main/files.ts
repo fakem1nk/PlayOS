@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Game, GameFiles } from '@shared/types'
 import { trackableDir } from './launcher'
+import { GENERIC_DIRS } from './media'
 
 /** Больше файлов не считаем: папка явно не игровая, а подсчёт затянется */
 const MAX_FILES = 300_000
@@ -11,6 +12,7 @@ const cache = new Map<string, { at: number; src: string; files: GameFiles }>()
 
 /** Папка установки игры: PC — рядом с EXE, PS3 — корень игры над PS3_GAME/USRDIR, образы — сам файл */
 function gameLocation(game: Game): { path: string; isFile: boolean } | null {
+  if (game.platform === 'pc' && game.installDir && fs.existsSync(game.installDir)) return { path: game.installDir, isFile: false }
   const p = game.path
   if (!p || !fs.existsSync(p)) return null
   const stat = fs.statSync(p)
@@ -24,7 +26,11 @@ function gameLocation(game: Game): { path: string; isFile: boolean } | null {
         // Ярлык не читается — остаётся папка самого ярлыка
       }
     } else if (/\.url$/i.test(p)) return null
-    return { path: game.workDir || path.dirname(target), isFile: false }
+    if (game.workDir) return { path: game.workDir, isFile: false }
+    // Папка игры не указана: поднимаемся из bin, x64, Binaries… к корню, как при добавлении игры
+    let dir = path.dirname(target)
+    while (GENERIC_DIRS.test(path.basename(dir)) && path.dirname(dir) !== dir) dir = path.dirname(dir)
+    return { path: dir, isFile: false }
   }
   if (game.platform === 'ps3' && /eboot\.bin$/i.test(p)) {
     // …/<игра>/PS3_GAME/USRDIR/EBOOT.BIN или dev_hdd0/game/<ID>/USRDIR/EBOOT.BIN
@@ -68,12 +74,13 @@ async function folderSize(dir: string): Promise<number | null> {
 }
 
 export async function gameFiles(game: Game): Promise<GameFiles | null> {
+  const src = `${game.path}|${game.installDir ?? ''}`
   const hit = cache.get(game.id)
-  if (hit && hit.src === game.path && Date.now() - hit.at < CACHE_MS) return hit.files
+  if (hit && hit.src === src && Date.now() - hit.at < CACHE_MS) return hit.files
   const loc = gameLocation(game)
   if (!loc) return null
   const size = loc.isFile ? fs.statSync(loc.path).size : trackableDir(loc.path) ? await folderSize(loc.path) : null
   const files = { ...loc, size }
-  cache.set(game.id, { at: Date.now(), src: game.path, files })
+  cache.set(game.id, { at: Date.now(), src, files })
   return files
 }

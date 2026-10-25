@@ -848,3 +848,85 @@ html.liquid .si .si-card {
   height: 4.8rem;
   font-size: 2rem;
 }
+
+/* Окно без рамки вне полного экрана: тянуть за верхний край */
+.window-drag {
+  display: none;
+}
+html.is-windowed .window-drag {
+  display: block;
+  position: fixed;
+  inset: 0 0 auto;
+  height: 2.6rem;
+  z-index: 9000;
+  -webkit-app-region: drag;
+}
+
+/* Прокручиваемые списки заканчиваются над подсказками кнопок, а не под ними */
+.editor-form {
+  margin-bottom: 0;
+  padding-bottom: 2.4rem;
+}
+.settings {
+  grid-template-rows: minmax(0, 1fr);
+}
+.settings .sections {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Запас по краям, чтобы прокрутка не обрезала кольцо фокуса */
+  padding: 1rem 1rem 2rem;
+  margin: -1rem -1rem 0;
+}
+
+/* Окна-листы (страница игры, трофеи, редактор): прокрутка заканчивается с зазором над подсказками */
+.gp-body {
+  margin-bottom: 0;
+  padding-bottom: 2rem;
+}
+.sheet-hints {
+  padding-top: 1.6rem;
+}
+.sheet-inner {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.trophy-body {
+  margin-bottom: 0;
+  padding-bottom: 2rem;
+}
+
+/* Стартовое окно, шаг «Облако»: стеклянный шар с облаком, подсвечивается после входа */
+.wiz-cloud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6rem;
+  text-align: center;
+}
+.wiz-cloud-orb {
+  width: 24rem;
+  height: 24rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: var(--mist);
+  transition: color 300ms ease, box-shadow 300ms ease;
+}
+.wiz-cloud-orb svg {
+  width: 11rem;
+  height: 11rem;
+}
+.wiz-cloud.is-on .wiz-cloud-orb {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 8rem -2rem var(--a1);
+}
+.wiz-cloud-title {
+  font-size: 3rem;
+  font-weight: 600;
+}
+.wiz-cloud-state {
+  font-size: 1.8rem;
+  color: var(--mist);
+}

@@ -70,6 +70,8 @@ export function useInputLayer(handler: Handler, priority: number, enabled = true
 export type PadKind = 'playstation' | 'xbox' | 'nintendo'
 let padKind: PadKind = 'playstation'
 let padConnected = false
+/** Главный процесс запретил геймпад: идёт игра, а PlayOS не на переднем плане */
+let padBlocked = false
 /** Чем человек управляет прямо сейчас — подсказки внизу показывают клавиши, если клавиатурой */
 let lastDevice: 'pad' | 'keyboard' = 'pad'
 const padListeners = new Set<() => void>()
@@ -271,13 +273,18 @@ function pollPads() {
     padConnected = any
     emitPad()
   }
-  if (!document.hasFocus()) return
+  // Без фокуса нажатия только запоминаем: удержанная кнопка не сработает, когда окно вернёт фокус
+  const muted = padBlocked || !document.hasFocus()
   const now = performance.now()
   for (const p of pads) {
     if (!p) continue
     if (p.mapping !== 'standard' && !padMaps[p.id] && !announced.has(p.id)) {
       announced.add(p.id)
       onUnknownPad(p)
+    }
+    if (muted) {
+      for (const [index, action] of BUTTONS) prev.set(`${p.index}:${index}`, actionDown(p, action, index))
+      continue
     }
     if (capture) {
       pollCapture(p)
@@ -321,6 +328,9 @@ export function startInput() {
   })
   requestAnimationFrame(pollPads)
   for (const ev of ['mousemove', 'mousedown', 'wheel'] as const) window.addEventListener(ev, markActivity, { passive: true })
+  api.onPadBlock((b) => {
+    padBlocked = b
+  })
   api.onPad((a) => {
     if (a === 'home' || !document.hasFocus()) {
       setDevice('pad')

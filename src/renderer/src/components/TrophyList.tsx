@@ -12,7 +12,7 @@ import { locale, t } from '@shared/i18n'
 
 const dateFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric' })
 const TIERS: TrophyTier[] = ['platinum', 'gold', 'silver', 'bronze']
-const SOURCE_NAME = { ra: 'RetroAchievements', steam: 'Steam' } as const
+const SOURCE_NAME = { ra: 'RetroAchievements', steam: 'Steam', local: 'Steam' } as const
 
 interface Props {
   game: Game
@@ -100,7 +100,10 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
                       <IconTrophy /> {byTier[tier]}
                     </span>
                   ))}
-                  <span className="trophy-source">{SOURCE_NAME[set.source]}</span>
+                  <span className="trophy-source" title={set.source === 'local' ? t('Прочитано из файлов эмулятора Steam на этом ПК') : undefined}>
+                    {SOURCE_NAME[set.source]}
+                    {set.emulator ? ` · ${set.emulator}` : ''}
+                  </span>
                 </div>
               </>
             ) : (
@@ -155,10 +158,12 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
 function TrophyRow({ a, onFocus }: { a: Achievement; onFocus: () => void }) {
   const secret = a.hidden && !a.earnedAt
   const icon = a.earnedAt ? a.icon : (a.iconLocked ?? a.icon)
+  // Картинка не загрузилась (нет сети, сервер не ответил) — кубок вместо значка битой картинки
+  const [broken, setBroken] = useState(false)
   return (
     <button data-nav className={`trophy-row ${a.earnedAt ? 'is-earned' : ''}`} onFocus={onFocus} onMouseEnter={onFocus}>
       <span className={`trophy-icon tier-${a.tier}`}>
-        {secret ? <span className="trophy-secret">?</span> : icon ? <img src={icon} alt="" loading="lazy" /> : <IconTrophy className="trophy-icon-fallback" />}
+        {secret ? <span className="trophy-secret">?</span> : icon && !broken ? <img src={icon} alt="" loading="lazy" onError={() => setBroken(true)} /> : <IconTrophy className="trophy-icon-fallback" />}
       </span>
       <span className="trophy-text">
         <span className="trophy-name">{secret ? t('Скрытый трофей') : a.title}</span>

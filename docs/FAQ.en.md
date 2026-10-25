@@ -19,7 +19,7 @@ Common problems and what to do about them. Didn't find yours? [Open an issue](ht
 
 ### How do I install PlayOS
 
-Download `PlayOS-Setup-<version>.exe` from the [releases page](https://github.com/fakem1nk/PlayOS/releases/latest) and run it. On first launch a short setup helps you add games and choose the display. After that PlayOS updates itself: a new version downloads in the background and installs when you quit.
+Download `PlayOS-Setup-<version>.exe` from the [releases page](https://github.com/fakem1nk/PlayOS/releases/latest) and run it. On first launch a short setup helps you pick the language, connect the cloud, add games and choose the display. After that PlayOS updates itself: a new version downloads in the background and installs when you quit.
 
 You need Windows 10 or 11, 64-bit. For PS2 and PS3 games install PCSX2 and RPCS3; for the DualSense light bar, DSX. Everything else is optional.
 
@@ -35,7 +35,7 @@ PlayOS watches game processes, catches the PS button over other windows and paus
 
 ### How do I change the language
 
-Settings → Profile → “Language · Язык”. The window reloads; your library and settings stay put. On first launch the language follows your Windows language.
+Settings → Profile → “Language · Язык”. The window reloads; your library and settings stay put. PlayOS starts in English; you can switch to Russian on the first step of the setup.
 
 ---
 
@@ -122,6 +122,8 @@ You need your RetroAchievements user name and **Web API Key**: retroachievements
 ### Steam achievements don't show up
 
 You need a Steam Web API key ([steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey), free) and your profile. In your Steam privacy settings, make “Game details” public — otherwise Steam doesn't return achievements.
+
+Steam only returns achievements for games on your account. For a game that isn't on it, PlayOS reads unlocked achievements from the files of the Steam emulator next to the game (RUNE, CODEX, Goldberg, EMPRESS, OnlineFix and others) and takes names and icons from Steam. Without a Web API key you'll see the internal achievement names instead.
 
 ### PS3 trophies
 

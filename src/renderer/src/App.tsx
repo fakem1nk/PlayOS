@@ -107,6 +107,7 @@ export function App() {
   )
 
   useEffect(() => api.onToast((n) => toast({ ...n })), [])
+  useEffect(() => api.onWindowMode((full) => document.documentElement.classList.toggle('is-windowed', !full)), [])
   useEffect(() => setPadMaps(state?.settings.padMaps), [state?.settings.padMaps])
   // Геймпад без стандартной раскладки: подсказываем, где назначить кнопки
   useEffect(
@@ -259,6 +260,7 @@ export function App() {
     <GlyphStyleContext.Provider value={state.settings.glyphs}>
       <AnimatedCoversContext.Provider value={state.settings.animatedCovers}>
       <div className={`app tinted ${tabFocus !== null && !modal ? 'is-tabs-zone' : ''}`} data-tab={tab} style={{ '--game-accent': accent } as React.CSSProperties}>
+        <div className="window-drag" aria-hidden />
         <Background
           game={bgTarget}
           dim={calm}
@@ -443,7 +445,7 @@ export function App() {
 
         <AnimatePresence>{steamImport && <SteamImport key="steam" onClose={() => setSteamImport(false)} />}</AnimatePresence>
 
-        <AnimatePresence>{cloudOffer && !wizard && <RestoreDialog key="restore" offer={cloudOffer} />}</AnimatePresence>
+        <AnimatePresence>{cloudOffer && <RestoreDialog key="restore" offer={cloudOffer} />}</AnimatePresence>
 
         <AnimatePresence>
           {conflict && (

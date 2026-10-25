@@ -42,7 +42,8 @@ import { gameFiles } from './files'
 import * as cloud from './cloud/account'
 import * as sync from './cloud/sync'
 import { isPortableSetting, libraryKey } from './cloud/library'
-import { getLang, langFromLocale, setLang, t } from '@shared/i18n'
+import { savePreview } from './cloud/locate'
+import { getLang, setLang, t } from '@shared/i18n'
 import { dsxStatus, flashLightbar, holdLightbar, lightbarReady, pulseLightbar, startDsx, testLightbar } from './dsx'
 import { hidControllers, hidStatus, startHid } from './hid'
 import * as launcher from './launcher'
@@ -207,6 +208,19 @@ function emuContext() {
 }
 
 /** Окно игры сейчас на переднем плане? (нажатия клавиш уйдут именно в него) */
+/**
+ * Пока идёт игра, геймпад принадлежит ей: если PlayOS открыт на соседнем мониторе и не в фокусе,
+ * интерфейс не должен реагировать на те же нажатия. Chromium иногда считает окно активным и после
+ * переключения в игру, поэтому решение принимает главный процесс.
+ */
+let padBlocked = false
+function syncPadBlock() {
+  const blocked = !!launcher.running() && alive(win) && (!win.isFocused() || gameInForeground())
+  if (blocked === padBlocked) return
+  padBlocked = blocked
+  sendTo(win, 'pad-block', blocked)
+}
+
 function gameInForeground() {
   const fg = foregroundWindow()
   return !!fg && launcher.trackedPids().includes(windowPid(fg))
@@ -775,7 +789,7 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
   if (failed.length && !opts.quiet) {
     toast(t('Часть арта не скачалась'), t('{v}: сервер не ответил. Попробуйте ещё раз в редакторе игры или выберите другой источник.', { v: failed.join(', ') }))
   }
-  for (const key of ['args', 'workDir', 'customCommand', 'trackProcess', 'serial'] as const) {
+  for (const key of ['args', 'workDir', 'installDir', 'customCommand', 'trackProcess', 'serial'] as const) {
     if (!game[key]?.trim()) delete game[key]
   }
   if (!game.steamAppId) delete game.steamAppId
@@ -1150,7 +1164,9 @@ function registerIpc() {
     const ctrl = new AbortController()
     editorSave = ctrl
     try {
-      return await saveGame(draft, { signal: ctrl.signal, onProgress: (p) => sendTo(win, 'save-progress', p) })
+      const game = await saveGame(draft, { signal: ctrl.signal, onProgress: (p) => sendTo(win, 'save-progress', p) })
+      sync.syncGame(game)
+      return game
     } finally {
       if (editorSave === ctrl) editorSave = null
     }
@@ -1422,6 +1438,14 @@ function registerIpc() {
   })
   setDevice(cloud.deviceId().replace(/-/g, '').slice(0, 8))
 
+  ipcMain.handle('game:save-preview', (_e, draft: GameDraft) => {
+    try {
+      return savePreview({ ...draft, id: draft.id ?? '', playtime: 0, addedAt: 0, sessions: [] }, getDb().settings)
+    } catch (e) {
+      log('WARN', 'save preview failed', e)
+      return null
+    }
+  })
   ipcMain.handle('game:files', (_e, id: string) => {
     const game = findGame(id)
     return game ? gameFiles(game) : null
@@ -1592,8 +1616,8 @@ ipcMain.on('theme:get', (e) => (e.returnValue = getDb().settings.theme ?? 'dark'
 
 app.whenReady().then(() => {
   loadDb()
-  // Первый запуск: язык интерфейса — по языку Windows
-  if (!getDb().settings.language) getDb().settings.language = langFromLocale(app.getLocale())
+  // Первый запуск: английский, сменить можно на первом шаге стартовой настройки (у старых установок язык уже записан)
+  if (!getDb().settings.language) getDb().settings.language = 'en'
   setLang(getDb().settings.language)
   launcher.recoverSession()
 
@@ -1661,12 +1685,17 @@ app.whenReady().then(() => {
   })
   globalShortcut.register('Control+Alt+H', onHotkey)
   setInterval(pollPadStatus, 3000)
+  setInterval(syncPadBlock, 400)
   setInterval(checkBreakReminder, 60_000)
   setInterval(checkTrophies, 60_000)
   win?.webContents.on('did-finish-load', () => {
     lastPadStatus = ''
     pollPadStatus()
+    sendTo(win, 'window-mode', !!win?.isFullScreen())
   })
+  // Вне полного экрана у окна без рамки появляется полоса для перетаскивания
+  win?.on('enter-full-screen', () => sendTo(win, 'window-mode', true))
+  win?.on('leave-full-screen', () => sendTo(win, 'window-mode', false))
   // Прошлый запуск упал — подсказываем, где взять отчёт (после интро, один раз)
   if (lastRunCrashed()) {
     win?.webContents.once('did-finish-load', () =>

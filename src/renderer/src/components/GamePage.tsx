@@ -148,7 +148,7 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
             </button>
           )}
           {cloud && cloud.state !== 'off' && (
-            <button data-nav className={`btn btn-glass gp-cloud is-${cloud.state}`} onClick={() => setVersions(true)} title={cloud.error}>
+            <button data-nav className={`btn btn-glass gp-cloud is-${cloud.state}`} onClick={() => cloud.state !== 'steam' && setVersions(true)} title={cloud.error}>
               {cloud.state === 'syncing' ? <IconSync className="is-spinning" /> : <IconCloud />} {stateLabel(cloud.state, cloud.lastSync)}
             </button>
           )}

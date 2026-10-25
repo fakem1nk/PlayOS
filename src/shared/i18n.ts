@@ -36,9 +36,6 @@ export function onLangChange(cb: () => void) {
   }
 }
 
-/** Язык по умолчанию — по языку Windows */
-export const langFromLocale = (locale: string): Lang => (/^(ru|be|uk|kk)/i.test(locale) ? 'ru' : 'en')
-
 export function t(ru: string, vars?: Record<string, string | number | undefined>): string {
   let s = ru
   if (lang === 'en') {

@@ -5,10 +5,12 @@ import path from 'node:path'
 import type { Achievement, AchievementResult, AchievementSet, AchievementSummaryItem, Game, RaGame, Settings, TrophyTier } from '@shared/types'
 import { httpFetch } from './http'
 import { findGame, getDb, saveDb } from './store'
+import { detectAppId } from './cloud/locate'
 import { t } from '@shared/i18n'
 
 /**
  * Настоящие трофеи игр: RetroAchievements (PS2 через PCSX2) и достижения Steam (PC).
+ * У пиратских и DRM-free сборок открытые достижения читаются из файлов эмулятора Steam, названия и значки — из Steam.
  * Результаты кешируются в achievements.json — список открывается мгновенно и работает без сети.
  */
 
@@ -223,6 +225,11 @@ async function steamId64(s: Settings): Promise<string> {
 /** Steam AppID игры по файлам рядом с EXE: steam_appid.txt или манифест библиотеки Steam */
 export function detectSteamAppId(game: Game): number | undefined {
   if (game.platform !== 'pc') return undefined
+  // steam_emu.ini, cream_api.ini, steam_settings — рядом с EXE и в папке игры
+  for (const d of [path.dirname(game.path), game.installDir]) {
+    const id = d ? detectAppId(d) : undefined
+    if (id) return id
+  }
   let dir = path.dirname(game.path)
   for (let i = 0; i < 4 && dir !== path.dirname(dir); i++) {
     try {
@@ -250,6 +257,167 @@ export function detectSteamAppId(game: Game): number | undefined {
   return undefined
 }
 
+type SteamSchemaItem = { name: string; displayName: string; description?: string; icon: string; icongray: string; hidden: number }
+type SteamSchema = { game?: { gameName?: string; availableGameStats?: { achievements?: SteamSchemaItem[] } } }
+
+// ───────────────────────── Файлы эмуляторов Steam ─────────────────────────
+
+/** Где эмуляторы Steam хранят открытые достижения; {id} — AppID, {game} — папка игры */
+const EMU_FILES: { name: string; file: string }[] = [
+  { name: 'RUNE', file: '%PUBLIC%/Documents/Steam/RUNE/{id}/achievements.ini' },
+  { name: 'CODEX', file: '%PUBLIC%/Documents/Steam/CODEX/{id}/achievements.ini' },
+  { name: 'CODEX', file: '%APPDATA%/Steam/CODEX/{id}/achievements.ini' },
+  { name: 'EMPRESS', file: '%APPDATA%/EMPRESS/{id}/remote/{id}/achievements.json' },
+  { name: 'EMPRESS', file: '%PUBLIC%/Documents/EMPRESS/{id}/remote/{id}/achievements.json' },
+  { name: 'OnlineFix', file: '%PUBLIC%/Documents/OnlineFix/{id}/Stats/Achievements.ini' },
+  { name: 'Goldberg', file: '%APPDATA%/GSE Saves/{id}/achievements.json' },
+  { name: 'Goldberg', file: '%APPDATA%/Goldberg SteamEmu Saves/{id}/achievements.json' },
+  { name: 'Goldberg', file: '{game}/steam_settings/saves/{id}/achievements.json' },
+  { name: 'RLD!', file: '%PROGRAMDATA%/RLD!/{id}/achievements.ini' },
+  { name: 'RLD!', file: '%PROGRAMDATA%/Steam/RLD!/{id}/achievements.ini' }
+]
+
+const ENV: Record<string, string | undefined> = {
+  '%APPDATA%': process.env.APPDATA,
+  '%PUBLIC%': process.env.PUBLIC,
+  '%PROGRAMDATA%': process.env.PROGRAMDATA
+}
+
+/** Время из файла: секунды Unix, иначе неизвестно */
+const unixMs = (v: unknown) => {
+  const n = Number(v)
+  return n > 1e9 ? n * 1000 : undefined
+}
+const truthy = (v: unknown) => v === true || v === 1 || /^(1|true|yes)$/i.test(String(v ?? '').trim())
+
+/**
+ * Открытые достижения из файла эмулятора: apiname → время получения (0 — время неизвестно).
+ * INI (CODEX, RUNE, OnlineFix, RLD!): секция на достижение с Achieved и UnlockTime/timestamp
+ * или одна секция со строками ИМЯ=1. JSON (Goldberg, EMPRESS): { ИМЯ: { earned, earned_time } }.
+ */
+export function parseEmuAchievements(text: string, json: boolean): Map<string, number> {
+  const out = new Map<string, number>()
+  if (json) {
+    const data = JSON.parse(text) as unknown
+    const entries: [string, unknown][] = Array.isArray(data)
+      ? data.map((a: Record<string, unknown>) => [String(a?.name ?? a?.apiname ?? ''), a])
+      : Object.entries((data ?? {}) as Record<string, unknown>)
+    for (const [name, raw] of entries) {
+      if (!name || !raw || typeof raw !== 'object') continue
+      const a = raw as Record<string, unknown>
+      if (truthy(a.earned ?? a.achieved ?? a.unlocked)) out.set(name, unixMs(a.earned_time ?? a.unlock_time ?? a.time) ?? 0)
+    }
+    return out
+  }
+  const sections = new Map<string, Map<string, string>>()
+  let cur = new Map<string, string>()
+  sections.set('', cur)
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith(';') || line.startsWith('#')) continue
+    const sec = /^\[(.+)\]$/.exec(line)
+    if (sec) {
+      sections.set(sec[1], (cur = new Map()))
+      continue
+    }
+    const eq = line.indexOf('=')
+    if (eq > 0) cur.set(line.slice(0, eq).trim(), line.slice(eq + 1).trim())
+  }
+  for (const [name, kv] of sections) {
+    if (!name || /^steamachievements$/i.test(name)) continue
+    const get = (...keys: string[]) => {
+      for (const [k, v] of kv) if (keys.includes(k.toLowerCase())) return v
+      return undefined
+    }
+    const state = get('achieved', 'unlocked', 'state')
+    if (state !== undefined) {
+      if (truthy(state)) out.set(name, unixMs(get('unlocktime', 'timestamp', 'time')) ?? 0)
+      continue
+    }
+    // Плоский список: [Achievements] ИМЯ=1
+    for (const [k, v] of kv) if (truthy(v)) out.set(k, 0)
+  }
+  return out
+}
+
+/** Файл эмулятора с достижениями этой игры, если он есть на ПК */
+function findEmuFile(appid: number, game: Game): { name: string; file: string } | null {
+  const gameDir = game.installDir || path.dirname(game.path)
+  for (const e of EMU_FILES) {
+    let file = e.file.replaceAll('{id}', String(appid))
+    if (file.startsWith('{game}')) file = path.join(gameDir, file.slice(7))
+    else {
+      const token = file.slice(0, file.indexOf('%', 1) + 1)
+      const root = ENV[token]
+      if (!root) continue
+      file = path.join(root, file.slice(token.length))
+    }
+    if (fs.existsSync(file)) return { name: e.name, file }
+  }
+  return null
+}
+
+// Схема и редкость нужны и уведомлениям во время игры (проверка раз в минуту) — держим их в памяти
+const schemaCache = new Map<number, { at: number; schema: SteamSchema; pct: Map<string, number> }>()
+
+async function steamSchema(appid: number, s: Settings) {
+  const hit = schemaCache.get(appid)
+  if (hit && Date.now() - hit.at < 6 * 60 * 60_000) return hit
+  const get = <T,>(url: string) => httpFetch(url, { signal: AbortSignal.timeout(15000) }).then((r) => r.json() as Promise<T>)
+  type Global = { achievementpercentages?: { achievements?: { name: string; percent: string | number }[] } }
+  const key = s.steamKey.trim()
+  const [schema, global] = await Promise.all([
+    key ? get<SteamSchema>(`${STEAM}/ISteamUserStats/GetSchemaForGame/v2/?key=${key}&appid=${appid}&l=russian`).catch(() => ({}) as SteamSchema) : ({} as SteamSchema),
+    get<Global>(`${STEAM}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=${appid}`).catch(() => ({}) as Global)
+  ])
+  const entry = { at: Date.now(), schema, pct: new Map((global.achievementpercentages?.achievements ?? []).map((a) => [a.name, Number(a.percent)])) }
+  if (schema.game?.availableGameStats?.achievements?.length) schemaCache.set(appid, entry)
+  return entry
+}
+
+async function fetchLocal(appid: number, emu: { name: string; file: string }, s: Settings, before?: AchievementSet): Promise<AchievementSet> {
+  const unlocked = parseEmuAchievements(fs.readFileSync(emu.file, 'utf8').replace(/^\uFEFF/, ''), emu.file.endsWith('.json'))
+  const { schema, pct } = await steamSchema(appid, s)
+  const list = schema.game?.availableGameStats?.achievements
+  // Без ключа Steam Web API схемы нет: показываем внутренние имена достижений
+  const source: SteamSchemaItem[] = list?.length
+    ? list
+    : [...new Set([...pct.keys(), ...unlocked.keys()])].map((name) => ({ name, displayName: name, icon: '', icongray: '', hidden: 0 }))
+  const byLower = new Map([...unlocked].map(([k, v]) => [k.toLowerCase(), v]))
+  const prev = new Map((before?.items ?? []).map((i) => [i.id, i.earnedAt]))
+  const items = source.map((a): Achievement => {
+    const at = unlocked.get(a.name) ?? byLower.get(a.name.toLowerCase())
+    const rarity = pct.get(a.name)
+    return {
+      id: a.name,
+      title: a.displayName,
+      description: a.description ?? '',
+      icon: a.icon || undefined,
+      iconLocked: a.icongray || undefined,
+      hidden: a.hidden === 1,
+      // Время в файле не записано — берём момент, когда PlayOS впервые увидел достижение
+      earnedAt: at === undefined ? undefined : at || prev.get(a.name) || Date.now(),
+      rarity,
+      tier: tierOf(rarity)
+    }
+  })
+  if (!items.length) throw new Error(t('У этой игры нет достижений Steam.'))
+  return finalize('local', items, { emulator: emu.name, gameTitle: schema.game?.gameName, url: `https://steamcommunity.com/stats/${appid}/achievements` })
+}
+
+/** Профиль открыт, но игры на аккаунте Steam нет */
+class NotOwnedError extends Error {
+  constructor() {
+    super(t('Этой игры нет в вашей библиотеке Steam. Достижения Steam показываются только для игр на аккаунте.'))
+  }
+}
+
+/** Загрузчик Ubisoft Connect рядом с игрой: у такой сборки достижения в Ubisoft Connect, а не в Steam */
+function hasUbisoftLoader(game: Game) {
+  const names = ['uplay_r1_loader64.dll', 'uplay_r1_loader.dll', 'upc_r1_loader64.dll', 'upc_r2_loader64.dll', 'uplay_r2_loader64.dll']
+  return [path.dirname(game.path), game.installDir].some((d) => d && names.some((n) => fs.existsSync(path.join(d, n))))
+}
+
 async function fetchSteam(appid: number, s: Settings): Promise<AchievementSet> {
   const key = s.steamKey.trim()
   const sid = await steamId64(s)
@@ -265,7 +433,13 @@ async function fetchSteam(appid: number, s: Settings): Promise<AchievementSet> {
   const stats = player.playerstats
   if (!stats?.success) {
     const err = stats?.error ?? ''
-    if (/not public/i.test(err)) throw new Error(t('Профиль Steam скрыт. Откройте «Сведения об играх» в настройках приватности Steam.'))
+    if (/not public/i.test(err)) {
+      // Steam отвечает «not public» и тогда, когда игры просто нет в библиотеке аккаунта — проверяем сам профиль
+      type Summary = { response?: { players?: { communityvisibilitystate?: number }[] } }
+      const summary = await get<Summary>(`${STEAM}/ISteamUser/GetPlayerSummaries/v2/?key=${key}&steamids=${sid}`).catch(() => null)
+      if (summary?.response?.players?.[0]?.communityvisibilitystate === 3) throw new NotOwnedError()
+      throw new Error(t('Профиль Steam скрыт. Откройте «Сведения об играх» в настройках приватности Steam.'))
+    }
     if (/no stats/i.test(err)) throw new Error(t('У этой игры нет достижений Steam.'))
     throw new Error(err || t('Steam не отдал достижения'))
   }
@@ -319,14 +493,29 @@ export async function getAchievements(gameId: string, refresh = false): Promise<
       }
       set = await fetchRa(game.raGameId, s)
     } else if (game.platform === 'pc') {
-      if (!s.steamKey.trim() || !s.steamId.trim()) return { set: cached, needs: 'steam-account', error: t('Добавьте ключ Steam Web API и профиль Steam в настройках') }
       if (!game.steamAppId) {
         const id = detectSteamAppId(game)
         if (!id) return { needs: 'link', error: t('Не удалось определить Steam AppID. Укажите его в редакторе игры или выберите арт из Steam.') }
         game.steamAppId = id
         saveDb()
       }
-      set = await fetchSteam(game.steamAppId, s)
+      // Игра не из клиента Steam и рядом есть файл эмулятора — достижения из него, аккаунт Steam не нужен
+      const emu = game.launcher === 'steam' ? null : findEmuFile(game.steamAppId, game)
+      if (emu) set = await fetchLocal(game.steamAppId, emu, s, cached?.source === 'local' ? cached : undefined)
+      else {
+        if (!s.steamKey.trim() || !s.steamId.trim()) return { set: cached, needs: 'steam-account', error: t('Добавьте ключ Steam Web API и профиль Steam в настройках') }
+        try {
+          set = await fetchSteam(game.steamAppId, s)
+        } catch (e) {
+          if (!(e instanceof NotOwnedError) || game.launcher === 'steam') throw e
+          // Игры нет на аккаунте и файла эмулятора Steam не нашлось — объясняем, почему достижений нет
+          throw new Error(
+            hasUbisoftLoader(game)
+              ? t('Игры нет в вашей библиотеке Steam, а сборка работает через эмулятор Ubisoft Connect: он не записывает достижения, поэтому показать их не из чего.')
+              : t('Игры нет в вашей библиотеке Steam, а файлов эмулятора Steam с достижениями рядом не нашлось. Обычно они появляются после первого полученного достижения.')
+          )
+        }
+      }
     } else {
       return { needs: 'unsupported', error: t('Для игр PS3 трофеи пока недоступны: RetroAchievements не поддерживает PS3.') }
     }

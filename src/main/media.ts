@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { ArtCandidate, InspectResult, Platform } from '@shared/types'
 import { httpFetch } from './http'
+import { trackableDir } from './launcher'
 import { t } from '@shared/i18n'
 
 // ───────────────────────── Общие утилиты ─────────────────────────
@@ -367,7 +368,7 @@ export async function inspectPs3(target: string): Promise<InspectResult> {
 
 // ───────────────────────── PC ─────────────────────────
 
-const GENERIC_DIRS = /^(bin|bin32|bin64|x64|x86|win64|win32|binaries|game|retail|release|shipping|_retail_)$/i
+export const GENERIC_DIRS = /^(bin|bin32|bin64|x64|x86|win64|win32|binaries|game|retail|release|shipping|_retail_)$/i
 
 function productName(exe: string): Promise<string | undefined> {
   return new Promise((resolve) => {
@@ -398,6 +399,7 @@ export async function inspectPc(file: string, artTmpDir: string): Promise<Inspec
   let dir = path.dirname(exe)
   while (GENERIC_DIRS.test(path.basename(dir)) && path.dirname(dir) !== dir) dir = path.dirname(dir)
   const fromDir = path.basename(dir)
+  if (trackableDir(dir)) res.installDir = dir
   const product = path.extname(exe).toLowerCase() === '.exe' ? await productName(exe) : undefined
   const generic = !product || /unreal|unity|launcher|microsoft|bootstrap|^ue\d/i.test(product)
   res.title = generic ? fromDir || cleanTitle(exe) : product

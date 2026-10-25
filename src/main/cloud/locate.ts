@@ -1,10 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Game, Settings } from '@shared/types'
+import type { Game, SavePreview, Settings } from '@shared/types'
 import { trackableDir } from '../launcher'
 import { pcsx2Config } from '../pcsx2'
 import { manifestFor, normTitle } from './ludusavi'
 import { expandManifestPath, type PathContext } from './paths'
+import { collect } from './snapshot'
 
 /**
  * Что синхронизировать для игры. Единица синхронизации — «набор сохранений» (SaveSet) со своим ключом:
@@ -50,6 +51,7 @@ const envDir = (token: string) =>
 
 /** Папка установки PC-игры: рядом с EXE (ярлык .lnk — его цель) */
 export function pcInstallDir(game: Game): string | undefined {
+  if (game.installDir) return game.installDir
   if (game.workDir) return game.workDir
   if (!game.path || /\.(url)$/i.test(game.path)) return undefined
   try {
@@ -61,7 +63,7 @@ export function pcInstallDir(game: Game): string | undefined {
 }
 
 /** AppID пиратской или DRM-free сборки: steam_appid.txt, steam_emu.ini, steam_settings — рядом с EXE и уровнем выше */
-function detectAppId(dir: string): number | undefined {
+export function detectAppId(dir: string): number | undefined {
   const candidates = ['steam_appid.txt', 'steam_settings/steam_appid.txt', 'steam_emu.ini', 'cream_api.ini', 'ColdClientLoader.ini']
   for (let d = dir, i = 0; i < 3; i++) {
     for (const c of candidates) {
@@ -162,4 +164,35 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
     }
   }
   return set.patterns.length || set.registry.length ? [set] : []
+}
+
+/** Общая папка нескольких путей */
+function commonDir(dirs: string[]): string | undefined {
+  if (!dirs.length) return undefined
+  let parts = dirs[0].split(path.sep)
+  for (const d of dirs.slice(1)) {
+    const other = d.split(path.sep)
+    let i = 0
+    while (i < parts.length && i < other.length && parts[i].toLowerCase() === other[i].toLowerCase()) i++
+    parts = parts.slice(0, i)
+  }
+  return parts.length > 1 ? parts.join(path.sep) : undefined
+}
+
+/** Что найдено для игры прямо сейчас: папка сохранений и AppID — для подсказок в редакторе */
+export function savePreview(game: Game, settings: Settings): SavePreview {
+  const dir = game.platform === 'pc' ? pcInstallDir(game) : undefined
+  const appId = !game.steamAppId && dir && trackableDir(dir) ? detectAppId(dir) : undefined
+  if (game.launcher === 'steam') return { files: 0, registry: false, appId, skipped: 'steam' }
+  if (game.cloudSaves === false) return { files: 0, registry: false, appId, skipped: 'off' }
+  const all = saveSetsFor(game, settings)
+  // Файловая карта памяти PS2 общая для всех игр — показываем её, только если своих файлов у игры нет
+  const own = all.filter((s) => !s.key.startsWith('ps2card:')).flatMap((s) => collect(s))
+  const files = own.length ? own : all.flatMap((s) => collect(s))
+  return {
+    dir: commonDir([...new Set(files.map((f) => path.dirname(f.abs)))]),
+    files: files.length,
+    registry: all.some((s) => s.registry.length > 0),
+    appId
+  }
 }

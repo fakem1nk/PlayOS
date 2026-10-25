@@ -25,13 +25,17 @@ export function stateLabel(state: CloudSyncState, lastSync?: number) {
     case 'syncing':
       return t('Синхронизация…')
     case 'pending':
-      return t('Ждёт синхронизации')
+      return t('Ещё не синхронизировано')
+    case 'playing':
+      return t('Синхронизируется после игры')
     case 'conflict':
       return t('Сохранения разошлись')
     case 'offline':
       return t('Нет связи с облаком')
     case 'error':
       return t('Ошибка синхронизации')
+    case 'steam':
+      return t('Синхронизируется через Steam')
     case 'nosaves':
       return t('Сохранения не найдены')
     default:
@@ -49,7 +53,8 @@ export function useCloudStatus() {
 }
 
 /** Раздел настроек «Облако»: вход, переключатели, статус */
-export function CloudPanel({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => Promise<unknown> }) {
+/** compact — для стартового окна: только вход и состояние, тонкие настройки остаются в «Настройках» */
+export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Partial<Settings>) => Promise<unknown>; compact?: boolean }) {
   const status = useCloudStatus()
   const cloud = { ...DEFAULTS, ...s.cloud }
   const setCloud = (patch: Partial<typeof cloud>) => save({ cloud: { ...cloud, ...patch } })
@@ -81,14 +86,18 @@ export function CloudPanel({ s, save }: { s: Settings; save: (patch: Partial<Set
   const account = status.account
   return (
     <>
-      <h2 className="panel-title">
-        <IconCloud /> {t('Облачные сохранения')}
-      </h2>
-      <div className="note">
-        {account
-          ? t('Сохранения PS2, PS3 и PC-игр не из Steam хранятся в вашем облаке и одинаковы на всех ваших ПК. У игр из Steam работает Steam Cloud.')
-          : t('Сохранения PS2, PS3 и PC-игр не из Steam хранятся в вашем облаке и одинаковы на всех ваших ПК. У игр из Steam работает Steam Cloud. Пока облако не подключено, сохранения остаются только на этом ПК.')}
-      </div>
+      {!compact && (
+        <h2 className="panel-title">
+          <IconCloud /> {t('Облачные сохранения')}
+        </h2>
+      )}
+      {!compact && (
+        <div className="note">
+          {account
+            ? t('Сохранения PS2, PS3 и PC-игр не из Steam хранятся в вашем облаке и одинаковы на всех ваших ПК. У игр из Steam работает Steam Cloud.')
+            : t('Сохранения PS2, PS3 и PC-игр не из Steam хранятся в вашем облаке и одинаковы на всех ваших ПК. У игр из Steam работает Steam Cloud. Пока облако не подключено, сохранения остаются только на этом ПК.')}
+        </div>
+      )}
 
       {status.pending ? (
         <div className="setting setting-static cloud-code">
@@ -163,43 +172,47 @@ export function CloudPanel({ s, save }: { s: Settings; save: (patch: Partial<Set
               {t('Синхронизировать')}
             </button>
           </div>
-          <Toggle
-            label={t('Профиль и настройки')}
-            hint={t('Имя, аватар, трофеи PlayOS и настройки, кроме путей к эмуляторам и выбора экрана.')}
-            value={cloud.profile !== false}
-            onChange={(v) => void setCloud({ profile: v })}
-          />
-          <Toggle
-            label={t('Библиотека и время игры')}
-            hint={t('Список игр, наигранное время, сессии, избранное и обложки. Игры с другого ПК появятся с пометкой «не установлена».')}
-            value={cloud.library !== false}
-            onChange={(v) => void setCloud({ library: v })}
-          />
-          <Toggle
-            label={t('Сохранения игр')}
-            hint={t('Сверяются при запуске PlayOS, перед игрой, после неё и каждые 10 минут.')}
-            value={cloud.saves}
-            onChange={(v) => void setCloud({ saves: v })}
-          />
-          <Toggle
-            label={t('Быстрые сохранения PS2')}
-            hint={t('Слоты PCSX2 весят десятки мегабайт. Карты памяти синхронизируются всегда.')}
-            value={!!cloud.ps2States}
-            onChange={(v) => void setCloud({ ps2States: v })}
-          />
-          <Cycler
-            label={t('Версий в истории')}
-            hint={t('Столько прошлых версий каждого сохранения хранится в облаке, к любой можно вернуться. От 1 до 30, по умолчанию 5.')}
-            value={String(cloud.keepVersions)}
-            options={VERSION_OPTIONS}
-            onChange={(v) => void setCloud({ keepVersions: Number(v) })}
-          />
-          <ActionRow
-            label={t('Выйти из облака')}
-            hint={t('Сохранения на этом ПК останутся, синхронизация остановится.')}
-            button={t('Выйти')}
-            onClick={() => void api.cloudSignOut()}
-          />
+          {!compact && (
+            <>
+              <Toggle
+                label={t('Профиль и настройки')}
+                hint={t('Имя, аватар, трофеи PlayOS и настройки, кроме путей к эмуляторам и выбора экрана.')}
+                value={cloud.profile !== false}
+                onChange={(v) => void setCloud({ profile: v })}
+              />
+              <Toggle
+                label={t('Библиотека и время игры')}
+                hint={t('Список игр, наигранное время, сессии, избранное и обложки. Игры с другого ПК появятся с пометкой «не установлена».')}
+                value={cloud.library !== false}
+                onChange={(v) => void setCloud({ library: v })}
+              />
+              <Toggle
+                label={t('Сохранения игр')}
+                hint={t('Сверяются при запуске PlayOS, перед игрой, после неё и каждые 10 минут.')}
+                value={cloud.saves}
+                onChange={(v) => void setCloud({ saves: v })}
+              />
+              <Toggle
+                label={t('Быстрые сохранения PS2')}
+                hint={t('Слоты PCSX2 весят десятки мегабайт. Карты памяти синхронизируются всегда.')}
+                value={!!cloud.ps2States}
+                onChange={(v) => void setCloud({ ps2States: v })}
+              />
+              <Cycler
+                label={t('Версий в истории')}
+                hint={t('Столько прошлых версий каждого сохранения хранится в облаке, к любой можно вернуться. От 1 до 30, по умолчанию 5.')}
+                value={String(cloud.keepVersions)}
+                options={VERSION_OPTIONS}
+                onChange={(v) => void setCloud({ keepVersions: Number(v) })}
+              />
+              <ActionRow
+                label={t('Выйти из облака')}
+                hint={t('Сохранения на этом ПК останутся, синхронизация остановится.')}
+                button={t('Выйти')}
+                onClick={() => void api.cloudSignOut()}
+              />
+            </>
+          )}
         </>
       )}
     </>

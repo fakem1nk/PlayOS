@@ -17,6 +17,8 @@ export interface Game {
   platform: Platform
   /** EXE для PC, образ/EBOOT.BIN для эмуляторов */
   path: string
+  /** Папка установки PC-игры: размер, локальные файлы, поиск сохранений и процессов игры. Своя на каждом ПК */
+  installDir?: string
   /** Параметры запуска: аргументы EXE (PC) или добавка к команде эмулятора ({args} в шаблоне) */
   args?: string
   workDir?: string
@@ -65,6 +67,19 @@ export interface Game {
 }
 
 /** Черновик из редактора. Поля арта могут быть http-ссылками — main скачает их при сохранении. */
+/** Что облако нашло для игры: показывается в редакторе, чтобы было видно, откуда берутся сохранения */
+export interface SavePreview {
+  /** Общая папка найденных файлов сохранений */
+  dir?: string
+  files: number
+  /** Часть сохранений лежит в реестре (HKCU) */
+  registry: boolean
+  /** AppID, найденный рядом с игрой (steam_appid.txt и подобные) */
+  appId?: number
+  /** Почему искать не стали: steam — их хранит Steam Cloud, off — облако для игры выключено */
+  skipped?: 'steam' | 'off'
+}
+
 export type GameDraft = Omit<Game, 'id' | 'playtime' | 'addedAt' | 'sessions'> & { id?: string }
 
 export type GlyphStyle = 'auto' | 'playstation' | 'xbox' | 'nintendo' | 'keyboard'
@@ -257,6 +272,8 @@ export interface InspectResult {
   logo?: string
   icon?: string
   path?: string
+  /** Папка установки, угаданная по EXE (без bin, x64, Binaries…) */
+  installDir?: string
   args?: string
   workDir?: string
 }
@@ -381,7 +398,8 @@ export interface CloudDeviceCode {
   expiresAt: number
 }
 
-export type CloudSyncState = 'off' | 'synced' | 'syncing' | 'pending' | 'conflict' | 'offline' | 'error' | 'nosaves'
+/** pending — с запуска PlayOS ещё не проверялось; playing — игра запущена, файлы заняты; steam — сохранения хранит Steam Cloud */
+export type CloudSyncState = 'off' | 'synced' | 'syncing' | 'pending' | 'playing' | 'steam' | 'conflict' | 'offline' | 'error' | 'nosaves'
 
 export interface SaveVersion {
   name: string
@@ -448,6 +466,10 @@ export interface PcsApi {
   onSessionEnd(cb: (e: SessionEndEvent) => void): () => void
   onToast(cb: (t: { title: string; message: string }) => void): () => void
   onPadStatus(cb: (s: PadStatus) => void): () => void
+  /** Идёт игра, и PlayOS не на переднем плане: геймпад принадлежит игре */
+  onPadBlock(cb: (blocked: boolean) => void): () => void
+  /** Окно перешло в полный экран или вышло из него */
+  onWindowMode(cb: (fullscreen: boolean) => void): () => void
   getPadStatus(): Promise<PadStatus>
   // ── Оверлей поверх игры ──
   emuState(): Promise<EmuState>
@@ -505,6 +527,8 @@ export interface PcsApi {
   gameDetails(gameId: string, refresh?: boolean): Promise<GameDetails>
   /** Папка (или файл образа) игры на диске и её размер */
   gameFiles(gameId: string): Promise<GameFiles | null>
+  /** Где облако найдёт сохранения игры из черновика редактора */
+  savePreview(draft: GameDraft): Promise<SavePreview | null>
   // ── Облако ──
   cloudStatus(): Promise<CloudStatus>
   onCloudStatus(cb: (s: CloudStatus) => void): () => void
@@ -570,7 +594,10 @@ export interface Achievement {
 }
 
 export interface AchievementSet {
-  source: 'ra' | 'steam'
+  /** local — файлы эмулятора Steam у пиратской или DRM-free сборки, названия и значки из Steam */
+  source: 'ra' | 'steam' | 'local'
+  /** Чей файл прочитан: RUNE, CODEX, Goldberg… */
+  emulator?: string
   gameTitle?: string
   total: number
   earned: number
@@ -587,7 +614,7 @@ export interface AchievementResult {
 }
 
 export interface AchievementSummaryItem {
-  source: 'ra' | 'steam'
+  source: 'ra' | 'steam' | 'local'
   earned: number
   total: number
 }

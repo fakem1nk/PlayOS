@@ -207,6 +207,8 @@ function createMockApi(): PcsApi {
     },
     onToast: noop,
     onPadStatus: () => () => {},
+    onPadBlock: () => () => {},
+    onWindowMode: () => () => {},
     getPadStatus: async () => ({ connected: 1, battery: 'medium' }),
     emuState: async () => ({
       mode: 'pine',
@@ -352,7 +354,8 @@ function createMockApi(): PcsApi {
     gameCloud: async (gameId) => {
       const g = state.games.find((x) => x.id === gameId)
       if (!cloud.account || !state.settings.cloud?.saves) return { state: 'off' }
-      if (!g || g.launcher === 'steam') return { state: 'nosaves' }
+      if (!g) return { state: 'nosaves' }
+      if (g.launcher === 'steam') return { state: 'steam' }
       return { state: 'synced', lastSync: Date.now() - 6 * 60_000, size: (Number(g.id) % 5) * 3.1 * 2 ** 20 + 180 * 2 ** 10 }
     },
     cloudResolve: async () => {},
@@ -368,6 +371,12 @@ function createMockApi(): PcsApi {
       // Демо: правдоподобный вес — PC-игры десятки ГБ, образы PS2 несколько ГБ
       const gb = g.platform === 'pc' ? 20 + (Number(g.id) * 7.3) % 90 : g.platform === 'ps2' ? 2 + (Number(g.id) % 3) * 1.4 : 12 + Number(g.id) % 9
       return { path: g.path, isFile: g.platform === 'ps2', size: Math.round(gb * 2 ** 30) }
+    },
+    savePreview: async (draft) => {
+      if (draft.launcher === 'steam') return { files: 0, registry: false, skipped: 'steam' }
+      if (draft.cloudSaves === false) return { files: 0, registry: false, skipped: 'off' }
+      if (draft.platform === 'ps2') return { dir: 'C:\\Users\\Player\\Documents\\PCSX2\\memcards', files: 1, registry: false }
+      return { dir: `C:\\Users\\Player\\Documents\\${draft.title}\\Saves`, files: 6, registry: false, appId: draft.steamAppId ? undefined : 1174180 }
     },
     gameDetails: async (gameId) => {
       await new Promise((r) => setTimeout(r, 500))

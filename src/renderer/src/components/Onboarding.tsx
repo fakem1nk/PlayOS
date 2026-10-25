@@ -7,16 +7,23 @@ import { useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { Avatar } from './Avatar'
+import { CloudPanel, stateLabel, useCloudStatus } from './Cloud'
 import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
 import { Glyph, type GlyphName } from './Glyph'
-import { IconDisc, IconDownload, IconFolder, IconImage } from './Icons'
+import { IconCloud, IconDisc, IconDownload, IconFolder, IconImage } from './Icons'
 import { Wordmark } from './Logo'
 import { DisplayPicker } from './Settings'
-import { t } from '@shared/i18n'
+import { getLang, t } from '@shared/i18n'
 
-type Step = 'hello' | 'games' | 'emulators' | 'screen' | 'done'
+type Step = 'hello' | 'cloud' | 'games' | 'emulators' | 'screen' | 'done'
 const STEPS: { id: Step; label: string; title: string; text: string }[] = [
   { id: 'hello', label: t('Знакомство'), title: t('Добро пожаловать в PlayOS'), text: t('Пара минут — и всё готово. Любую настройку потом можно поменять.') },
+  {
+    id: 'cloud',
+    label: t('Облако'),
+    title: t('Облако'),
+    text: t('Сохранения, библиотека и профиль на Яндекс Диске, Google Drive или в папке синхронизации. Если PlayOS уже стоял на другом ПК, всё вернётся. Шаг можно пропустить.')
+  },
   { id: 'games', label: t('Игры'), title: t('Соберём библиотеку'), text: t('PlayOS сам найдёт игры Steam и образы для эмуляторов. Можно пропустить и добавить игры позже кнопкой ▢.') },
   { id: 'emulators', label: t('Эмуляторы'), title: t('Эмуляторы'), text: t('Для игр PS2 нужен PCSX2, для PS3 — RPCS3. Если чего-то нет, шаг можно пропустить.') },
   { id: 'screen', label: t('Экран'), title: t('Экран и звук'), text: t('Издалека, с дивана, удобнее крупный интерфейс. Он меняется прямо на картинке слева.') },
@@ -112,6 +119,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
         >
           <div className="wiz-visual" aria-hidden>
             {step.id === 'hello' && <HelloArt name={s.userName} avatar={s.avatar} />}
+            {step.id === 'cloud' && <CloudArt />}
             {step.id === 'games' && <GamesArt state={state} />}
             {step.id === 'emulators' && <EmuArt pcsx2={s.pcsx2Path} rpcs3={s.rpcs3Path} />}
             {step.id === 'screen' && <ScreenArt scale={s.uiScale} />}
@@ -124,10 +132,31 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
             <div className="wiz-controls">
               {step.id === 'hello' && (
                 <>
+                  <Cycler
+                    label="Language · Язык"
+                    value={s.language ?? getLang()}
+                    options={[
+                      { id: 'en', label: 'English' },
+                      { id: 'ru', label: 'Русский' }
+                    ]}
+                    onChange={(v) => {
+                      try {
+                        // После перезагрузки окна сразу возвращаемся в мастер, без интро
+                        sessionStorage.setItem('playos-skip-intro', '1')
+                      } catch {
+                        /* без хранилища просто покажем интро ещё раз */
+                      }
+                      void save({ language: v }).then(() => {
+                        // В браузерном превью окно перезагружаем сами, в PlayOS это делает main-процесс
+                        if (!('pcsLang' in window)) location.search = `?lang=${v}&welcome`
+                      })
+                    }}
+                  />
                   <Field label={t('Как вас зовут')} value={s.userName} onCommit={(v) => save({ userName: v.trim() || t('Игрок') })} />
                   <ActionRow label={t('Аватар')} hint={t('Любая картинка, обрежется по кругу')} button={t('Выбрать картинку')} icon={<IconImage />} onClick={pickAvatar} />
                 </>
               )}
+              {step.id === 'cloud' && <CloudPanel s={s} save={save} compact />}
               {step.id === 'games' && (
                 <>
                   <ActionRow label={t('Игры Steam')} hint={t('Установленные игры со всех дисков')} button={t('Выбрать игры')} icon={<IconDownload />} onClick={onSteamImport} />
@@ -214,6 +243,21 @@ function HelloArt({ name, avatar }: { name: string; avatar?: string }) {
       </div>
       <div className="wiz-hello-greet">{greeting()},</div>
       <div className="wiz-hello-name">{name}</div>
+    </div>
+  )
+}
+
+/** Облако с устройствами вокруг: светится, когда вход выполнен */
+function CloudArt() {
+  const status = useCloudStatus()
+  const account = status?.account
+  return (
+    <div className={`wiz-cloud ${account ? 'is-on' : ''}`}>
+      <span className="wiz-cloud-orb">
+        <IconCloud />
+      </span>
+      <span className="wiz-cloud-title">{account ? account.name : t('Облако не подключено')}</span>
+      <span className="wiz-cloud-state">{account && status ? stateLabel(status.state, status.lastSync) : t('Сохранения останутся только на этом ПК')}</span>
     </div>
   )
 }
