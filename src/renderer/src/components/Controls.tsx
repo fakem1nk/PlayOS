@@ -67,13 +67,32 @@ export function Cycler<T extends string>({
         {hint && <span className="setting-hint">{hint}</span>}
       </span>
       <span className="cycler">
-        <IconChevron dir="left" />
+        {/* Стрелки — свои зоны клика мышью (кнопку в кнопку не вложить); геймпад и клавиатура листают через data-adjust */}
+        <span
+          className="cycler-arrow"
+          aria-hidden
+          onClick={(e) => {
+            e.stopPropagation()
+            step(-1)
+          }}
+        >
+          <IconChevron dir="left" />
+        </span>
         <span className="cycler-value">
           <span key={options[i].id} className={`cycler-text ${dir < 0 ? 'from-left' : 'from-right'}`}>
             {options[i].label}
           </span>
         </span>
-        <IconChevron />
+        <span
+          className="cycler-arrow"
+          aria-hidden
+          onClick={(e) => {
+            e.stopPropagation()
+            step(1)
+          }}
+        >
+          <IconChevron />
+        </span>
       </span>
     </button>
   )
@@ -131,6 +150,31 @@ export function BrowseButton({ onClick, label = t('Обзор') }: { onClick: ()
     <button data-nav className="btn btn-glass btn-sm" onClick={onClick}>
       <IconFolder /> {label}
     </button>
+  )
+}
+
+/** Раскрывающийся блок «Дополнительно»: редкие настройки свёрнуты и не мешают искать основные */
+export function Disclosure({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        data-nav
+        className={`setting disclosure ${open ? 'is-open' : ''}`}
+        aria-expanded={open}
+        onClick={() => {
+          play('select')
+          setOpen(!open)
+        }}
+      >
+        <span className="setting-text">
+          <span className="setting-label">{label}</span>
+          {hint && !open && <span className="setting-hint">{hint}</span>}
+        </span>
+        <IconChevron className="disclosure-chevron" />
+      </button>
+      {open && <div className="disclosure-body">{children}</div>}
+    </>
   )
 }
 

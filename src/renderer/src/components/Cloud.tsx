@@ -171,10 +171,24 @@ export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Pa
               ) : null}
               {account.total ? <span className="setting-hint">{t('Занято {used} из {total}', { used: bytes(account.used ?? 0), total: bytes(account.total) })}</span> : null}
             </span>
-            <button data-nav className="btn btn-glass btn-sm" disabled={status.state === 'syncing'} onClick={() => void syncNow()}>
-              <IconSync className={status.state === 'syncing' ? 'is-spinning' : undefined} />
-              {t('Синхронизировать')}
-            </button>
+            <span className="cloud-account-actions">
+              <button data-nav className="btn btn-glass btn-sm" disabled={status.state === 'syncing'} onClick={() => void syncNow()}>
+                <IconSync className={status.state === 'syncing' ? 'is-spinning' : undefined} />
+                {t('Синхронизировать')}
+              </button>
+              {!compact && (
+                <button
+                  data-nav
+                  className="btn btn-glass btn-sm btn-signout"
+                  onClick={() => {
+                    play('select')
+                    setSigningOut(true)
+                  }}
+                >
+                  {t('Выйти')}
+                </button>
+              )}
+            </span>
           </div>
           {!compact && (
             <>
@@ -208,15 +222,6 @@ export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Pa
                 value={String(cloud.keepVersions)}
                 options={VERSION_OPTIONS}
                 onChange={(v) => void setCloud({ keepVersions: Number(v) })}
-              />
-              <ActionRow
-                label={t('Выйти из облака')}
-                hint={t('Сохранения на этом ПК останутся, синхронизация остановится.')}
-                button={t('Выйти')}
-                onClick={() => {
-                  play('select')
-                  setSigningOut(true)
-                }}
               />
             </>
           )}

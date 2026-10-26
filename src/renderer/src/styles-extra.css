@@ -97,6 +97,27 @@
   line-height: 1.1;
 }
 
+/* Имя редактируется прямо в заголовке: поле без рамки, при фокусе — тонкая линия под текстом */
+.profile-name-input {
+  width: 100%;
+  max-width: 36rem;
+  padding: 0 0 0.4rem;
+  border: 0;
+  border-bottom: 0.2rem solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  outline: none;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s ease;
+}
+
+.profile-name-input:focus {
+  border-bottom-color: var(--mist);
+}
+
 .profile-since {
   margin-top: 0.8rem;
   font-size: 1.8rem;
@@ -343,6 +364,52 @@
   font-size: 1.8rem;
   color: var(--mist);
   font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────── Состояние аккаунтов трофеев в настройках ───────────────────────── */
+.account-state {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: -0.4rem 0 0.8rem 0.4rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.account-dot {
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.account-state.is-ok .account-dot {
+  background: var(--live);
+}
+
+.account-state.is-error {
+  color: var(--danger);
+}
+
+.account-state.is-error .account-dot {
+  background: var(--danger);
+}
+
+.account-state.is-checking .account-dot {
+  animation: account-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes account-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-state.is-checking .account-dot {
+    animation: none;
+  }
 }
 
 /* ───────────────────────── Трофеи ───────────────────────── */

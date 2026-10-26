@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, net, Notification, nativeTheme, powerMonitor, protocol, screen, shell } from 'electron'
+import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, net, nativeTheme, powerMonitor, protocol, screen, shell } from 'electron'
 import { exec } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
@@ -45,7 +45,7 @@ import { isPortableSetting, libraryKey } from './cloud/library'
 import { savePreview } from './cloud/locate'
 import { pruneThumbs, thumbFile } from './thumbs'
 import { getLang, setLang, t } from '@shared/i18n'
-import { dsxStatus, flashLightbar, holdLightbar, lightbarReady, pulseLightbar, startDsx, testLightbar } from './dsx'
+import { dsxStatus, flashLightbar, holdLightbar, pulseLightbar, startDsx } from './dsx'
 import { hidControllers, hidStatus, rescanHid, startHid } from './hid'
 import * as launcher from './launcher'
 import * as media from './media'
@@ -1105,7 +1105,7 @@ function storeAvatar(src: string | undefined, old: string | undefined) {
   return file
 }
 
-// ───────────────────────── Статус геймпада и перерывы ─────────────────────────
+// ───────────────────────── Статус геймпада ─────────────────────────
 
 let lastPadStatus = ''
 function readPadStatus(): PadStatus {
@@ -1156,25 +1156,6 @@ function checkBattery(st: PadStatus) {
   void pulseLightbar([255, 0, 0])
 }
 
-let remindersShown = 0
-function checkBreakReminder() {
-  const r = launcher.running()
-  const hours = getDb().settings.breakReminder
-  if (!r || !hours) {
-    remindersShown = 0
-    return
-  }
-  const due = Math.floor((Date.now() - r.startedAt) / (hours * 3600_000))
-  if (due > remindersShown) {
-    remindersShown = due
-    const game = findGame(r.gameId)
-    const played = due * hours
-    new Notification({
-      title: t('Время сделать перерыв'),
-      body: t('Вы играете в «{game}» уже {hours} ч. Разомнитесь и отдохните глазам.', { game: game?.title ?? t('игру'), hours: played })
-    }).show()
-  }
-}
 
 // ───────────────────────── Трофеи во время игры и подсветка DualSense ─────────────────────────
 
@@ -1549,12 +1530,6 @@ function registerIpc() {
     list: listDisplays(),
     current: win ? screen.getDisplayMatching(win.getBounds()).id : screen.getPrimaryDisplay().id
   }))
-  ipcMain.handle('dsx:test', async () => {
-    if (!dsxStatus()) return 'no-dsx'
-    if (!lightbarReady()) return 'no-pad'
-    await testLightbar()
-    return 'ok'
-  })
   ipcMain.handle('sys:state', (_e, withBrightness?: boolean) => systemState(withBrightness ?? true))
   ipcMain.handle('sys:volume', (_e, v: number) => setVolume(v))
   ipcMain.handle('sys:mute', (_e, m: boolean) => setMute(m))
@@ -1927,7 +1902,6 @@ app.whenReady().then(() => {
     syncPadBlock()
     syncEcoMode()
   }, 400)
-  setInterval(checkBreakReminder, 60_000)
   setInterval(() => void checkTrophies(), 60_000)
   win?.webContents.on('did-finish-load', () => {
     lastPadStatus = ''

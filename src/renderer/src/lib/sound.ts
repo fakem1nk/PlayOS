@@ -32,6 +32,8 @@ const VOLUME: Record<SoundVolume, number> = { low: 0.45, mid: 0.8, high: 1.25 }
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
+/** Выход после мастер-громкости: музыка идёт сюда, мимо громкости звуков интерфейса */
+let post: AudioNode | null = null
 let dry: GainNode | null = null
 let room: GainNode | null = null
 let wet: GainNode | null = null
@@ -86,6 +88,7 @@ function audio() {
     comp.attack.value = 0.004
     comp.release.value = 0.18
     master.connect(shelf).connect(comp).connect(ctx.destination)
+    post = shelf
     dry = ctx.createGain()
     dry.connect(master)
     const roomVerb = ctx.createConvolver()
@@ -411,6 +414,9 @@ const CHORDS = [
 ]
 const SPARKLE = [17, 19, 21, 24, 26, 29, 31] // D6 E6 F#6 A6 B6 D7 E7
 
+// Уровень музыки на выходе; «средне» — как было, пока музыка шла через мастер-громкость
+const MUSIC: Record<SoundVolume, number> = { low: 0.22, mid: 0.44, high: 0.7 }
+let musicLevel: SoundVolume = 'mid'
 let musicOn = false
 let musicHold = false
 let musicGain: GainNode | null = null
@@ -426,7 +432,7 @@ function musicBus() {
     const lp = c.createBiquadFilter()
     lp.type = 'lowpass'
     lp.frequency.value = 2200
-    musicGain.connect(lp).connect(master!)
+    musicGain.connect(lp).connect(post!)
     const send = c.createGain()
     send.gain.value = 0.9
     lp.connect(send).connect(w)
@@ -499,7 +505,7 @@ function updateMusic() {
     if (shouldPlay && chordTimer === undefined) {
       const { c, bus } = musicBus()
       bus.gain.cancelScheduledValues(c.currentTime)
-      bus.gain.setTargetAtTime(0.55, c.currentTime, 1.2)
+      bus.gain.setTargetAtTime(MUSIC[musicLevel], c.currentTime, 1.2)
       musicChord()
       sparkleTimer = window.setTimeout(musicSparkle, 3000)
     } else if (!shouldPlay && chordTimer !== undefined) {
@@ -518,6 +524,11 @@ document.addEventListener('visibilitychange', updateMusic)
 export function setMusic(on: boolean) {
   musicOn = on
   updateMusic()
+}
+
+export function setMusicVolume(v: SoundVolume) {
+  musicLevel = v
+  if (musicGain && ctx && chordTimer !== undefined) musicGain.gain.setTargetAtTime(MUSIC[v], ctx.currentTime, 0.3)
 }
 
 /** Приглушить музыку (запущена игра, открыт экран запуска) */

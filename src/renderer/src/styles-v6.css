@@ -904,9 +904,53 @@
   display: none;
 }
 
-/* Восемь разделов настроек помещаются на экран целиком */
+/* Разделы настроек — три группы (Игры, Интерфейс, Система), все подразделы помещаются на экран целиком */
 .sections {
-  gap: 0.4rem;
+  gap: 2.4rem;
+}
+
+/* Группа — заголовок с иконкой во всю силу текста; подразделы сдвинуты вправо и висят на тонкой линии,
+   как ветки: сразу видно, что к чему относится */
+.section-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.section-group::before {
+  content: '';
+  position: absolute;
+  left: 2.05rem;
+  top: 4.6rem;
+  bottom: 0.8rem;
+  width: 1px;
+  background: var(--stroke);
+}
+
+.section-group-title {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin: 0 0 0.6rem;
+  padding: 0 1.2rem;
+  font-size: 2.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.section-group-title svg {
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.section-group .section-btn {
+  margin-left: 3.2rem;
+  padding-left: 1.8rem;
+}
+
+.section-group .section-label {
+  font-size: 1.8rem;
 }
 
 .section-btn {
@@ -1845,4 +1889,41 @@
   .ov-notice .ov-trophy-icon {
     animation: none;
   }
+}
+
+/* «Дополнительно»: строка-переключатель, шеврон поворачивается вниз, когда блок раскрыт */
+.disclosure {
+  color: inherit;
+}
+
+.disclosure-chevron {
+  flex: none;
+  font-size: 2.2rem;
+  opacity: 0.6;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.disclosure.is-open .disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+}
+
+/* Текстовое поле: пока не открыто для ввода — без мигающего курсора; в режиме ввода рамка ярче */
+.input:read-only,
+.profile-name-input:read-only {
+  caret-color: transparent;
+}
+
+.input[data-editing] {
+  border-color: var(--mist);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.profile-name-input[data-editing] {
+  border-bottom-color: var(--ink);
 }

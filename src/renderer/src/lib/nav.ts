@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { PadAction } from '@shared/types'
-import { useInputLayer } from './input'
-import { isTextInput, openKeyboard } from './osk'
+import { lastInputDevice, useInputLayer } from './input'
+import { beginEdit, isTextInput, openKeyboard } from './osk'
 import { play } from './sound'
 
 /**
@@ -38,6 +38,9 @@ function findNext(cur: HTMLElement, items: HTMLElement[], dir: Dir) {
       const overlap = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top)
       secondary = overlap > 0 ? 0 : -overlap
     }
+    // Только в сторону нажатия: элемент, который смещён вбок сильнее, чем вперёд (дальше 45°), — не сосед.
+    // Иначе «вправо» без кнопки справа уезжало на кнопку ниже
+    if (secondary > Math.max(primary, 0)) continue
     const score = Math.max(primary, -20) + secondary * 3
     if (score < bestScore) {
       bestScore = score
@@ -170,8 +173,15 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
           cur.dispatchEvent(new CustomEvent('nav-adjust', { detail: a === 'left' ? -1 : 1 }))
           return
         }
-        const found = findNext(cur, items, a)
-        const next = found && opts.remap ? opts.remap(found, cur, a) : found
+        // Отклонённый remap-ом кандидат (например, пункт соседней колонки) — не тупик: пробуем следующего по близости
+        let pool = items
+        let next: HTMLElement | null = null
+        for (let tries = 0; tries < 8 && !next; tries++) {
+          const found = findNext(cur, pool, a)
+          if (!found) break
+          next = opts.remap ? opts.remap(found, cur, a) : found
+          pool = pool.filter((el) => el !== found)
+        }
         if (next) {
           play('move')
           focusEl(next)
@@ -181,10 +191,11 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
       }
       if (a === 'confirm') {
         if (!cur) return
-        // Текстовое поле с геймпада — открываем экранную клавиатуру
+        // Текстовое поле: с клавиатуры — открываем для ввода на месте, с геймпада — экранная клавиатура
         if (isTextInput(cur)) {
           play('select')
-          openKeyboard(cur)
+          if (lastInputDevice() === 'keyboard') beginEdit(cur)
+          else openKeyboard(cur)
         } else {
           pressFx(cur)
           cur.click()

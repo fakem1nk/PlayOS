@@ -112,9 +112,6 @@ function writeColor([r, g, b]: RGB, alpha = 255) {
   sendInstructions([{ type: RGB_UPDATE, parameters: [0, r, g, b, Math.round(Math.max(0, Math.min(255, alpha)))] }])
 }
 
-/** Есть ли кому отправлять команды подсветки */
-export const lightbarReady = () => !!status?.connected
-
 /** Держать цвет световой панели (через DSX); null — вернуть настройки пользователя DSX */
 export function holdLightbar(color: RGB | null) {
   held = color
@@ -173,12 +170,3 @@ export function pulseLightbar(color: RGB, cycles = 4, period = 1100) {
   return runEffect(steps)
 }
 
-/** Проверка подсветки из настроек: красный → зелёный → синий → белый */
-export function testLightbar() {
-  return runEffect([
-    [[255, 0, 0], 255, 450],
-    [[0, 255, 0], 255, 450],
-    [[0, 60, 255], 255, 450],
-    [[255, 255, 255], 255, 450]
-  ])
-}

@@ -60,7 +60,6 @@ const api: PcsApi = {
   onOverlayToast: listen('overlay-toast'),
   cancelSave: () => ipcRenderer.invoke('game:cancelSave'),
   onSaveProgress: listen('save-progress'),
-  testLightbar: () => ipcRenderer.invoke('dsx:test'),
   displays: () => ipcRenderer.invoke('sys:displays'),
   saveReport: () => ipcRenderer.invoke('log:report'),
   exportData: () => ipcRenderer.invoke('data:export'),

@@ -928,6 +928,19 @@ p {
   opacity: 0.45;
 }
 
+/* Стрелка — зона клика крупнее самого значка; под мышью ярче */
+.cycler-arrow {
+  display: grid;
+  place-items: center;
+  margin: -1rem -0.6rem;
+  padding: 1rem 0.6rem;
+  cursor: pointer;
+}
+
+.cycler-arrow:hover svg {
+  opacity: 1;
+}
+
 .cycler-value {
   min-width: 13rem;
   text-align: center;

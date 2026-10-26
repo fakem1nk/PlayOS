@@ -930,3 +930,14 @@ html.is-windowed .window-drag {
   font-size: 1.8rem;
   color: var(--mist);
 }
+
+/* Облако: «Синхронизировать» и «Выйти» рядом в карточке аккаунта, выход — красным текстом */
+.cloud-account-actions {
+  display: flex;
+  gap: 1rem;
+  flex: none;
+}
+
+.cloud-account .btn-signout {
+  color: var(--danger);
+}

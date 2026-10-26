@@ -80,10 +80,10 @@ function createMockApi(): PcsApi {
       sounds: true,
       volume: 'mid',
       music: false,
+      musicVolume: 'mid',
       glyphs: 'auto',
       fullscreen: true,
       launchOnStartup: false,
-      breakReminder: 0,
       trophies: {},
       rpcs3SaveKey: 'Ctrl+S',
       pauseOnOverlay: 'all',
@@ -247,7 +247,7 @@ function createMockApi(): PcsApi {
     achievementSummary: async () => ({ '1': { source: 'steam', earned: 18, total: 59 }, '2': { source: 'ra', earned: 7, total: 50 } }),
     findRaGames: async () => [{ id: 2768, title: 'Bully', achievements: 50 }, { id: 2770, title: 'Canis Canem Edit', achievements: 50 }],
     linkRaGame: async () => ({ set: demoTrophies() }),
-    testTrophyAccounts: async () => ({ ra: 'Не настроено', steam: 'Не настроено' }),
+    testTrophyAccounts: async () => ({ ra: { state: 'off', text: 'Не настроено' }, steam: { state: 'off', text: 'Не настроено' } }),
     onAchievements: noop,
     onAchievementSummary: noop,
     onOverlayToast: (cb) => {
@@ -261,7 +261,6 @@ function createMockApi(): PcsApi {
       progressSubs.add(cb)
       return () => progressSubs.delete(cb)
     },
-    testLightbar: async () => 'no-dsx',
     onOutro: (cb) => {
       // Для превью в браузере: window.__pcsOutro('quit')
       ;(window as unknown as { __pcsOutro: typeof cb }).__pcsOutro = cb

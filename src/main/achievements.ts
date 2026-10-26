@@ -2,7 +2,7 @@ import { app } from 'electron'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Achievement, AchievementResult, AchievementSet, AchievementSummaryItem, Game, RaGame, Settings, TrophyTier } from '@shared/types'
+import type { Achievement, AchievementResult, AchievementSet, AchievementSummaryItem, Game, RaGame, Settings, TrophyAccounts, TrophyTier } from '@shared/types'
 import { httpFetch } from './http'
 import { artDir, findGame, getDb, saveDb } from './store'
 import { steamRoot } from './steam'
@@ -629,15 +629,17 @@ export async function newSince(gameId: string): Promise<Achievement[]> {
   return res.set.items.filter((i) => i.earnedAt && !had.has(i.id))
 }
 
-export async function testAccounts(): Promise<{ ra: string; steam: string }> {
+export async function testAccounts(): Promise<TrophyAccounts> {
   const s = getDb().settings
-  const out = { ra: t('Не настроено'), steam: t('Не настроено') }
+  const out: TrophyAccounts = { ra: { state: 'off', text: t('Не настроено') }, steam: { state: 'off', text: t('Не настроено') } }
   if (s.raUser.trim() && s.raKey.trim()) {
     try {
       const j = await raApi<{ User?: string; TotalPoints?: number }>('API_GetUserProfile', { u: s.raUser.trim() }, s)
-      out.ra = j.User ? t('Подключено: {User}, {v} очков', { User: j.User, v: j.TotalPoints ?? 0 }) : t('Пользователь не найден')
+      out.ra = j.User
+        ? { state: 'ok', text: t('Подключено: {User}, {v} очков', { User: j.User, v: j.TotalPoints ?? 0 }) }
+        : { state: 'error', text: t('Пользователь не найден') }
     } catch (e) {
-      out.ra = (e as Error).message
+      out.ra = { state: 'error', text: (e as Error).message }
     }
   }
   if (s.steamKey.trim() && s.steamId.trim()) {
@@ -649,9 +651,9 @@ export async function testAccounts(): Promise<{ ra: string; steam: string }> {
       if (r.status === 403 || r.status === 401) throw new Error(t('Steam не принял ключ API'))
       const j = (await r.json()) as { response?: { players?: { personaname: string }[] } }
       const name = j.response?.players?.[0]?.personaname
-      out.steam = name ? t('Подключено: {name}', { name }) : t('Профиль не найден')
+      out.steam = name ? { state: 'ok', text: t('Подключено: {name}', { name }) } : { state: 'error', text: t('Профиль не найден') }
     } catch (e) {
-      out.steam = (e as Error).message
+      out.steam = { state: 'error', text: (e as Error).message }
     }
   }
   return out

@@ -166,9 +166,9 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
         else return false
         return
       }
-      // Влево/вправо идут сквозь ряды, как на PS5: всю библиотеку можно пролистать одной кнопкой
-      if (a === 'left') idx > 0 ? move(idx - 1) : play('bump')
-      else if (a === 'right') idx + 1 < list.length ? move(idx + 1) : play('bump')
+      // Влево/вправо — только внутри ряда: у края ряда фокус не перескакивает на соседний ряд
+      if (a === 'left') idx % COLS > 0 ? move(idx - 1) : play('bump')
+      else if (a === 'right') idx % COLS < COLS - 1 && idx + 1 < list.length ? move(idx + 1) : play('bump')
       else if (a === 'down' && idx + COLS < list.length) move(idx + COLS)
       else if (a === 'down' && Math.floor(idx / COLS) < Math.floor((list.length - 1) / COLS)) move(list.length - 1)
       else if (a === 'down') play('bump')

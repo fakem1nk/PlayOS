@@ -91,6 +91,16 @@ export type PadInput = { b: number } | { a: number; d: 1 | -1 } | { h: number; d
 export type PadMaps = Record<string, Partial<Record<PadAction, PadInput>>>
 export type SoundVolume = 'low' | 'mid' | 'high'
 
+/** Проверка аккаунтов трофеев: off — не заполнено, ok — подключено, error — ключ или профиль не подошли */
+export interface AccountStatus {
+  state: 'off' | 'ok' | 'error'
+  text: string
+}
+export interface TrophyAccounts {
+  ra: AccountStatus
+  steam: AccountStatus
+}
+
 export interface Settings {
   userName: string
   /** Путь к картинке аватара (копия в папке данных) */
@@ -103,11 +113,11 @@ export interface Settings {
   volume: SoundVolume
   /** Фоновая эмбиент-музыка на главном экране */
   music: boolean
+  /** Громкость фоновой музыки (не зависит от громкости звуков интерфейса); нет — средне */
+  musicVolume?: SoundVolume
   glyphs: GlyphStyle
   fullscreen: boolean
   launchOnStartup: boolean
-  /** Напоминание о перерыве: каждые N часов, 0 — выключено */
-  breakReminder: number
   /** Полученные трофеи PlayOS: id → время получения */
   trophies: Record<string, number>
   /** Горячая клавиша сохранения состояния в RPCS3 (например, Ctrl+S) */
@@ -494,7 +504,7 @@ export interface PcsApi {
   achievementSummary(): Promise<Record<string, AchievementSummaryItem>>
   findRaGames(query: string): Promise<RaGame[]>
   linkRaGame(gameId: string, raId: number): Promise<AchievementResult>
-  testTrophyAccounts(): Promise<{ ra: string; steam: string }>
+  testTrophyAccounts(): Promise<TrophyAccounts>
   onAchievements(cb: (n: AchievementNotice) => void): () => void
   onAchievementSummary(cb: () => void): () => void
   onOverlayToast(cb: (n: AchievementNotice) => void): () => void
@@ -502,7 +512,6 @@ export interface PcsApi {
   cancelSave(): Promise<void>
   onSaveProgress(cb: (p: SaveProgress) => void): () => void
   // ── DualSense ──
-  testLightbar(): Promise<'ok' | 'no-dsx' | 'no-pad'>
   // ── Выход и питание ──
   /** main просит проиграть аутро (окно закрывают, например Alt+F4) */
   onOutro(cb: (kind: 'quit') => void): () => void

@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AchievementSummaryItem, AppState, Game } from '@shared/types'
 import { api } from '../lib/api'
 import { gamesCount, playtime } from '../lib/format'
-import { useSpatialNav } from '../lib/nav'
+import { focusEl, useSpatialNav } from '../lib/nav'
+import { play } from '../lib/sound'
 import { toast } from '../lib/state'
 import { earnedNow, TIER_NAMES, TROPHIES, type Tier } from '../lib/trophies'
 import { Avatar } from './Avatar'
@@ -34,7 +35,21 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
     priority: 0,
     active,
     onBack: onExitTop,
-    onEdge: (dir) => dir === 'up' && onExitTop(),
+    onEdge: (dir) => {
+      if (dir === 'up') return onExitTop()
+      // Колонки разной высоты: из левой вправо — к первому пункту справа, обратно — к аватару
+      const root = ref.current
+      const inMain = !!root?.querySelector('.profile-main')?.contains(document.activeElement)
+      const target =
+        dir === 'right' && !inMain
+          ? root?.querySelector<HTMLElement>('.profile-main [data-nav]')
+          : dir === 'left' && inMain
+            ? root?.querySelector<HTMLElement>('.profile-avatar-btn')
+            : null
+      if (!target) return play('bump')
+      play('move')
+      focusEl(target)
+    },
     autoFocus: '.profile-avatar-btn'
   })
 
@@ -88,7 +103,7 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
             <IconImage />
           </span>
         </button>
-        <h1 className="profile-title">{settings.userName}</h1>
+        <NameField name={settings.userName} />
         <p className="profile-since">{t('В PlayOS с {date}', { date: dayMonth.format(stats.since) })}</p>
 
         <div className="profile-hero">
@@ -227,6 +242,36 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
         </section>
       </div>
     </div>
+  )
+}
+
+/** Имя — само поле ввода в виде заголовка: ✕ на нём открывает клавиатуру, Enter или уход фокуса сохраняет */
+function NameField({ name }: { name: string }) {
+  const [draft, setDraft] = useState(name)
+  useEffect(() => setDraft(name), [name])
+  const commit = () => {
+    const v = draft.trim() || t('Игрок')
+    setDraft(v)
+    if (v !== name) {
+      void api.saveSettings({ userName: v })
+      toast({ title: t('Имя изменено'), message: v, tone: 'success' })
+    }
+  }
+  return (
+    <h1 className="profile-title">
+      <input
+        data-nav
+        className="profile-name-input"
+        aria-label={t('Имя пользователя')}
+        value={draft}
+        maxLength={32}
+        spellCheck={false}
+        autoComplete="off"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && commit()}
+      />
+    </h1>
   )
 }
 

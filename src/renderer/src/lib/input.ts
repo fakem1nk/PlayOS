@@ -3,6 +3,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 import type { PadAction, PadDir, PadInput, PadMaps } from '@shared/types'
 import { api } from './api'
 import { noteAction } from './sound'
+import { beginEdit, endEdit, isEditing, isTextInput } from './osk'
 
 /**
  * Единая система ввода: клавиатура, Gamepad API (когда окно в фокусе) и XInput из main-процесса
@@ -95,6 +96,9 @@ export function usePadInfo() {
   return useSyncExternalStore(subscribePad, () => (padConnected ? padKind : 'none') as PadKind | 'none')
 }
 
+/** Чем управляли последним: клавиатура открывает поле для ввода на месте, геймпад — экранную клавиатуру */
+export const lastInputDevice = () => lastDevice
+
 export function useLastDevice() {
   return useSyncExternalStore(subscribePad, () => lastDevice)
 }
@@ -134,13 +138,19 @@ function onKey(e: KeyboardEvent) {
   if (!e.isTrusted) return
   markActivity()
   const t = e.target as HTMLElement
-  const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'
+  // Поле в режиме ввода; не открытое поле ведёт себя как обычная кнопка (Enter его открывает)
+  const typing = isTextInput(t) && isEditing(t)
   let a: PadAction | undefined = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
   if (typing) {
-    // В текстовом поле стрелки влево/вправо и буквы двигают курсор и печатают
-    if (e.key === 'Enter') a = 'down'
-    else if (e.key === 'Escape') t.blur()
-    else if (!['ArrowUp', 'ArrowDown'].includes(e.key)) a = undefined
+    // Enter или Esc — сохранить и закрыть поле (Enter сначала получает само поле: поиск, сохранение)
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      if (e.key === 'Escape') t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }))
+      endEdit(t)
+      e.preventDefault()
+      return
+    }
+    // Стрелки влево/вправо и буквы двигают курсор и печатают; вверх/вниз уводят из поля
+    if (!['ArrowUp', 'ArrowDown'].includes(e.key)) a = undefined
   }
   if (a) {
     e.preventDefault()
@@ -325,6 +335,19 @@ export function startInput() {
   window.addEventListener('keyup', (e) => {
     const t = e.target as HTMLElement
     if (e.key === ' ' && t.tagName !== 'INPUT') e.preventDefault()
+  })
+  // Текстовые поля открываются для ввода только явно: при фокусе — только чтение, клик мышью открывает
+  window.addEventListener('focusin', (e) => {
+    const t = e.target as HTMLElement
+    if (isTextInput(t) && !isEditing(t)) t.readOnly = true
+  })
+  window.addEventListener('focusout', (e) => {
+    const t = e.target as HTMLElement
+    if (isTextInput(t) && isEditing(t)) endEdit(t)
+  })
+  window.addEventListener('mousedown', (e) => {
+    const t = e.target as HTMLElement
+    if (isTextInput(t) && !t.disabled) beginEdit(t)
   })
   requestAnimationFrame(pollPads)
   for (const ev of ['mousemove', 'mousedown', 'wheel'] as const) window.addEventListener(ev, markActivity, { passive: true })

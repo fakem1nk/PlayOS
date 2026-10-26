@@ -1,34 +1,56 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import type { AppState, BackupInfo, DisplayInfo, Pcsx2Info, Settings as SettingsT, UpdateState } from '@shared/types'
+import type { AccountStatus, AppState, BackupInfo, DisplayInfo, Pcsx2Info, Settings as SettingsT, TrophyAccounts, UpdateState } from '@shared/types'
 import { api } from '../lib/api'
 import { focusEl, useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
 import { play, previewVolume } from '../lib/sound'
-import { Avatar } from './Avatar'
-import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
+import { ActionRow, BrowseButton, Cycler, Disclosure, Field, Toggle } from './Controls'
 import { SystemInfoDialog } from './SystemInfoDialog'
 import { CloudPanel } from './Cloud'
 import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
 import { gamesCount } from '../lib/format'
 import { THEMES, themeName } from '../lib/theme'
-import { IconDisc, IconDownload, IconFolder, IconGamepad, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
+import { IconDisc, IconDownload, IconFolder, IconGamepad, IconGrid, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
 import { getLang, locale, t } from '@shared/i18n'
 
-type Section = 'profile' | 'cloud' | 'library' | 'emulators' | 'display' | 'sound' | 'gamepad' | 'trophies' | 'system'
-const SECTIONS: { id: Section; label: string; hint: string }[] = [
-  { id: 'profile', label: t('Профиль'), hint: t('Имя и аватар') },
-  { id: 'cloud', label: t('Облако'), hint: t('Сохранения игр') },
-  { id: 'library', label: t('Библиотека'), hint: t('Импорт игр и обложки') },
-  { id: 'emulators', label: t('Эмуляторы'), hint: t('PCSX2 и RPCS3') },
-  { id: 'display', label: t('Экран'), hint: t('Монитор, масштаб, оформление') },
-  { id: 'sound', label: t('Звук'), hint: t('Звуки и музыка') },
-  { id: 'gamepad', label: t('Геймпад'), hint: t('Кнопки, оверлей, DualSense') },
-  { id: 'trophies', label: t('Трофеи'), hint: t('RetroAchievements и Steam') },
-  { id: 'system', label: t('Система'), hint: t('Запуск, данные, отчёты') }
+type Section = 'library' | 'emulators' | 'cloud' | 'trophies' | 'display' | 'appearance' | 'gamepad' | 'general' | 'data'
+/**
+ * Три группы по смыслу: всё про игры, всё, что видно и слышно в интерфейсе, и сама система.
+ * Подразделы в меню видны всегда — вся карта настроек перед глазами.
+ */
+const GROUPS: { label: string; icon: ReactNode; sections: { id: Section; label: string }[] }[] = [
+  {
+    label: t('Игры'),
+    icon: <IconGrid />,
+    sections: [
+      { id: 'library', label: t('Библиотека') },
+      { id: 'emulators', label: t('Эмуляторы') },
+      { id: 'cloud', label: t('Облако') },
+      { id: 'trophies', label: t('Трофеи') }
+    ]
+  },
+  {
+    label: t('Интерфейс'),
+    icon: <IconMonitor />,
+    sections: [
+      { id: 'display', label: t('Экран') },
+      { id: 'appearance', label: t('Вид и звук') },
+      { id: 'gamepad', label: t('Геймпад и оверлей') }
+    ]
+  },
+  {
+    label: t('Система'),
+    icon: <IconInfo />,
+    sections: [
+      { id: 'general', label: t('Основные') },
+      { id: 'data', label: t('Данные') }
+    ]
+  }
 ]
+const SECTIONS = GROUPS.flatMap((g) => g.sections)
 
 interface Props {
   state: AppState
@@ -44,7 +66,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
   const panelRef = useRef<HTMLElement>(null)
   // Где сейчас фокус: в списке разделов или внутри раздела
   const zone = useRef<'sections' | 'panel'>('sections')
-  const [section, setSection] = useState<Section>(((SECTIONS.some((x) => x.id === initialSection) && initialSection) || 'profile') as Section)
+  const [section, setSection] = useState<Section>(((SECTIONS.some((x) => x.id === initialSection) && initialSection) || 'library') as Section)
   const s = state.settings
   const save = (patch: Partial<SettingsT>) => api.saveSettings(patch)
 
@@ -92,7 +114,21 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
     active,
     // ○ / B: из раздела — назад к списку разделов, из списка — к вкладкам
     onBack: () => (focusInPanel() ? focusSections() : onExitTop()),
-    onEdge: (dir) => dir === 'up' && !focusInPanel() && onExitTop(),
+    onEdge: (dir) => {
+      const inPanel = focusInPanel()
+      if (dir === 'up' && !inPanel) return onExitTop()
+      // Меню и раздел разной высоты: соседа по геометрии может не быть — переходим между колонками явно
+      const target =
+        dir === 'right' && !inPanel
+          ? panelRef.current?.querySelector<HTMLElement>('[data-nav]')
+          : dir === 'left' && inPanel
+            ? ref.current?.querySelector<HTMLElement>('.section-btn.is-active')
+            : null
+      if (!target) return play('bump')
+      play('move')
+      zone.current = inPanel ? 'sections' : 'panel'
+      focusEl(target)
+    },
     // Между колонками ходим только «через вход»: из раздела — на активный пункт списка,
     // из списка — на первый элемент раздела (иначе ближайший по геометрии пункт сменил бы раздел)
     remap: (next, cur, dir) => {
@@ -119,13 +155,6 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
     if (p) save({ [key]: p })
   }
 
-  const pickAvatar = async () => {
-    const p = await api.pickFile('image')
-    if (!p) return
-    await save({ avatar: p })
-    toast({ title: t('Аватар обновлён'), image: p, tone: 'success' })
-  }
-
   const run = async (fn: () => Promise<number>, what: string) => {
     try {
       const n = await fn()
@@ -138,21 +167,28 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
   return (
     <div className="settings" ref={ref}>
       <aside className="sections">
-        {SECTIONS.map((sec) => (
-          <button
-            key={sec.id}
-            data-nav
-            className={`section-btn ${section === sec.id ? 'is-active' : ''}`}
-            onFocus={() => setSection(sec.id)}
-            onClick={() => enterPanel(sec.id)}
-          >
-            {/* Подложка активного раздела переезжает между пунктами, а не мигает */}
-            {section === sec.id && (
-              <motion.span className="section-pill" layoutId="settings-section-pill" transition={{ type: 'spring', duration: 0.38, bounce: 0.12 }} />
-            )}
-            <span className="section-label">{sec.label}</span>
-            <span className="section-hint">{sec.hint}</span>
-          </button>
+        {GROUPS.map((group) => (
+          <div key={group.label} className="section-group">
+            <h3 className="section-group-title">
+              {group.icon}
+              {group.label}
+            </h3>
+            {group.sections.map((sec) => (
+              <button
+                key={sec.id}
+                data-nav
+                className={`section-btn ${section === sec.id ? 'is-active' : ''}`}
+                onFocus={() => setSection(sec.id)}
+                onClick={() => enterPanel(sec.id)}
+              >
+                {/* Подложка активного раздела переезжает между пунктами, а не мигает */}
+                {section === sec.id && (
+                  <motion.span className="section-pill" layoutId="settings-section-pill" transition={{ type: 'spring', duration: 0.38, bounce: 0.12 }} />
+                )}
+                <span className="section-label">{sec.label}</span>
+              </button>
+            ))}
+          </div>
         ))}
       </aside>
 
@@ -166,31 +202,6 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           animate={{ opacity: 1, transform: 'translateY(0rem)' }}
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
-          {section === 'profile' && (
-            <>
-              <h2 className="panel-title">{t('Профиль')}</h2>
-              <LanguageRow s={s} save={save} />
-              <div className="setting setting-static avatar-setting">
-                <Avatar name={s.userName} src={s.avatar} className="avatar-lg" />
-                <span className="setting-text">
-                  <span className="setting-label">{t('Аватар')}</span>
-                  <span className="setting-hint">{t('PNG, JPG, WEBP или GIF. Картинка обрежется по кругу.')}</span>
-                </span>
-                <span className="avatar-buttons">
-                  <button data-nav className="btn btn-glass btn-sm" onClick={pickAvatar}>
-                    <IconImage /> {t('Выбрать картинку')}
-                  </button>
-                  {s.avatar && (
-                    <button data-nav className="btn btn-glass btn-sm" onClick={() => save({ avatar: undefined })}>
-                      {t('Убрать')}
-                    </button>
-                  )}
-                </span>
-              </div>
-              <Field label={t('Имя пользователя')} value={s.userName} onCommit={(v) => save({ userName: v.trim() || t('Игрок') })} />
-            </>
-          )}
-
           {section === 'cloud' && <CloudPanel s={s} save={save} />}
 
           {section === 'library' && (
@@ -273,10 +284,6 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 mono
               />
 
-              <h2 className="panel-title">
-                <IconMonitor /> {t('Экран для игр')}
-              </h2>
-              <GameDisplayPicker s={s} save={save} />
             </>
           )}
 
@@ -286,6 +293,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 <IconMonitor /> {t('Экран')}
               </h2>
               <DisplayPicker s={s} save={save} />
+              <GameDisplayPicker s={s} save={save} />
               <Cycler
                 label={t('Масштаб интерфейса')}
                 hint={t('Крупнее — удобнее на телевизоре издалека')}
@@ -298,35 +306,6 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                   { id: '1.25', label: '125%' }
                 ]}
                 onChange={(v) => save({ uiScale: Number(v) })}
-              />
-              <Toggle label={t('Полноэкранный режим')} hint={t('Также переключается клавишей F11')} value={s.fullscreen} onChange={(v) => save({ fullscreen: v })} />
-              <h2 className="panel-title">
-                <IconImage /> {t('Оформление')}
-              </h2>
-              <Cycler
-                label={t('Тема')}
-                hint={t('Тёмная, светлая или как в Windows. Быстро переключить — в меню питания.')}
-                value={s.theme ?? 'dark'}
-                options={THEMES.map((id) => ({ id, label: themeName(id) }))}
-                onChange={(v) => save({ theme: v })}
-              />
-              <Toggle
-                label={t('Цвет интерфейса под игру')}
-                hint={t('Акценты, свечение и фокус-рамка принимают цвет обложки выбранной игры')}
-                value={s.gameTint}
-                onChange={(v) => save({ gameTint: v })}
-              />
-              <Toggle
-                label={t('Живой фон')}
-                hint={t('Если задержаться на игре пару секунд, фон оживает: беззвучный трейлер из Steam или анимированный фон из SteamGridDB. Скачивается один раз.')}
-                value={s.liveBackground}
-                onChange={(v) => save({ liveBackground: v })}
-              />
-              <Toggle
-                label={t('Анимированные обложки')}
-                hint={t('Обложка в фокусе оживает, если у игры есть анимированная версия (SteamGridDB, GIF, анимированный WebP)')}
-                value={s.animatedCovers}
-                onChange={(v) => save({ animatedCovers: v })}
               />
               <Cycler
                 label={t('Заставка при бездействии')}
@@ -341,33 +320,67 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 ]}
                 onChange={(v) => save({ screensaver: Number(v) })}
               />
+              <div className="note">{t('F11 — переключить окно и весь экран.')}</div>
             </>
           )}
 
-          {section === 'sound' && (
+          {section === 'appearance' && (
             <>
+              <h2 className="panel-title">
+                <IconImage /> {t('Тема и цвета')}
+              </h2>
+              <Cycler
+                label={t('Тема')}
+                hint={t('Тёмная, светлая или как в Windows. Быстро переключить — в меню питания.')}
+                value={s.theme ?? 'dark'}
+                options={THEMES.map((id) => ({ id, label: themeName(id) }))}
+                onChange={(v) => save({ theme: v })}
+              />
+              <Toggle
+                label={t('Цвет интерфейса под игру')}
+                hint={t('Акценты, свечение и фокус-рамка принимают цвет обложки выбранной игры')}
+                value={s.gameTint}
+                onChange={(v) => save({ gameTint: v })}
+              />
+              <h2 className="panel-title">
+                <IconImage /> {t('Фон и обложки')}
+              </h2>
+              <Toggle
+                label={t('Анимация фона и обложек')}
+                hint={t('Если задержаться на игре пару секунд, фон оживает (беззвучный трейлер из Steam или анимированный фон из SteamGridDB), а обложка в фокусе играет свою анимированную версию')}
+                value={s.liveBackground || s.animatedCovers}
+                onChange={(v) => save({ liveBackground: v, animatedCovers: v })}
+              />
               <h2 className="panel-title">
                 <IconVolume /> {t('Звук')}
               </h2>
-              <Toggle label={t('Звуки интерфейса')} hint={t('Щелчки навигации, запуск игр, трофеи, интро и выключение')} value={s.sounds} onChange={(v) => save({ sounds: v })} />
               <Cycler
-                label={t('Громкость звуков')}
-                value={s.volume}
+                label={t('Звуки интерфейса')}
+                hint={t('Щелчки навигации, запуск игр, трофеи, интро и выключение')}
+                value={s.sounds ? s.volume : 'off'}
                 options={[
+                  { id: 'off', label: t('Выкл') },
                   { id: 'low', label: t('Тихо') },
                   { id: 'mid', label: t('Средне') },
                   { id: 'high', label: t('Громко') }
                 ]}
                 onChange={(v) => {
-                  save({ volume: v })
-                  previewVolume(v)
+                  if (v === 'off') return void save({ sounds: false })
+                  save({ sounds: true, volume: v as SettingsT['volume'] })
+                  previewVolume(v as SettingsT['volume'])
                 }}
               />
-              <Toggle
+              <Cycler
                 label={t('Фоновая музыка')}
                 hint={t('Спокойный эмбиент на главном экране, затихает, когда запущена игра')}
-                value={s.music}
-                onChange={(v) => save({ music: v })}
+                value={s.music ? (s.musicVolume ?? 'mid') : 'off'}
+                options={[
+                  { id: 'off', label: t('Выкл') },
+                  { id: 'low', label: t('Тихо') },
+                  { id: 'mid', label: t('Средне') },
+                  { id: 'high', label: t('Громко') }
+                ]}
+                onChange={(v) => save(v === 'off' ? { music: false } : { music: true, musicVolume: v as SettingsT['volume'] })}
               />
             </>
           )}
@@ -377,20 +390,37 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               <h2 className="panel-title">
                 <IconGamepad /> {t('Управление')}
               </h2>
-              <Cycler
-                label={t('Значки кнопок')}
-                hint={t('Авто — по подключённому геймпаду')}
-                value={s.glyphs}
-                options={[
-                  { id: 'auto', label: t('Авто') },
-                  { id: 'playstation', label: 'PlayStation' },
-                  { id: 'xbox', label: 'Xbox' },
-                  { id: 'nintendo', label: t('Nintendo и 8BitDo') },
-                  { id: 'keyboard', label: t('Клавиатура') }
-                ]}
-                onChange={(v) => save({ glyphs: v })}
-              />
               <PadMapRow s={s} save={save} />
+              <Disclosure label={t('Дополнительно')} hint={t('Значки кнопок')}>
+                <Cycler
+                  label={t('Значки кнопок')}
+                  hint={t('Авто — по подключённому геймпаду. Вручную — если значки угадываются неверно, например у 8BitDo.')}
+                  value={s.glyphs}
+                  options={[
+                    { id: 'auto', label: t('Авто') },
+                    { id: 'playstation', label: 'PlayStation' },
+                    { id: 'xbox', label: 'Xbox' },
+                    { id: 'nintendo', label: t('Nintendo и 8BitDo') },
+                    { id: 'keyboard', label: t('Клавиатура') }
+                  ]}
+                  onChange={(v) => save({ glyphs: v })}
+                />
+              </Disclosure>
+              <h2 className="panel-title">
+                <IconGamepad /> {t('DualSense и DSX')}
+              </h2>
+              <Toggle
+                label={t('Подсветка в цвет игры')}
+                hint={t('Световая панель DualSense принимает цвет обложки запущенной игры. Нужен запущенный DSX.')}
+                value={s.dsxLightbar}
+                onChange={(v) => save({ dsxLightbar: v })}
+              />
+              <Toggle
+                label={t('Предупреждать о разряде')}
+                hint={t('При 10% заряда — уведомление поверх игры и красная пульсация световой панели DualSense')}
+                value={s.lowBatteryWarning}
+                onChange={(v) => save({ lowBatteryWarning: v })}
+              />
               <h2 className="panel-title">
                 <IconGamepad /> {t('Оверлей поверх игры')}
               </h2>
@@ -415,74 +445,32 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 ]}
                 onChange={(v) => save({ pauseOnOverlay: v })}
               />
-              <h2 className="panel-title">
-                <IconGamepad /> {t('DualSense и DSX')}
-              </h2>
-              <Toggle
-                label={t('Подсветка в цвет игры')}
-                hint={t('Световая панель DualSense принимает цвет обложки запущенной игры. Нужен запущенный DSX.')}
-                value={s.dsxLightbar}
-                onChange={(v) => save({ dsxLightbar: v })}
-              />
-              <LightbarTest />
-              <Toggle
-                label={t('Предупреждать о разряде')}
-                hint={t('При 10% заряда — уведомление поверх игры и красная пульсация световой панели DualSense')}
-                value={s.lowBatteryWarning}
-                onChange={(v) => save({ lowBatteryWarning: v })}
-              />
-              <Toggle
-                label={t('Вибрация при новом трофее')}
-                hint={t('Два коротких импульса. Через DSX работает и на DualSense.')}
-                value={s.trophyRumble}
-                onChange={(v) => save({ trophyRumble: v })}
-              />
             </>
           )}
 
           {section === 'trophies' && <TrophySettings s={s} save={save} />}
 
-          {section === 'system' && (
+          {section === 'general' && (
             <>
               <h2 className="panel-title">
-                <IconMonitor /> {t('Запуск')}
+                <IconMonitor /> {t('Язык и запуск')}
               </h2>
+              <LanguageRow s={s} save={save} />
               <Toggle
                 label={t('Запускать вместе с Windows')}
                 hint={t('Удобно для ТВ-режима и стриминга через Moonlight')}
                 value={s.launchOnStartup}
                 onChange={(v) => save({ launchOnStartup: v })}
               />
-              <Cycler
-                label={t('Напоминать о перерыве')}
-                hint={t('Уведомление Windows поверх игры')}
-                value={String(s.breakReminder)}
-                options={[
-                  { id: '0', label: t('Выключено') },
-                  { id: '1', label: t('Каждый час') },
-                  { id: '2', label: t('Каждые 2 часа') },
-                  { id: '3', label: t('Каждые 3 часа') }
-                ]}
-                onChange={(v) => save({ breakReminder: Number(v) })}
-              />
               <h2 className="panel-title">
                 <IconGamepad /> {t('Во время игры')}
               </h2>
               <Toggle
-                label={t('Освобождать память')}
-                hint={t('Пока идёт игра, интерфейс PlayOS выгружается — работает только оверлей, а процессор и память достаются игре. Возвращение в PlayOS займёт пару секунд.')}
+                label={t('Режим для слабых ПК')}
+                hint={t('Пока идёт игра, PlayOS выгружает свой интерфейс и оставляет только оверлей — процессор и память достаются игре. Возвращение в PlayOS займёт пару секунд.')}
                 value={s.freeMemoryInGame !== false}
                 onChange={(v) => save({ freeMemoryInGame: v })}
               />
-              <h2 className="panel-title">
-                <IconFolder /> {t('Данные и отчёты')}
-              </h2>
-              <ActionRow label={t('Папка с данными')} hint={state.dataDir} button={t('Открыть')} icon={<IconFolder />} onClick={() => api.openFolder(state.dataDir)} />
-              <ReportRow />
-              <h2 className="panel-title">
-                <IconDownload /> {t('Перенос на другой компьютер')}
-              </h2>
-              <BackupRows />
               <h2 className="panel-title">
                 <IconInfo /> {t('О PlayOS')}
               </h2>
@@ -496,6 +484,20 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               />
             </>
           )}
+
+          {section === 'data' && (
+            <>
+              <h2 className="panel-title">
+                <IconFolder /> {t('Данные и отчёты')}
+              </h2>
+              <ReportRow dataDir={state.dataDir} />
+              <h2 className="panel-title">
+                <IconDownload /> {t('Перенос на другой компьютер')}
+              </h2>
+              <BackupRows />
+            </>
+          )}
+
         </motion.section>
     </div>
   )
@@ -568,7 +570,8 @@ function UpdateRow({ version }: { version: string }) {
 }
 
 /** Отчёт об ошибках: журнал, сведения о системе и об аварийных завершениях — одним файлом на рабочий стол */
-function ReportRow() {
+/** Отчёт об ошибках и папка с данными — одна строка: в папке лежат и логи, и сохранённые отчёты */
+function ReportRow({ dataDir }: { dataDir: string }) {
   const [busy, setBusy] = useState(false)
   const [hint, setHint] = useState(t('Журнал работы, сведения о системе и об ошибках — одним файлом на рабочий стол. Ключи API в отчёт не попадают.'))
   const make = async () => {
@@ -584,7 +587,22 @@ function ReportRow() {
       setBusy(false)
     }
   }
-  return <ActionRow label={t('Сохранить отчёт об ошибках')} hint={hint} button={busy ? t('Сохраняем…') : t('Сохранить')} onClick={make} />
+  return (
+    <div className="setting setting-static">
+      <span className="setting-text">
+        <span className="setting-label">{t('Отчёт об ошибках')}</span>
+        <span className="setting-hint">{hint}</span>
+      </span>
+      <span className="avatar-buttons">
+        <button data-nav className="btn btn-glass btn-sm" onClick={make}>
+          {busy ? t('Сохраняем…') : t('Сохранить')}
+        </button>
+        <button data-nav className="btn btn-glass btn-sm" onClick={() => api.openFolder(dataDir)}>
+          <IconFolder /> {t('Открыть папку')}
+        </button>
+      </span>
+    </div>
+  )
 }
 
 /**
@@ -637,24 +655,24 @@ function BackupRows() {
   const date = (ts: number) => new Date(ts).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
   return (
     <>
-      <ActionRow
-        label={t('Сохранить копию данных')}
-        hint={
-          saved
-            ? t('Сохранено: {saved}', { saved })
-            : t('Библиотека, время в играх, трофеи, настройки и обложки — одним файлом на рабочий стол. В файле есть ключи API, не публикуйте его.')
-        }
-        button={busy ? t('Сохраняем…') : t('Сохранить')}
-        icon={<IconDownload />}
-        onClick={save}
-      />
-      <ActionRow
-        label={t('Восстановить из копии')}
-        hint={t('Выберите файл .playos с другого компьютера. Текущие данные PlayOS заменятся, но сначала сохранятся в папку backups.')}
-        button={t('Выбрать файл')}
-        icon={<IconFolder />}
-        onClick={pick}
-      />
+      <div className="setting setting-static">
+        <span className="setting-text">
+          <span className="setting-label">{t('Копия данных')}</span>
+          <span className="setting-hint">
+            {saved
+              ? t('Сохранено: {saved}', { saved })
+              : t('Библиотека, время в играх, трофеи, настройки и обложки одним файлом .playos на рабочий стол — чтобы перенести на другой ПК. При восстановлении текущие данные сначала сохранятся в папку backups. В файле есть ключи API, не публикуйте его.')}
+          </span>
+        </span>
+        <span className="avatar-buttons">
+          <button data-nav className="btn btn-glass btn-sm" onClick={save}>
+            <IconDownload /> {busy ? t('Сохраняем…') : t('Сохранить')}
+          </button>
+          <button data-nav className="btn btn-glass btn-sm" onClick={pick}>
+            <IconFolder /> {t('Восстановить')}
+          </button>
+        </span>
+      </div>
       {createPortal(
         <AnimatePresence>
           {pending && (
@@ -688,7 +706,7 @@ function LanguageRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) 
       onChange={(v) => {
         try {
           sessionStorage.setItem('playos-skip-intro', '1')
-          sessionStorage.setItem('playos-open-settings', '1')
+          sessionStorage.setItem('playos-open-settings', 'general')
         } catch {
           /* без хранилища просто покажем интро ещё раз */
         }
@@ -828,31 +846,6 @@ function GameDisplayPicker({ s, save }: { s: SettingsT; save: (p: Partial<Settin
 }
 
 /** Проверка подсветки: DSX переливает панель красным, зелёным, синим и белым */
-function LightbarTest() {
-  const [result, setResult] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const test = async () => {
-    if (busy) return
-    setBusy(true)
-    const r = await api.testLightbar()
-    setBusy(false)
-    setResult(
-      r === 'ok'
-        ? t('Команды отправлены: панель должна была мигнуть красным, зелёным, синим и белым. Если цвет не менялся, проверьте в DSX, что включён UDP (Настройки → Система модов).')
-        : r === 'no-pad'
-          ? t('DSX запущен, но не видит геймпад. Подключите DualSense и попробуйте ещё раз.')
-          : t('DSX не отвечает на 127.0.0.1:6969. Запустите DSX и включите в нём UDP-сервер.')
-    )
-  }
-  return (
-    <ActionRow
-      label={t('Проверить подсветку')}
-      hint={result ?? t('Покажет, доходят ли команды до DualSense через DSX')}
-      button={busy ? t('Проверяем…') : t('Проверить')}
-      onClick={test}
-    />
-  )
-}
 
 /** Статус PINE в PCSX2 и кнопка его включения */
 function Pcsx2Pine() {
@@ -889,13 +882,23 @@ function Pcsx2Pine() {
 
 /** Аккаунты для настоящих трофеев: RetroAchievements (PS2) и Steam (PC) */
 function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
-  const [test, setTest] = useState<{ ra: string; steam: string } | null>(null)
-  const [testing, setTesting] = useState(false)
-  const check = async () => {
-    setTesting(true)
-    setTest(await api.testTrophyAccounts())
-    setTesting(false)
-  }
+  // Подключение проверяется само: при открытии раздела и через полсекунды после правки логина, ключа или профиля
+  const [status, setStatus] = useState<TrophyAccounts | null>(null)
+  const [checking, setChecking] = useState(false)
+  useEffect(() => {
+    let live = true
+    setChecking(true)
+    const timer = setTimeout(() => {
+      api
+        .testTrophyAccounts()
+        .then((r) => live && setStatus(r))
+        .finally(() => live && setChecking(false))
+    }, 500)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [s.raUser, s.raKey, s.steamKey, s.steamId])
   return (
     <>
       <h2 className="panel-title">
@@ -906,6 +909,7 @@ function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT
       </div>
       <Field label={t('Логин RetroAchievements')} value={s.raUser} placeholder={t('Не указан')} onCommit={(v) => save({ raUser: v.trim() })} />
       <Field label="Web API Key" value={s.raKey} placeholder={t('Не указан')} onCommit={(v) => save({ raKey: v.trim() })} mono />
+      <AccountState status={status?.ra} checking={checking} />
 
       <h2 className="panel-title">
         <IconTrophy /> Steam <span className="panel-sub">PC</span>
@@ -922,6 +926,7 @@ function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT
         onCommit={(v) => save({ steamId: v.trim() })}
         mono
       />
+      <AccountState status={status?.steam} checking={checking} />
 
       <h2 className="panel-title">{t('Во время игры')}</h2>
       <Toggle
@@ -936,12 +941,23 @@ function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT
         value={s.trophyShots}
         onChange={(v) => save({ trophyShots: v })}
       />
-      <ActionRow
-        label={t('Проверить подключение')}
-        hint={test ? `RetroAchievements: ${test.ra}. Steam: ${test.steam}.` : t('Проверим ключи и профили')}
-        button={testing ? t('Проверяем…') : t('Проверить')}
-        onClick={check}
+      <Toggle
+        label={t('Вибрация при новом трофее')}
+        hint={t('Два коротких импульса. Через DSX работает и на DualSense.')}
+        value={s.trophyRumble}
+        onChange={(v) => save({ trophyRumble: v })}
       />
     </>
+  )
+}
+
+/** Строка состояния аккаунта под его полями: точка цвета состояния и текст */
+function AccountState({ status, checking }: { status?: AccountStatus; checking: boolean }) {
+  const state = checking ? 'checking' : (status?.state ?? 'off')
+  return (
+    <p className={`account-state is-${state}`} role="status" aria-live="polite">
+      <span className="account-dot" />
+      {checking ? t('Проверяем подключение…') : (status?.text ?? t('Не настроено'))}
+    </p>
   )
 }

@@ -20,7 +20,7 @@ import { accentOf, DEFAULT_ACCENT, playtime } from './lib/format'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
-import { holdMusic, play, setMusic } from './lib/sound'
+import { holdMusic, play, setMusic, setMusicVolume } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
 import { useUpdate } from './lib/update'
 import { t } from '@shared/i18n'
@@ -61,6 +61,17 @@ const RESUME = (() => {
   return { gameId: m[1], duration: m[2] ? Number(m[2]) : undefined }
 })()
 
+/** После смены языка окно перезагружается — возвращаемся в настройки, в раздел, где язык меняли */
+const REOPEN_SETTINGS = (() => {
+  try {
+    const v = sessionStorage.getItem('playos-open-settings')
+    sessionStorage.removeItem('playos-open-settings')
+    return v
+  } catch {
+    return null // хранилище недоступно
+  }
+})()
+
 /** Итог сессии после закрытия игры */
 function sessionToast(games: Game[], gameId: string, duration: number) {
   const g = games.find((x) => x.id === gameId)
@@ -85,17 +96,7 @@ export function App() {
     return true
   })
   // После смены языка возвращаемся в настройки, где его и меняли
-  const [tab, setTab] = useState<Tab>(() => {
-    try {
-      if (sessionStorage.getItem('playos-open-settings')) {
-        sessionStorage.removeItem('playos-open-settings')
-        return 'settings'
-      }
-    } catch {
-      /* хранилище недоступно */
-    }
-    return 'home'
-  })
+  const [tab, setTab] = useState<Tab>(() => (REOPEN_SETTINGS ? 'settings' : 'home'))
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
   const [editor, setEditor] = useState<{ game?: Game } | null>(null)
@@ -110,7 +111,7 @@ export function App() {
   const [saver, setSaver] = useState(false)
   const [outro, setOutro] = useState<PowerAction | null>(null)
   const [trophySummary, setTrophySummary] = useState<Record<string, AchievementSummaryItem>>({})
-  const [settingsSection, setSettingsSection] = useState<string | undefined>()
+  const [settingsSection, setSettingsSection] = useState<string | undefined>(REOPEN_SETTINGS || undefined)
   const [power, setPower] = useState(false)
   const [launching, setLaunching] = useState<string | null>(null)
   // Игра, чей запуск ещё ждёт ответа main, и отменённая на экране запуска: её закрываем, как только она стартует
@@ -175,6 +176,7 @@ export function App() {
 
   useTrophyWatcher(state, booting)
   useEffect(() => setMusic(!!state?.settings.music), [state?.settings.music])
+  useEffect(() => setMusicVolume(state?.settings.musicVolume ?? 'mid'), [state?.settings.musicVolume])
   // Музыка молчит во время интро и пока запущена игра
   useEffect(() => holdMusic(booting || !!running || !!outro), [booting, running, outro])
 
