@@ -775,6 +775,7 @@ export const EN: Record<string, string> = {
   'Не сохранять': 'Don’t save',
   'Ещё {n}': '{n} more',
   'Последние трофеи': 'Recent trophies',
+  'Отменить запуск': 'Cancel launch',
   'Сохранения на этом ПК останутся, синхронизация остановится. Чтобы войти снова, понадобится код с телефона.': 'Saves on this PC stay, and syncing stops. To sign in again, you’ll need a code from your phone.',
   'Не удалось синхронизировать': 'Couldn’t sync',
   '«{title}» сохранялась и на этом ПК, и на другом. Выберите, с какими сохранениями играть, — вторые останутся в истории версий.': '“{title}” was saved both on this PC and on another one. Choose which saves to play with; the others stay in the version history.',

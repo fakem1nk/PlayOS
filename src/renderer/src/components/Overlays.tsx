@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react'
 import type { Game } from '@shared/types'
 import { media } from '../lib/format'
+import { useInputLayer } from '../lib/input'
 import { dismissToast, useToasts } from '../lib/state'
+import { Hint } from './Glyph'
 import { IconTrophy } from './Icons'
 import { Cover } from './Tile'
 import { t } from '@shared/i18n'
@@ -9,8 +11,14 @@ import { t } from '@shared/i18n'
 const easeOut = [0.23, 1, 0.32, 1] as const
 
 
-/** Экран запуска: обложка «всплывает», фон медленно наезжает, пока игра грузится. */
-export function LaunchScreen({ game }: { game: Game }) {
+/**
+ * Экран запуска: обложка «всплывает», фон медленно наезжает, пока игра грузится.
+ * Пока он открыт, меню под ним не управляется: работает только «назад» — отмена запуска.
+ */
+export function LaunchScreen({ game, onCancel }: { game: Game; onCancel: () => void }) {
+  useInputLayer((a) => {
+    if (a === 'back') onCancel()
+  }, 90)
   return (
     <motion.div
       className="launch"
@@ -36,6 +44,9 @@ export function LaunchScreen({ game }: { game: Game }) {
           <span />
         </div>
       </motion.div>
+      <footer className="launch-hints">
+        <Hint glyph="back" label={t('Отменить запуск')} />
+      </footer>
     </motion.div>
   )
 }

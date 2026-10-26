@@ -113,6 +113,9 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<string | undefined>()
   const [power, setPower] = useState(false)
   const [launching, setLaunching] = useState<string | null>(null)
+  // Игра, чей запуск ещё ждёт ответа main, и отменённая на экране запуска: её закрываем, как только она стартует
+  const launchPending = useRef<string | null>(null)
+  const launchCancelled = useRef<string | null>(null)
   const [focusRequest, setFocusRequest] = useState<string | null>(null)
 
   const games = state?.games ?? []
@@ -196,7 +199,13 @@ export function App() {
     play('launch')
     setLaunching(g.id)
     setFocusRequest(g.id)
-    const res = await api.launch(g.id, opts)
+    launchPending.current = g.id
+    const res = await api.launch(g.id, opts).finally(() => (launchPending.current = null))
+    if (launchCancelled.current === g.id) {
+      launchCancelled.current = null
+      if (res.ok) void api.closeGame()
+      return
+    }
     if (res.conflict) {
       // Сохранения разошлись с облаком — сначала выбор, потом запуск
       setLaunching(null)
@@ -206,6 +215,15 @@ export function App() {
       play('error')
       toast({ title: t('Не удалось запустить игру'), message: res.error, tone: 'error' })
     }
+  }
+
+  /** ○ на экране запуска: убираем его и останавливаем игру, если она уже успела стартовать */
+  const cancelLaunch = () => {
+    if (!launching) return
+    play('back')
+    if (launchPending.current === launching) launchCancelled.current = launching
+    else void api.closeGame()
+    setLaunching(null)
   }
 
   /** Перейти на главный экран и поставить фокус на игру */
@@ -536,7 +554,7 @@ export function App() {
           )}
         </AnimatePresence>
 
-        <AnimatePresence>{launchingGame && <LaunchScreen key="launch" game={launchingGame} />}</AnimatePresence>
+        <AnimatePresence>{launchingGame && <LaunchScreen key="launch" game={launchingGame} onCancel={cancelLaunch} />}</AnimatePresence>
 
         {/* Окно об обновлении — только когда вы не в игре и ничего другого не открыто */}
         <UpdateNotice blocked={modal || !!running || !!launching || saver} booting={booting || !!outro} />

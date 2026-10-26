@@ -943,14 +943,22 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
   return existing ?? game
 }
 
-/** Удаляет из папки арта файлы, на которые игра больше не ссылается. */
+/**
+ * Удаляет из папки арта файлы, на которые игра больше не ссылается. Подпапки (снимки трофеев в trophies/)
+ * не трогаем, а сбой уборки не должен превращать уже сохранённую игру в ошибку сохранения.
+ */
 function cleanupArt(game: Game) {
   const dir = artDir(game.id)
   if (!fs.existsSync(dir)) return
   const used = new Set(ART_FIELDS.map((f) => game[f]).filter(Boolean))
-  for (const f of fs.readdirSync(dir)) {
-    const p = path.join(dir, f)
-    if (!used.has(p)) fs.rmSync(p, { force: true })
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name)
+    if (!e.isFile() || used.has(p)) continue
+    try {
+      fs.rmSync(p, { force: true })
+    } catch (err) {
+      log('WARN', `Не удалось удалить старый арт ${p}: ${(err as Error).message}`)
+    }
   }
 }
 

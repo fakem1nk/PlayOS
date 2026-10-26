@@ -1580,6 +1580,17 @@ p {
   color: var(--mist);
 }
 
+/* Подсказка отмены — на месте нижней строки подсказок остальных экранов */
+.launch-hints {
+  position: absolute;
+  left: var(--pad-x);
+  bottom: 3.6rem;
+  display: flex;
+  gap: 3.2rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
 .launch-bar {
   width: 22rem;
   height: 0.4rem;
