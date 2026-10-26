@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Question / Вопрос
+    url: https://github.com/fakem1nk/PlayOS/discussions
+    about: Ask how to set something up or share an idea / Спросите, как что-то настроить, или поделитесь идеей
+  - name: Security vulnerability / Уязвимость
+    url: https://github.com/fakem1nk/PlayOS/security/advisories/new
+    about: Report it privately, not as an issue / Сообщите приватно, а не задачей
