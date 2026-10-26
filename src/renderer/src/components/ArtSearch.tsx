@@ -171,11 +171,14 @@ function ResultImage({ candidate, active }: { candidate: ArtCandidate; active: b
   const [src, setSrc] = useState(candidate.cover ?? candidate.thumb)
   const preview = candidate.coverAnimatedPreview ?? candidate.coverAnimated
   const isVideo = !!preview && /\.(webm|mp4)(\?|$)/i.test(preview)
+  // При «Уменьшить движение» анимированный арт не крутится, остаётся обычная обложка
+  const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   return (
     <span className="result-art">
       {src && <img src={src} alt="" onError={() => setSrc(src === candidate.thumb ? undefined : candidate.thumb)} />}
       {active &&
         preview &&
+        !still &&
         (isVideo ? (
           <video className="result-anim" src={preview} autoPlay muted loop playsInline />
         ) : (

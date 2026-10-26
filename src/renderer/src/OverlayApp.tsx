@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { PLATFORM_NAMES, type Achievement, type EmuState, type SaveSlot, type SystemNotice } from '@shared/types'
 import { ControlCenterRow, useControlCenter } from './components/ControlCenter'
@@ -128,6 +128,10 @@ export function OverlayApp() {
   ]
   const slots: SaveSlot[] = emu?.slots ?? []
   const slot = slots[slotIdx]
+  // Пустые слоты не выстраиваются рядом: видны занятые и один свободный за ними,
+  // следующие открываются по одному, когда фокус уходит вправо
+  const lastUsed = slots.reduce((last, s, i) => (s.time ? i : last), -1)
+  const shownSlots = Math.min(slots.length, Math.max(lastUsed + 2, slotIdx + 1, 1))
 
   const resume = () => {
     play('select')
@@ -237,6 +241,7 @@ export function OverlayApp() {
   const battery = pad.battery
 
   return (
+    <MotionConfig reducedMotion="user">
     <GlyphStyleContext.Provider value={state.settings.glyphs}>
       <AnimatePresence>
         {open && game && running && (
@@ -335,7 +340,7 @@ export function OverlayApp() {
                   </div>
                   <div className="ov-slots-viewport">
                     <div className="ov-slots-track" style={{ transform: `translateX(-${slotShift}rem)` }}>
-                      {slots.map((s, i) => (
+                      {slots.slice(0, shownSlots).map((s, i) => (
                         <button
                           key={s.slot}
                           tabIndex={-1}
@@ -357,6 +362,11 @@ export function OverlayApp() {
                           <span className="ov-slot-time">{s.time ? slotTime(s.time) : t('Свободен')}</span>
                         </button>
                       ))}
+                      {shownSlots < slots.length && (
+                        <span className="ov-slot-more" aria-hidden>
+                          {t('Ещё {n}', { n: slots.length - shownSlots })}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -471,5 +481,6 @@ export function OverlayApp() {
         </AnimatePresence>
       </div>
     </GlyphStyleContext.Provider>
+    </MotionConfig>
   )
 }

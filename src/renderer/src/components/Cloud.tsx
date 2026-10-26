@@ -1,5 +1,6 @@
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CloudProviderId, CloudRestoreChoice, CloudRestoreOffer, CloudStatus, CloudSyncState, Game, GameCloudStatus, SaveConflict, SaveVersion, Settings } from '@shared/types'
 import { api } from '../lib/api'
 import { ago, bytes, lastPlayed } from '../lib/format'
@@ -7,6 +8,7 @@ import { useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { ActionRow, Cycler, Toggle } from './Controls'
+import { ConfirmDialog } from './Menus'
 import { IconCloud, IconFolder, IconSync } from './Icons'
 import { qrMatrix } from '../lib/qr'
 import { locale, t } from '@shared/i18n'
@@ -58,6 +60,8 @@ export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Pa
   const status = useCloudStatus()
   const cloud = { ...DEFAULTS, ...s.cloud }
   const setCloud = (patch: Partial<typeof cloud>) => save({ cloud: { ...cloud, ...patch } })
+  // Выход спрашиваем отдельно: войти обратно можно только заново через код на телефоне
+  const [signingOut, setSigningOut] = useState(false)
 
   const signIn = async (provider: CloudProviderId) => {
     try {
@@ -209,11 +213,36 @@ export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Pa
                 label={t('Выйти из облака')}
                 hint={t('Сохранения на этом ПК останутся, синхронизация остановится.')}
                 button={t('Выйти')}
-                onClick={() => void api.cloudSignOut()}
+                onClick={() => {
+                  play('select')
+                  setSigningOut(true)
+                }}
               />
             </>
           )}
         </>
+      )}
+      {createPortal(
+        <AnimatePresence>
+          {signingOut && (
+            <ConfirmDialog
+              key="signout"
+              title={t('Выйти из облака?')}
+              text={
+                account?.provider === 'folder'
+                  ? t('Сохранения на этом ПК останутся, синхронизация остановится.')
+                  : t('Сохранения на этом ПК останутся, синхронизация остановится. Чтобы войти снова, понадобится код с телефона.')
+              }
+              button={t('Выйти')}
+              onCancel={() => setSigningOut(false)}
+              onConfirm={() => {
+                setSigningOut(false)
+                void api.cloudSignOut()
+              }}
+            />
+          )}
+        </AnimatePresence>,
+        document.querySelector('.app') ?? document.body
       )}
     </>
   )

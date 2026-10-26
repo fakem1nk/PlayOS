@@ -704,6 +704,7 @@ function LanguageRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) 
 /** Геймпады DirectInput (без стандартной раскладки): назначить кнопки вручную или сбросить */
 function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
   const [open, setOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const maps = s.padMaps ?? {}
   const names = Object.keys(maps).map(padName)
   return (
@@ -728,11 +729,30 @@ function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) =>
           hint={t('Вернуть стандартные кнопки для всех настроенных геймпадов')}
           button={t('Сбросить')}
           onClick={() => {
-            play('back')
-            void save({ padMaps: {} })
-            toast({ title: t('Раскладка сброшена'), tone: 'info' })
+            play('select')
+            setResetting(true)
           }}
         />
+      )}
+      {createPortal(
+        <AnimatePresence>
+          {resetting && (
+            <ConfirmDialog
+              key="padreset"
+              title={t('Сбросить раскладку?')}
+              text={t('Ручные настройки кнопок пропадут: {v}. Геймпады вернутся к стандартной раскладке.', { v: names.join(', ') })}
+              button={t('Сбросить')}
+              onCancel={() => setResetting(false)}
+              onConfirm={() => {
+                setResetting(false)
+                play('back')
+                void save({ padMaps: {} })
+                toast({ title: t('Раскладка сброшена'), tone: 'info' })
+              }}
+            />
+          )}
+        </AnimatePresence>,
+        document.querySelector('.app') ?? document.body
       )}
       <AnimatePresence>
         {open && (

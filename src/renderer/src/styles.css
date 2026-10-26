@@ -3,7 +3,8 @@
   --bg: #04060c;
   --ink: #f4f6fb;
   --mist: rgba(236, 241, 250, 0.66);
-  --faint: rgba(236, 241, 250, 0.4);
+  /* 0.55 — около 4,5:1 на тёмном фоне: второстепенный текст читается и с дивана */
+  --faint: rgba(236, 241, 250, 0.55);
   --glass: rgba(255, 255, 255, 0.08);
   --glass-hi: rgba(255, 255, 255, 0.16);
   --stroke: rgba(255, 255, 255, 0.14);
@@ -471,7 +472,7 @@ p {
 }
 
 .cover-platform {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   color: var(--mist);
 }
 
@@ -672,7 +673,7 @@ p {
   height: 2.5rem;
   padding: 0 0.9rem;
   border-radius: 0.8rem;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 600;
 }
 
@@ -821,7 +822,7 @@ p {
 }
 
 .section-hint {
-  font-size: 1.45rem;
+  font-size: 1.6rem;
   color: var(--faint);
 }
 
@@ -930,6 +931,7 @@ p {
 .cycler-value {
   min-width: 13rem;
   text-align: center;
+  white-space: nowrap;
   font-weight: 500;
 }
 
@@ -984,7 +986,7 @@ p {
 }
 
 .field-hint {
-  font-size: 1.45rem;
+  font-size: 1.6rem;
   color: var(--faint);
   line-height: 1.45;
 }
@@ -1350,7 +1352,7 @@ p {
   padding: 0.4rem 0.9rem;
   border-radius: 0.8rem;
   background: rgba(0, 0, 0, 0.65);
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 600;
 }
 
@@ -1784,7 +1786,9 @@ p {
 /* ───────────────────────── Доступность ───────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .bg-hero img,
-  .launch-bg {
+  .launch-bg,
+  .live-dot,
+  .tile-live {
     animation: none;
   }
   .row-tile,

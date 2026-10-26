@@ -66,6 +66,10 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
   const maxDay = Math.max(3600, ...stats.days.map((d) => d.seconds))
   const twoWeeks = stats.days.reduce((a, d) => a + d.seconds, 0)
   const shownDay = stats.days[hoverDay ?? DAYS - 1]
+  // Три последних полученных трофея PlayOS — под статистикой в левой колонке
+  const recent = TROPHIES.filter((tr) => earned.has(tr.id) && settings.trophies[tr.id])
+    .sort((a, b) => settings.trophies[b.id] - settings.trophies[a.id])
+    .slice(0, 3)
   const trophy = TROPHIES.find((t) => t.id === focusedTrophy)
 
   const pickAvatar = async () => {
@@ -107,6 +111,23 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
             </dd>
           </div>
         </dl>
+
+        {recent.length > 0 && (
+          <div className="profile-recent">
+            <h2 className="profile-recent-title">{t('Последние трофеи')}</h2>
+            <ul>
+              {recent.map((tr) => (
+                <li key={tr.id} className={`profile-recent-item trophy-${tr.tier}`}>
+                  <IconTrophy />
+                  <span className="profile-recent-text">
+                    <span className="profile-recent-name">{tr.title}</span>
+                    <span className="profile-recent-date">{dayMonth.format(settings.trophies[tr.id])}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <div className="profile-main">
@@ -129,7 +150,7 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
                     <div className="activity-track">
                       {h > 0 ? <span className="activity-bar" style={{ height: `${h}%` }} /> : <span className="activity-empty" />}
                     </div>
-                    <span className="activity-day">{isToday ? t('сег.') : weekday.format(d.date)}</span>
+                    <span className="activity-day">{weekday.format(d.date)}</span>
                   </div>
                 )
               })}

@@ -153,7 +153,7 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
           {focused && set ? (
             <span className="trophy-detail-hint">
               {focused.earnedAt ? t('Получен {v}', { v: dateFmt.format(focused.earnedAt) }) : t('Ещё не получен')}
-              {focused.rarity !== undefined && t(', у {v}% игроков', { v: focused.rarity < 1 ? focused.rarity.toFixed(1) : Math.round(focused.rarity) })}
+              {focused.rarity !== undefined && t(', у {v}% игроков', { v: focused.rarity.toLocaleString(locale(), { maximumFractionDigits: focused.rarity < 1 ? 1 : 0 }) })}
             </span>
           ) : (
             <Hint glyph="confirm" label={t('Выбрать')} />

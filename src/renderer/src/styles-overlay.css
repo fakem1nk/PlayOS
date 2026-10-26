@@ -252,6 +252,19 @@ html.overlay-mode #root {
   display: block;
 }
 
+/* «Ещё N» после последнего показанного слота: остальные свободные открываются стрелкой вправо */
+.ov-slot-more {
+  flex: none;
+  align-self: flex-start;
+  display: grid;
+  place-items: center;
+  height: 14.55rem;
+  padding: 0 1.6rem;
+  font-size: 1.6rem;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
 .ov-slot-empty {
   position: absolute;
   inset: 0;
@@ -275,7 +288,7 @@ html.overlay-mode #root {
 }
 
 .ov-slot-time {
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   color: var(--mist);
 }
 

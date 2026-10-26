@@ -5,7 +5,7 @@ import { useInputLayer } from '../lib/input'
 import { play } from '../lib/sound'
 import { IconPlus } from './Icons'
 import { Tile } from './Tile'
-import { t } from '@shared/i18n'
+import { locale, t } from '@shared/i18n'
 
 type Filter = 'all' | Platform | 'favorite'
 type Sort = 'recent' | 'name' | 'time'
@@ -99,7 +99,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
     const filtered = games.filter((g) =>
       filter === 'all' ? true : filter === 'favorite' ? g.favorite : g.platform === filter
     )
-    const collator = new Intl.Collator('ru')
+    const collator = new Intl.Collator(locale())
     return filtered.sort((a, b) =>
       sort === 'name'
         ? collator.compare(a.title, b.title)

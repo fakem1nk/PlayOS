@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useInputLayer } from '../lib/input'
 import type { ArtCandidate, Game, GameDraft, Platform, SavePreview, SaveProgress, Settings } from '@shared/types'
 import { api } from '../lib/api'
@@ -10,6 +11,7 @@ import { play } from '../lib/sound'
 import { ArtSearch } from './ArtSearch'
 import { Field, Toggle } from './Controls'
 import { Glyph, Hint } from './Glyph'
+import { ConfirmDialog } from './Menus'
 import { IconClose, IconDisc, IconFolder, IconImage, IconMonitor, IconSearch } from './Icons'
 import { t, locale } from '@shared/i18n'
 
@@ -90,13 +92,23 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
   }, [previewKey, step])
   const autoTitle = useRef<string | undefined>(undefined)
   const ref = useRef<HTMLDivElement>(null)
+  // Черновик в момент открытия формы: если он изменился, перед выходом спрашиваем, не потерять ли правки
+  const pristine = useRef(JSON.stringify(draft))
+  const [leaving, setLeaving] = useState<(() => void) | null>(null)
+  const guard = (leave: () => void) => () => {
+    if (step === 'form' && JSON.stringify(draft) !== pristine.current) {
+      play('select')
+      setLeaving(() => leave)
+    } else leave()
+  }
+  const close = guard(onClose)
 
   const set = (patch: Partial<GameDraft>) => setDraft((d) => ({ ...d, ...patch }))
 
   useSpatialNav(ref, {
     priority: 10,
-    active: !searching,
-    onBack: () => (step === 'form' && !game ? setStep('platform') : onClose()),
+    active: !searching && !leaving,
+    onBack: step === 'form' && !game ? guard(() => setStep('platform')) : close,
     autoFocus:
       step === 'platform' ? '.platform-card' : searchedOnce ? '.art-search-btn' : draft.path ? '.editor-form input' : '[data-autofocus]',
     focusKey: step,
@@ -108,7 +120,9 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
 
   const choosePlatform = (p: Platform) => {
     play('select')
-    setDraft(emptyDraft(p))
+    const fresh = emptyDraft(p)
+    pristine.current = JSON.stringify(fresh)
+    setDraft(fresh)
     setStep('form')
     // Сразу предлагаем выбрать файл — самый частый сценарий
     setTimeout(() => pickGameFile(p), 260)
@@ -279,7 +293,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
       <div className="sheet-inner" ref={ref}>
         <header className="sheet-head">
           <h1 className="sheet-title">{game ? t('Изменить игру') : step === 'platform' ? t('Добавить игру') : PLATFORMS.find((p) => p.id === draft.platform)!.title}</h1>
-          <button data-nav className="btn btn-round" onClick={onClose} aria-label={t('Закрыть')}>
+          <button data-nav className="btn btn-round" onClick={close} aria-label={t('Закрыть')}>
             <IconClose />
           </button>
         </header>
@@ -460,7 +474,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                   <button data-nav className="btn btn-primary" onClick={save}>
                     {game ? t('Сохранить') : t('Добавить в библиотеку')}
                   </button>
-                  <button data-nav className="btn btn-glass" onClick={onClose}>
+                  <button data-nav className="btn btn-glass" onClick={close}>
                     {t('Отмена')}
                   </button>
                 </div>
@@ -511,6 +525,24 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
           />
         )}
       </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {leaving && (
+            <ConfirmDialog
+              key="leave"
+              title={t('Выйти без сохранения?')}
+              text={game ? t('Изменения в «{title}» пропадут.', { title: game.title }) : t('Игра не будет добавлена в библиотеку.')}
+              button={t('Не сохранять')}
+              onCancel={() => setLeaving(null)}
+              onConfirm={() => {
+                setLeaving(null)
+                leaving()
+              }}
+            />
+          )}
+        </AnimatePresence>,
+        document.querySelector('.app') ?? document.body
+      )}
     </motion.div>
   )
 }

@@ -245,7 +245,16 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
                     </li>
                   ))}
                 </ul>
-                <p className="si-caption si-path">{info.app.dataDir}</p>
+                <p className="si-caption si-path">
+                  {/* Перенос — только после «\», чтобы имя папки не рвалось посередине */}
+                  {info.app.dataDir.split('\\').map((part, i) => (
+                    <span key={i}>
+                      {i > 0 && '\\'}
+                      {i > 0 && <wbr />}
+                      {part}
+                    </span>
+                  ))}
+                </p>
               </section>
 
             </div>

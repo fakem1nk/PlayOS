@@ -109,8 +109,8 @@ function createMockApi(): PcsApi {
       betaUpdates: false
     },
     running: null,
-    dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\pcstation',
-    version: '0.9.0'
+    dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS',
+    version: '1.0.1'
   }
   const subs = { state: new Set<(s: AppState) => void>(), end: new Set<(e: { gameId: string; duration: number }) => void>() }
   const set = (patch: Partial<AppState>) => {
@@ -269,7 +269,7 @@ function createMockApi(): PcsApi {
     },
     onPowerResume: noop,
     systemInfo: async () => ({
-      app: { version: '0.9.0', electron: '44.9.0', chrome: '152.0', installDir: 'E:\\PlayOS', dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS', packaged: true },
+      app: { version: '1.0.1', electron: '44.9.3', chrome: '152.0', installDir: 'E:\\PlayOS', dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS', packaged: true },
       os: { name: 'Windows 11 Pro', build: '10.0.26300', uptimeMin: 446 },
       cpu: { model: 'AMD Ryzen 5 5600X 6-Core Processor', threads: 12 },
       gpu: 'NVIDIA GeForce RTX 3060 Ti',
@@ -287,10 +287,10 @@ function createMockApi(): PcsApi {
       library: { games: 10, hours: 343.4, artBytes: 48_000_000, videoBytes: 31_000_000, totalBytes: 142_000_000 }
     }),
     pathExists: async (p) => /pcsx2/i.test(p),
-    updateState: async () => ({ phase: 'idle', current: '0.9.0' }),
+    updateState: async () => ({ phase: 'idle', current: '1.0.1' }),
     checkUpdates: async () => {
       await new Promise((r) => setTimeout(r, 1200))
-      return { phase: 'ready', current: '0.9.0', version: '0.9.1', percent: 100, notes: 'Быстрее запуск\nИсправлена прокрутка профиля' }
+      return { phase: 'ready', current: '1.0.1', version: '1.0.2', percent: 100, notes: 'Быстрее запуск\nИсправлена прокрутка профиля' }
     },
     installUpdate: async () => true,
     // ?update в адресе — показать скачивание и окно «готово» на демо-данных
@@ -302,15 +302,15 @@ function createMockApi(): PcsApi {
         p = Math.min(100, p + 9)
         const total = 118 * 2 ** 20
         cb(p < 100
-          ? { phase: 'downloading', current: '0.9.1', version: '0.9.2', percent: p, transferred: (total * p) / 100, total }
-          : { phase: 'ready', current: '0.9.1', version: '0.9.2', percent: 100, notes })
+          ? { phase: 'downloading', current: '1.0.1', version: '1.0.2', percent: p, transferred: (total * p) / 100, total }
+          : { phase: 'ready', current: '1.0.1', version: '1.0.2', percent: 100, notes })
         if (p >= 100) clearInterval(t)
       }, 700)
       return () => clearInterval(t)
     },
     saveReport: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-отчёт.txt',
     exportData: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-копия-2026-10-21_12-00.playos',
-    inspectBackup: async () => ({ version: '0.9.0', createdAt: Date.now() - 86400_000, games: 9 }),
+    inspectBackup: async () => ({ version: '1.0.1', createdAt: Date.now() - 86400_000, games: 9 }),
     importData: async () => true,
     displays: async () => ({
       list: [

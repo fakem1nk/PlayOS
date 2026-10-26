@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 import type { AchievementSummaryItem, Game, PowerAction, SaveConflict } from '@shared/types'
 import { Background } from './components/Background'
@@ -292,6 +292,8 @@ export function App() {
     )
 
   return (
+    // Системное «Уменьшить движение»: Motion оставляет только плавное появление, без сдвигов и масштаба
+    <MotionConfig reducedMotion="user">
     <GlyphStyleContext.Provider value={state.settings.glyphs}>
       <AnimatedCoversContext.Provider value={state.settings.animatedCovers}>
       <div className={`app tinted ${tabFocus !== null && !modal ? 'is-tabs-zone' : ''}`} data-tab={tab} style={{ '--game-accent': accent } as React.CSSProperties}>
@@ -309,7 +311,9 @@ export function App() {
           animate={
             booting || outro
               ? { opacity: 0, transform: booting ? 'scale(1.04)' : 'scale(0.97)', filter: 'blur(8px)' }
-              : { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }
+              : // В покое filter снимается совсем: даже blur(0px) делает оболочку границей для backdrop-filter,
+                // и стекло внутри перестаёт размывать фон за ней
+                { opacity: 1, transform: 'scale(1)', filter: 'blur(0px)', transitionEnd: { filter: 'none' } }
           }
           transition={{ duration: 0.9, ease: [0.23, 1, 0.32, 1] }}
         >
@@ -567,5 +571,6 @@ export function App() {
       </div>
       </AnimatedCoversContext.Provider>
     </GlyphStyleContext.Provider>
+    </MotionConfig>
   )
 }

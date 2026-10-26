@@ -244,7 +244,7 @@ export function Home(props: Props) {
             )
           }
           return (
-            <div key={it.kind} className={`tile row-tile tile-special ${ringed ? 'is-focused' : ''}`} style={style} onClick={onClick}>
+            <div key={it.kind} className={`tile row-tile tile-special ${ringed ? 'is-focused' : ''}`} style={style} onClick={onClick} role="button">
               <div className="tile-art special-art">
                 {it.kind === 'library' ? <IconGrid /> : it.kind === 'random' ? <IconDice /> : <IconPlus />}
                 <span>{SPECIAL[it.kind].label}</span>

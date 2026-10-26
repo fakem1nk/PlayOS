@@ -230,7 +230,7 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
                         {label && <span className="gp-bar-value">{hours(d.sec)}</span>}
                         <span className="gp-bar-fill" style={{ height: d.sec ? `${Math.max(4, (d.sec / maxDay) * 100)}%` : 0 }} />
                       </div>
-                      <span className="gp-bar-day">{isToday ? t('сег.') : dayFmt.format(d.start)}</span>
+                      <span className="gp-bar-day">{dayFmt.format(d.start)}</span>
                     </div>
                   )
                 })}

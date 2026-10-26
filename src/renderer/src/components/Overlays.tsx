@@ -44,7 +44,7 @@ export function LaunchScreen({ game }: { game: Game }) {
 export function Toasts() {
   const toasts = useToasts()
   return (
-    <div className="toasts">
+    <div className="toasts" role="status" aria-live="polite">
       <AnimatePresence initial={false}>
         {toasts.map((item) => (
           <motion.div
