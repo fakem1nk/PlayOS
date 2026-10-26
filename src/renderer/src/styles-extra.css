@@ -48,6 +48,9 @@
   inset: 0;
   display: grid;
   grid-template-columns: 46rem minmax(0, 1fr);
+  /* Строка ровно по высоте экрана: иначе она растягивается под содержимое — правая колонка не докручивается
+     до конца, а левая вылезает на подсказки внизу */
+  grid-template-rows: minmax(0, 1fr);
   gap: 6rem;
   padding-top: 2.6rem;
   min-height: 0;
@@ -57,7 +60,14 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding-top: 1rem;
+  min-height: 0;
+  /* Не влезает (крупный масштаб, низкий экран) — прокручивается сама, а не наезжает на подсказки */
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 1rem 1rem 6rem;
+  margin: -1rem -1rem 0;
+  /* Низ колонки гаснет над подсказками, а не обрезается по линии */
+  mask-image: linear-gradient(180deg, #000 calc(100% - 5rem), transparent);
 }
 
 .profile-avatar-btn {
