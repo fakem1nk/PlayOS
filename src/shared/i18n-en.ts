@@ -845,4 +845,5 @@ export const EN: Record<string, string> = {
   'Сохранения останутся только на этом ПК': 'Saves stay on this PC only',
   'Освобождать память': 'Free up memory',
   'Пока идёт игра, интерфейс PlayOS выгружается — работает только оверлей, а процессор и память достаются игре. Возвращение в PlayOS займёт пару секунд.': 'While a game is running, the PlayOS interface is unloaded and only the overlay stays, so the game gets the CPU and memory. Coming back to PlayOS takes a couple of seconds.',
+  'Не удалось проверить сохранения. Подробности — в журнале PlayOS.': 'Couldn’t check for saves. See the PlayOS log for details.',
 }

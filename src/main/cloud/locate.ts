@@ -49,17 +49,43 @@ const envDir = (token: string) =>
     '%PROGRAMDATA%': process.env.PROGRAMDATA
   })[token]
 
-/** Папка установки PC-игры: рядом с EXE (ярлык .lnk — его цель) */
-export function pcInstallDir(game: Game): string | undefined {
-  if (game.installDir) return game.installDir
-  if (game.workDir) return game.workDir
-  if (!game.path || /\.(url)$/i.test(game.path)) return undefined
+const isDir = (p: string) => {
   try {
-    if (fs.statSync(game.path).isDirectory()) return game.path
+    return fs.statSync(p).isDirectory()
   } catch {
-    return undefined
+    return false
   }
-  return path.dirname(game.path)
+}
+
+/** Папка с EXE игры (у игр Steam path — уже папка); ярлыки .url и .lnk не в счёт */
+function exeDir(game: Game): string | undefined {
+  if (!game.path || /\.(url|lnk)$/i.test(game.path)) return undefined
+  if (isDir(game.path)) return game.path
+  return fs.existsSync(game.path) ? path.dirname(game.path) : undefined
+}
+
+/** Папка установки PC-игры. Указанную папку игры перенесли или удалили — берём папку EXE */
+export function pcInstallDir(game: Game): string | undefined {
+  if (game.installDir && isDir(game.installDir)) return game.installDir
+  if (game.workDir && isDir(game.workDir)) return game.workDir
+  return exeDir(game)
+}
+
+/**
+ * Где искать файлы эмулятора Steam и steam_appid.txt: папка игры и папка EXE. Они часто разные
+ * (EXE в bin/x64, а steam_settings рядом с ним), поэтому проверяем обе.
+ */
+export function pcGameDirs(game: Game): string[] {
+  return [...new Set([pcInstallDir(game), exeDir(game)].filter((d): d is string => !!d && trackableDir(d)))]
+}
+
+/** AppID из файлов игры: сначала рядом с EXE, потом в папке игры и выше */
+export function pcAppId(game: Game): number | undefined {
+  for (const d of pcGameDirs(game).reverse()) {
+    const id = detectAppId(d)
+    if (id) return id
+  }
+  return undefined
 }
 
 /** AppID пиратской или DRM-free сборки: steam_appid.txt, steam_emu.ini, steam_settings — рядом с EXE и уровнем выше */
@@ -134,7 +160,7 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
 
   // PC: свои папки → манифест Ludusavi → папки эмуляторов Steam по AppID
   const dir = pcInstallDir(game)
-  const appId = game.steamAppId ?? (dir && trackableDir(dir) ? detectAppId(dir) : undefined)
+  const appId = game.steamAppId ?? pcAppId(game)
   const found = manifestFor(game, dir)
   const base = found?.base ?? dir
   const ctx: PathContext = { game: base && trackableDir(base) ? base : undefined }
@@ -153,17 +179,28 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
   }
   if (appId) {
     for (const tpl of EMU_ROOTS) {
-      const p = tpl.startsWith('{game}')
-        ? ctx.game && path.join(ctx.game, tpl.slice(7))
+      const paths = tpl.startsWith('{game}')
+        ? [...new Set([ctx.game, ...pcGameDirs(game)])].filter((d): d is string => !!d).map((d) => path.join(d, tpl.slice(7)))
         : (() => {
             const token = tpl.slice(0, tpl.indexOf('%', 1) + 1)
             const root = envDir(token)
-            return root && path.join(root, tpl.slice(token.length).replace('{id}', String(appId)))
+            return root ? [path.join(root, tpl.slice(token.length).replace('{id}', String(appId)))] : []
           })()
-      if (p && fs.existsSync(p)) set.patterns.push(p)
+      for (const p of paths) if (fs.existsSync(p) && !set.patterns.includes(p)) set.patterns.push(p)
     }
   }
   return set.patterns.length || set.registry.length ? [set] : []
+}
+
+/**
+ * Слишком общие папки: если сохранения лежат и в «Документах», и в AppData, их общая папка — профиль
+ * пользователя, и показывать её как «папку сохранений» бессмысленно
+ */
+function tooBroad(dir: string) {
+  const home = process.env.USERPROFILE ?? ''
+  const roots = [home, path.dirname(home), path.join(home, 'AppData'), process.env.APPDATA, process.env.LOCALAPPDATA, process.env.PUBLIC, process.env.PROGRAMDATA]
+  const d = dir.toLowerCase().replace(/[\\/]+$/, '')
+  return /^[a-z]:$/.test(d) || roots.some((r) => r && r.toLowerCase() === d) || /[\\/]documents$/.test(d)
 }
 
 /** Общая папка нескольких путей */
@@ -176,21 +213,25 @@ function commonDir(dirs: string[]): string | undefined {
     while (i < parts.length && i < other.length && parts[i].toLowerCase() === other[i].toLowerCase()) i++
     parts = parts.slice(0, i)
   }
-  return parts.length > 1 ? parts.join(path.sep) : undefined
+  const common = parts.length > 1 ? parts.join(path.sep) : undefined
+  return common && !tooBroad(common) ? common : undefined
 }
 
 /** Что найдено для игры прямо сейчас: папка сохранений и AppID — для подсказок в редакторе */
 export function savePreview(game: Game, settings: Settings): SavePreview {
-  const dir = game.platform === 'pc' ? pcInstallDir(game) : undefined
-  const appId = !game.steamAppId && dir && trackableDir(dir) ? detectAppId(dir) : undefined
+  const appId = game.platform === 'pc' && !game.steamAppId ? pcAppId(game) : undefined
   if (game.launcher === 'steam') return { files: 0, registry: false, appId, skipped: 'steam' }
   if (game.cloudSaves === false) return { files: 0, registry: false, appId, skipped: 'off' }
   const all = saveSetsFor(game, settings)
   // Файловая карта памяти PS2 общая для всех игр — показываем её, только если своих файлов у игры нет
   const own = all.filter((s) => !s.key.startsWith('ps2card:')).flatMap((s) => collect(s))
   const files = own.length ? own : all.flatMap((s) => collect(s))
+  const dirs = files.map((f) => path.dirname(f.abs))
+  // Папки на разных дисках (сохранения в «Документах», папка эмулятора Steam на C:) общей не имеют,
+  // а у папок в разных частях профиля она слишком общая — тогда показываем ту, где больше всего файлов
+  const busiest = [...new Set(dirs)].sort((a, b) => dirs.filter((d) => d === b).length - dirs.filter((d) => d === a).length)[0]
   return {
-    dir: commonDir([...new Set(files.map((f) => path.dirname(f.abs)))]),
+    dir: commonDir([...new Set(dirs)]) ?? busiest,
     files: files.length,
     registry: all.some((s) => s.registry.length > 0),
     appId

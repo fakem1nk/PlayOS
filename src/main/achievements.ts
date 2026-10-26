@@ -6,7 +6,7 @@ import type { Achievement, AchievementResult, AchievementSet, AchievementSummary
 import { httpFetch } from './http'
 import { artDir, findGame, getDb, saveDb } from './store'
 import { steamRoot } from './steam'
-import { detectAppId } from './cloud/locate'
+import { detectAppId, pcGameDirs } from './cloud/locate'
 import { t } from '@shared/i18n'
 
 /**
@@ -343,18 +343,18 @@ export function parseEmuAchievements(text: string, json: boolean): Map<string, n
 
 /** Все места, где эмуляторы Steam хранят достижения этой игры (файлов может и не быть) */
 function emuCandidates(appid: number, game: Game): { name: string; file: string }[] {
-  const gameDir = game.installDir || path.dirname(game.path)
+  // steam_settings бывает и в папке игры, и рядом с EXE (bin/x64) — смотрим обе
+  const gameDirs = pcGameDirs(game)
   const out: { name: string; file: string }[] = []
   for (const e of EMU_FILES) {
-    let file = e.file.replaceAll('{id}', String(appid))
-    if (file.startsWith('{game}')) file = path.join(gameDir, file.slice(7))
-    else {
-      const token = file.slice(0, file.indexOf('%', 1) + 1)
-      const root = ENV[token]
-      if (!root) continue
-      file = path.join(root, file.slice(token.length))
+    const file = e.file.replaceAll('{id}', String(appid))
+    if (file.startsWith('{game}')) {
+      for (const d of gameDirs) out.push({ name: e.name, file: path.join(d, file.slice(7)) })
+      continue
     }
-    out.push({ name: e.name, file })
+    const token = file.slice(0, file.indexOf('%', 1) + 1)
+    const root = ENV[token]
+    if (root) out.push({ name: e.name, file: path.join(root, file.slice(token.length)) })
   }
   return out
 }

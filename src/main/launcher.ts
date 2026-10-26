@@ -165,9 +165,11 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
   const viaSteam = !!spec.url
   if (game.platform === 'pc' && !game.customCommand) {
     // У игр Steam path — уже папка установки
-    // Папка установки шире папки EXE: процесс игры может жить в bind, а запускаться лаунчером из корня
-    const dir = viaSteam ? game.path : game.installDir || path.dirname(game.path)
-    if (trackableDir(dir)) exeDir = dir.toLowerCase().replace(/\\+$/, '') + path.sep
+    // Папка установки шире папки EXE: процесс игры может жить в bin/x64, а запускаться лаунчером из корня.
+    // Папку игры по ней отслеживать нельзя (например, указали D:\Games целиком) — берём папку EXE
+    const dirs = viaSteam ? [game.path] : [game.installDir, path.dirname(game.path)]
+    const dir = dirs.find((d): d is string => !!d && trackableDir(d))
+    if (dir) exeDir = dir.toLowerCase().replace(/\\+$/, '') + path.sep
   }
   tracker = {
     gameId: game.id,

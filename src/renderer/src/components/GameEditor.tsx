@@ -73,17 +73,18 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
   const [searching, setSearching] = useState(false)
   const [searchedOnce, setSearchedOnce] = useState(false)
   // Что облако найдёт для игры: папка сохранений и AppID. Пересчитывается, когда меняются влияющие поля
-  const [preview, setPreview] = useState<SavePreview | null | undefined>(undefined)
+  // undefined — ищем, null — нечего искать, false — проверка не удалась
+  const [preview, setPreview] = useState<SavePreview | null | false | undefined>(undefined)
   const previewKey = [draft.platform, draft.path, draft.installDir, draft.serial, draft.steamAppId, draft.launcher, draft.cloudSaves, draft.saveDirs?.join('|'), draft.title].join('|')
   useEffect(() => {
-    if (step !== 'form' || !draft.path) return setPreview(null)
+    if (step !== 'form' || (!draft.path && !draft.installDir)) return setPreview(null)
     let live = true
     setPreview(undefined)
     const timer = setTimeout(() => {
       api
         .savePreview(draft)
-        .then((p) => live && setPreview(p))
-        .catch(() => live && setPreview(null))
+        .then((p) => live && setPreview(p ?? false))
+        .catch(() => live && setPreview(false))
     }, 400)
     return () => {
       live = false
@@ -190,17 +191,20 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     else set({ [field]: file })
   }
 
+  const found = preview || undefined
   const saveHint = draft.saveDirs?.length
     ? t('Указана вручную: {path}', { path: shortPath(draft.saveDirs[0], 56) })
     : preview === undefined
       ? t('Ищем сохранения…')
-      : preview?.skipped === 'off'
-        ? t('Облако для этой игры выключено')
-        : preview?.dir
-          ? t('Найдена автоматически: {path}', { path: shortPath(preview.dir, 56) })
-          : preview?.registry
-            ? t('Найдены автоматически в реестре Windows')
-            : t('Пока не найдена. Сохранитесь в игре или укажите папку вручную.')
+      : preview === false
+        ? t('Не удалось проверить сохранения. Подробности — в журнале PlayOS.')
+        : found?.skipped === 'off'
+          ? t('Облако для этой игры выключено')
+          : found?.dir
+            ? t('Найдена автоматически: {path}', { path: shortPath(found.dir, 56) })
+            : found?.registry
+              ? t('Найдены автоматически в реестре Windows')
+              : t('Пока не найдена. Сохранитесь в игре или укажите папку вручную.')
 
   const pickInstallDir = async () => {
     const dir = await api.pickFile('folder')
@@ -389,11 +393,11 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                       label="Steam AppID"
                       value={draft.steamAppId ? String(draft.steamAppId) : ''}
                       onChange={(v) => set({ steamAppId: Number(v.replace(/\D/g, '')) || undefined })}
-                      placeholder={preview?.appId ? t('Найден автоматически: {id}', { id: preview.appId }) : t('Не найден — укажите для трофеев Steam')}
+                      placeholder={found?.appId ? t('Найден автоматически: {id}', { id: found.appId }) : t('Не найден — укажите для трофеев Steam')}
                       hint={
                         draft.steamAppId
                           ? t('Указан вручную или взят из Steam при поиске арта.')
-                          : preview?.appId
+                          : found?.appId
                             ? t('Найден в файлах игры (steam_appid.txt и подобных). По нему работают трофеи Steam и поиск сохранений.')
                             : t('Нужен для трофеев Steam. Его можно найти в адресе страницы игры в магазине Steam.')
                       }
@@ -446,7 +450,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                     <div className="setting setting-static">
                       <span className="setting-text">
                         <span className="setting-label">{t('Папка сохранений')}</span>
-                        <span className="setting-hint" title={draft.saveDirs?.[0] ?? preview?.dir}>
+                        <span className="setting-hint" title={draft.saveDirs?.[0] ?? found?.dir}>
                           {saveHint}
                         </span>
                       </span>
