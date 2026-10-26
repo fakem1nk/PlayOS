@@ -1234,21 +1234,114 @@ function notifyTrophies(n: AchievementNotice) {
 }
 
 let checking = false
-/** Раз в минуту проверяем, не получен ли новый трофей в запущенной игре */
+/** Кадр, снятый в момент изменения файла трофеев: ждёт, пока трофей подтвердится */
+let pendingShot: { at: number; jpeg: Buffer } | null = null
+/**
+ * Не получен ли новый трофей в запущенной игре. Раз в минуту, а для игр с файлом трофеев на ПК — сразу,
+ * как файл изменился (см. trophyFileChanged). Возвращает true, если трофей нашёлся.
+ */
 async function checkTrophies() {
   const r = launcher.running()
-  if (!r || checking || r.phase !== 'running') return
+  if (!r || checking || r.phase !== 'running') return false
   const game = findGame(r.gameId)
   const s = getDb().settings
-  if (!game || (!s.trophyPopups && !s.trophyRumble)) return
-  if (game.platform === 'ps2' ? !s.raKey : game.platform === 'pc' ? !s.steamKey : true) return
+  if (!game || (!s.trophyPopups && !s.trophyRumble && !s.trophyShots)) return false
+  if (game.platform === 'ps2' ? !s.raKey : game.platform === 'pc' ? !s.steamKey && !ach.hasLocalTrophies(game) : true) return false
   checking = true
   try {
     const fresh = await ach.newSince(r.gameId)
-    if (fresh.length) notifyTrophies({ gameId: r.gameId, gameTitle: game.title, items: fresh })
+    if (!fresh.length) return false
+    // Снимок старше полуминуты — уже не тот момент
+    const shot = pendingShot && Date.now() - pendingShot.at < 30_000 ? pendingShot.jpeg : undefined
+    pendingShot = null
+    if (shot) {
+      ach.saveShots(r.gameId, fresh, shot)
+      log('INFO', `Снимок трофея: ${fresh.map((a) => a.id).join(', ')}`)
+    }
+    notifyTrophies({ gameId: r.gameId, gameTitle: game.title, items: fresh })
+    return true
   } finally {
     checking = false
   }
+}
+
+/**
+ * Кадр игры для снимка трофея (JPEG до 1920 px). Только когда игра на экране и оверлей закрыт:
+ * иначе в кадр попадёт рабочий стол или сам PlayOS. Делается до показа уведомления.
+ */
+async function captureGameFrame(): Promise<Buffer | undefined> {
+  if (overlayOpen || overlayOpening || !gameInForeground()) return undefined
+  const rect = windowRect(foregroundWindow())
+  if (!rect || rect.width < 320 || rect.height < 240) return undefined
+  const dip = screen.screenToDipRect(null, rect)
+  const display = screen.getDisplayMatching(dip)
+  try {
+    const width = Math.min(1920, Math.round(display.size.width * display.scaleFactor))
+    const height = Math.round((width * display.size.height) / display.size.width)
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width, height } })
+    const src = sources.find((s) => s.display_id === String(display.id))
+    if (!src || src.thumbnail.isEmpty()) return undefined
+    let img = src.thumbnail
+    // Оконная игра — обрезаем по её окну
+    const k = img.getSize().width / display.bounds.width
+    const x = Math.max(0, Math.round((dip.x - display.bounds.x) * k))
+    const y = Math.max(0, Math.round((dip.y - display.bounds.y) * k))
+    const w = Math.min(img.getSize().width - x, Math.round(dip.width * k))
+    const h = Math.min(img.getSize().height - y, Math.round(dip.height * k))
+    if (w > 0 && h > 0 && (w < img.getSize().width - 8 || h < img.getSize().height - 8)) img = img.crop({ x, y, width: w, height: h })
+    // Чёрный кадр: игра в эксклюзивном полноэкранном режиме не отдала картинку — такой снимок не нужен
+    const px = img.resize({ width: 16, height: 16 }).toBitmap()
+    let max = 0
+    for (let i = 0; i < px.length; i += 4) max = Math.max(max, (px[i] + px[i + 1] + px[i + 2]) / 3)
+    if (max < 24) return undefined
+    return img.toJPEG(88)
+  } catch {
+    return undefined
+  }
+}
+
+let confirming = false
+let lastCapture = 0
+/**
+ * Файл трофеев изменился: сразу снимаем кадр, потом подтверждаем трофей. Файл эмулятора читается мгновенно,
+ * а Steam Web API отстаёт от клиента на секунды — поэтому несколько попыток.
+ */
+async function trophyFileChanged() {
+  const s = getDb().settings
+  if (confirming || (!s.trophyPopups && !s.trophyRumble && !s.trophyShots)) return
+  confirming = true
+  try {
+    // Статистика Steam меняется и без трофеев — не снимаем чаще раза в 5 секунд
+    if (s.trophyShots && Date.now() - lastCapture > 5000) {
+      lastCapture = Date.now()
+      const jpeg = await captureGameFrame()
+      if (jpeg) pendingShot = { at: Date.now(), jpeg }
+    }
+    for (const wait of [400, 3000, 10_000]) {
+      await sleep(wait)
+      if (await checkTrophies()) break
+    }
+  } finally {
+    confirming = false
+  }
+}
+
+let trophyWatch: { gameId: string | null; stop?: () => void; gen: number } = { gameId: null, gen: 0 }
+/** Следим за файлами трофеев запущенной игры */
+function syncTrophyWatch() {
+  const id = launcher.running()?.gameId ?? null
+  if (id === trophyWatch.gameId) return
+  trophyWatch.stop?.()
+  const gen = trophyWatch.gen + 1
+  trophyWatch = { gameId: id, gen }
+  pendingShot = null
+  if (!id) return
+  // Без трофеев в кеше первое изменение файла не с чем сравнить — загружаем их заранее
+  void ach.getAchievements(id)
+  void ach.watchTrophies(id, () => void trophyFileChanged()).then((stop) => {
+    if (trophyWatch.gen === gen) trophyWatch.stop = stop
+    else stop()
+  })
 }
 
 /** Все геймпады для пункта управления (без дублей: DSX сам эмулирует Xbox-геймпад) */
@@ -1785,6 +1878,7 @@ app.whenReady().then(() => {
   launcher.events.on('change', () => {
     const r = launcher.running()
     if (!r) keySlot = 1
+    syncTrophyWatch()
     // Игра только что запустилась — подсветка DualSense в цвет игры
     if (r && r.gameId !== litGameId) {
       litGameId = r.gameId
@@ -1826,7 +1920,7 @@ app.whenReady().then(() => {
     syncEcoMode()
   }, 400)
   setInterval(checkBreakReminder, 60_000)
-  setInterval(checkTrophies, 60_000)
+  setInterval(() => void checkTrophies(), 60_000)
   win?.webContents.on('did-finish-load', () => {
     lastPadStatus = ''
     pollPadStatus()

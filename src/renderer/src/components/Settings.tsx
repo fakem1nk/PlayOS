@@ -906,9 +906,15 @@ function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT
       <h2 className="panel-title">{t('Во время игры')}</h2>
       <Toggle
         label={t('Показывать новые трофеи поверх игры')}
-        hint={t('PlayOS проверяет трофеи раз в минуту и показывает уведомление в углу экрана')}
+        hint={t('Steam и файлы эмуляторов Steam — сразу после получения, RetroAchievements — раз в минуту')}
         value={s.trophyPopups}
         onChange={(v) => save({ trophyPopups: v })}
+      />
+      <Toggle
+        label={t('Снимок момента получения')}
+        hint={t('Кадр игры сохраняется рядом с трофеем — его видно в списке трофеев')}
+        value={s.trophyShots}
+        onChange={(v) => save({ trophyShots: v })}
       />
       <ActionRow
         label={t('Проверить подключение')}

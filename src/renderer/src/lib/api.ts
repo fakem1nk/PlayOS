@@ -33,7 +33,9 @@ function createMockApi(): PcsApi {
       description: 'Описание трофея из RetroAchievements или Steam',
       tier,
       rarity: [72, 55, 24, 61, 6, 40, 18, 3][i],
-      earnedAt: i < 4 ? Date.now() - i * 86400000 : undefined
+      earnedAt: i < 4 ? Date.now() - i * 86400000 : undefined,
+      // Снимок момента получения — у первых двух
+      shot: i < 2 ? steam(12200, ['library_hero.jpg', 'header.jpg'][i]) : undefined
     }))
     return { source: 'ra', gameTitle: 'Bully', items, total: items.length, earned: 4, fetchedAt: Date.now() }
   }
@@ -95,6 +97,7 @@ function createMockApi(): PcsApi {
       trophyPopups: true,
       dsxLightbar: true,
       trophyRumble: true,
+      trophyShots: true,
       animatedCovers: true,
       liveBackground: true,
       screensaver: 5,

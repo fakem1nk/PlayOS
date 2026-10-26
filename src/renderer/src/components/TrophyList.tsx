@@ -1,7 +1,8 @@
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Achievement, AchievementResult, Game, RaGame, TrophyTier } from '@shared/types'
 import { api } from '../lib/api'
+import { media } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { TIER_NAMES } from '../lib/trophies'
@@ -26,6 +27,7 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
   const [res, setRes] = useState<AchievementResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [focused, setFocused] = useState<Achievement | null>(null)
+  const [viewing, setViewing] = useState<Achievement | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const load = async (refresh = false) => {
@@ -42,6 +44,7 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
 
   useSpatialNav(ref, {
     priority: 15,
+    active: !viewing,
     onBack: onClose,
     autoFocus: '.trophy-row, .ra-result, .sheet-inner .btn-primary',
     focusKey: `${loading}-${res?.set?.items.length ?? 0}-${res?.needs ?? ''}`,
@@ -131,7 +134,15 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
               {res?.error && <div className="note trophy-warn">{res.error}. {t('Показаны сохранённые данные.')}</div>}
               <div className="trophy-rows">
                 {items.map((a) => (
-                  <TrophyRow key={a.id} a={a} onFocus={() => setFocused(a)} />
+                  <TrophyRow
+                    key={a.id}
+                    a={a}
+                    onFocus={() => setFocused(a)}
+                    onOpen={() => {
+                      play('select')
+                      setViewing(a)
+                    }}
+                  />
                 ))}
               </div>
             </>
@@ -147,21 +158,66 @@ export function TrophyList({ game, onClose, onOpenSettings, onEdit }: Props) {
           ) : (
             <Hint glyph="confirm" label={t('Выбрать')} />
           )}
+          {focused?.shot && <Hint glyph="confirm" label={t('Снимок')} />}
           {set && <Hint glyph="search" label={t('Обновить')} />}
           <Hint glyph="back" label={t('Закрыть')} />
         </footer>
+      </div>
+      <AnimatePresence>{viewing?.shot && <ShotViewer a={viewing} onClose={() => setViewing(null)} />}</AnimatePresence>
+    </motion.div>
+  )
+}
+
+/** Снимок момента получения на весь экран */
+function ShotViewer({ a, onClose }: { a: Achievement; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useSpatialNav(ref, { priority: 16, onBack: onClose, autoFocus: '.shot-close' })
+  return (
+    <motion.div
+      ref={ref}
+      className="shot-viewer"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={onClose}
+    >
+      <motion.img
+        src={media(a.shot, 'screen')}
+        alt=""
+        initial={{ transform: 'scale(0.96)' }}
+        animate={{ transform: 'scale(1)' }}
+        transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+      />
+      <div className="shot-caption">
+        <span className={`trophy-tier tier-${a.tier}`}>
+          <IconTrophy />
+        </span>
+        <span className="trophy-text">
+          <span className="trophy-name">{a.title}</span>
+          {a.earnedAt && <span className="trophy-desc">{t('Получен {v}', { v: dateFmt.format(a.earnedAt) })}</span>}
+        </span>
+        <button data-nav className="btn btn-round shot-close" onClick={onClose} aria-label={t('Закрыть')}>
+          <IconClose />
+        </button>
       </div>
     </motion.div>
   )
 }
 
-function TrophyRow({ a, onFocus }: { a: Achievement; onFocus: () => void }) {
+function TrophyRow({ a, onFocus, onOpen }: { a: Achievement; onFocus: () => void; onOpen: () => void }) {
   const secret = a.hidden && !a.earnedAt
   const icon = a.earnedAt ? a.icon : (a.iconLocked ?? a.icon)
   // Картинка не загрузилась (нет сети, сервер не ответил) — кубок вместо значка битой картинки
   const [broken, setBroken] = useState(false)
   return (
-    <button data-nav className={`trophy-row ${a.earnedAt ? 'is-earned' : ''}`} onFocus={onFocus} onMouseEnter={onFocus}>
+    <button
+      data-nav
+      className={`trophy-row ${a.earnedAt ? 'is-earned' : ''} ${a.shot ? 'has-shot' : ''}`}
+      onFocus={onFocus}
+      onMouseEnter={onFocus}
+      onClick={a.shot ? onOpen : undefined}
+    >
       <span className={`trophy-icon tier-${a.tier}`}>
         {secret ? <span className="trophy-secret">?</span> : icon && !broken ? <img src={icon} alt="" loading="lazy" onError={() => setBroken(true)} /> : <IconTrophy className="trophy-icon-fallback" />}
       </span>
@@ -169,6 +225,7 @@ function TrophyRow({ a, onFocus }: { a: Achievement; onFocus: () => void }) {
         <span className="trophy-name">{secret ? t('Скрытый трофей') : a.title}</span>
         <span className="trophy-desc">{secret ? t('Продолжайте играть, чтобы узнать, что это за трофей') : a.description}</span>
       </span>
+      {a.shot && <img className="trophy-shot" src={media(a.shot, 'tile')} alt="" loading="lazy" />}
       <span className={`trophy-tier tier-${a.tier}`} title={TIER_NAMES[a.tier]}>
         <IconTrophy />
       </span>

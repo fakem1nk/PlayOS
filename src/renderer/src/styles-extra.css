@@ -635,6 +635,50 @@
   color: var(--tier);
 }
 
+/* Снимок момента получения: миниатюра в строке и просмотр на весь экран */
+.trophy-row.has-shot {
+  grid-template-columns: 6.4rem minmax(0, 1fr) auto auto;
+}
+
+.trophy-shot {
+  width: 11.2rem;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.8rem;
+}
+
+.shot-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.4rem;
+  padding: 6rem 8rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2rem);
+}
+
+.shot-viewer img {
+  max-width: 100%;
+  max-height: calc(100% - 9rem);
+  border-radius: 1.6rem;
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.5);
+}
+
+.shot-caption {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  min-width: 0;
+}
+
+.shot-caption .trophy-tier {
+  color: var(--tier);
+}
+
 .trophy-detail-hint {
   color: var(--ink);
 }

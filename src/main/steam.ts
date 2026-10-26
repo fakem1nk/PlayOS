@@ -38,7 +38,7 @@ export function parseVdf(text: string): Vdf {
   return obj()
 }
 
-function steamRoot(): Promise<string | null> {
+export function steamRoot(): Promise<string | null> {
   return new Promise((resolve) => {
     execFile('reg', ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'SteamPath'], { windowsHide: true }, (err, out) => {
       const fromReg = !err ? /SteamPath\s+REG_SZ\s+(.+)/i.exec(out)?.[1]?.trim() : undefined

@@ -46,6 +46,7 @@ const defaultSettings = (): Settings => ({
   trophyPopups: true,
   dsxLightbar: true,
   trophyRumble: true,
+  trophyShots: true,
   animatedCovers: true,
   liveBackground: true,
   screensaver: 5,

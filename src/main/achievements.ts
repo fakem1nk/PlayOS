@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Achievement, AchievementResult, AchievementSet, AchievementSummaryItem, Game, RaGame, Settings, TrophyTier } from '@shared/types'
 import { httpFetch } from './http'
-import { findGame, getDb, saveDb } from './store'
+import { artDir, findGame, getDb, saveDb } from './store'
+import { steamRoot } from './steam'
 import { detectAppId } from './cloud/locate'
 import { t } from '@shared/i18n'
 
@@ -340,9 +341,10 @@ export function parseEmuAchievements(text: string, json: boolean): Map<string, n
   return out
 }
 
-/** Файл эмулятора с достижениями этой игры, если он есть на ПК */
-function findEmuFile(appid: number, game: Game): { name: string; file: string } | null {
+/** Все места, где эмуляторы Steam хранят достижения этой игры (файлов может и не быть) */
+function emuCandidates(appid: number, game: Game): { name: string; file: string }[] {
   const gameDir = game.installDir || path.dirname(game.path)
+  const out: { name: string; file: string }[] = []
   for (const e of EMU_FILES) {
     let file = e.file.replaceAll('{id}', String(appid))
     if (file.startsWith('{game}')) file = path.join(gameDir, file.slice(7))
@@ -352,9 +354,14 @@ function findEmuFile(appid: number, game: Game): { name: string; file: string } 
       if (!root) continue
       file = path.join(root, file.slice(token.length))
     }
-    if (fs.existsSync(file)) return { name: e.name, file }
+    out.push({ name: e.name, file })
   }
-  return null
+  return out
+}
+
+/** Файл эмулятора с достижениями этой игры, если он есть на ПК */
+function findEmuFile(appid: number, game: Game): { name: string; file: string } | null {
+  return emuCandidates(appid, game).find((e) => fs.existsSync(e.file)) ?? null
 }
 
 // Схема и редкость нужны и уведомлениям во время игры (проверка раз в минуту) — держим их в памяти
@@ -467,6 +474,10 @@ async function fetchSteam(appid: number, s: Settings): Promise<AchievementSet> {
 // ───────────────────────── Общий вход ─────────────────────────
 
 export async function getAchievements(gameId: string, refresh = false): Promise<AchievementResult> {
+  return withShots(gameId, await loadAchievements(gameId, refresh))
+}
+
+async function loadAchievements(gameId: string, refresh: boolean): Promise<AchievementResult> {
   const game = findGame(gameId)
   if (!game) return { error: t('Игра не найдена') }
   const s = getDb().settings
@@ -533,6 +544,80 @@ export async function linkRaGame(gameId: string, raId: number) {
   game.raGameId = raId
   saveDb()
   return getAchievements(gameId, true)
+}
+
+// ───────────────────────── Мгновенные трофеи и снимки ─────────────────────────
+
+/** У игры есть файл эмулятора Steam: трофеи читаются локально, ключ Steam не нужен */
+export const hasLocalTrophies = (game: Game) => game.platform === 'pc' && game.launcher !== 'steam' && !!game.steamAppId && !!findEmuFile(game.steamAppId, game)
+
+/**
+ * Следим за файлами, которые меняются в момент получения достижения: файл эмулятора Steam у сборок не из Steam
+ * или статистика клиента Steam (appcache/stats/UserGameStats_<аккаунт>_<appid>.bin). У RetroAchievements
+ * локального файла нет — PS2 по-прежнему проверяется раз в минуту.
+ */
+export async function watchTrophies(gameId: string, onChange: () => void): Promise<() => void> {
+  const game = findGame(gameId)
+  const appid = game?.platform === 'pc' ? game.steamAppId || detectSteamAppId(game) : undefined
+  if (!game || !appid) return () => {}
+  const stops: (() => void)[] = []
+  if (game.launcher === 'steam') {
+    const root = await steamRoot()
+    const dir = root ? path.join(root, 'appcache', 'stats') : ''
+    const name = new RegExp(`^UserGameStats_\\d+_${appid}\\.bin$`, 'i')
+    if (dir && fs.existsSync(dir)) {
+      try {
+        const w = fs.watch(dir, { persistent: false }, (_e, f) => f && name.test(String(f)) && onChange())
+        w.on('error', () => w.close())
+        stops.push(() => w.close())
+      } catch {
+        /* папку не дали отслеживать — останется проверка раз в минуту */
+      }
+    }
+  } else {
+    // Файла может ещё не быть (он появляется с первым достижением) — watchFile замечает и его создание
+    for (const { file } of emuCandidates(appid, game)) {
+      const fn = (cur: fs.Stats, prev: fs.Stats) => {
+        if (cur.mtimeMs > 0 && cur.mtimeMs !== prev.mtimeMs) onChange()
+      }
+      fs.watchFile(file, { interval: 1000, persistent: false }, fn)
+      stops.push(() => fs.unwatchFile(file, fn))
+    }
+  }
+  return () => stops.forEach((stop) => stop())
+}
+
+const shotDir = (gameId: string) => path.join(artDir(gameId), 'trophies')
+const shotFile = (gameId: string, id: string) => path.join(shotDir(gameId), id.replace(/[^\w.-]/g, '_') + '.jpg')
+
+/** Кадр момента получения: один снимок на все трофеи, полученные разом */
+export function saveShots(gameId: string, items: Achievement[], jpeg: Buffer) {
+  try {
+    fs.mkdirSync(shotDir(gameId), { recursive: true })
+    for (const a of items) {
+      const file = shotFile(gameId, a.id)
+      fs.writeFileSync(file, jpeg)
+      a.shot = file
+    }
+  } catch {
+    /* диск занят или полон — трофей покажем без снимка */
+  }
+}
+
+/** Подставляем сохранённые снимки (в кеше их нет: файлы — источник правды) */
+function withShots(gameId: string, res: AchievementResult): AchievementResult {
+  if (!res.set) return res
+  let names: Set<string>
+  try {
+    names = new Set(fs.readdirSync(shotDir(gameId)))
+  } catch {
+    return res
+  }
+  const items = res.set.items.map((a) => {
+    const file = shotFile(gameId, a.id)
+    return a.earnedAt && names.has(path.basename(file)) ? { ...a, shot: file } : a
+  })
+  return { ...res, set: { ...res.set, items } }
 }
 
 /** Свежие трофеи, полученные с прошлой проверки (для уведомлений во время игры) */

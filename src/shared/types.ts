@@ -136,6 +136,8 @@ export interface Settings {
   dsxLightbar: boolean
   /** Вибрация геймпада при новом трофее */
   trophyRumble: boolean
+  /** Сохранять кадр игры в момент получения трофея */
+  trophyShots: boolean
   /** Проигрывать анимированные обложки на плитке в фокусе */
   animatedCovers: boolean
   /** Живой фон: беззвучный трейлер или анимированный фон игры, если задержаться на ней */
@@ -593,6 +595,8 @@ export interface Achievement {
   points?: number
   tier: TrophyTier
   hidden?: boolean
+  /** Кадр игры в момент получения (файл в папке арта игры) */
+  shot?: string
 }
 
 export interface AchievementSet {
