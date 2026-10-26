@@ -928,16 +928,35 @@ p {
   opacity: 0.45;
 }
 
-/* Стрелка — зона клика крупнее самого значка; под мышью ярче */
-.cycler-arrow {
-  display: grid;
-  place-items: center;
-  margin: -1rem -0.6rem;
-  padding: 1rem 0.6rem;
+/* Блок значения — две половины для мыши: левая назад, правая вперёд; стрелка своей половины под мышью ярче.
+   Половины выступают за блок по высоте, чтобы попадать было легко */
+.cycler {
+  position: relative;
   cursor: pointer;
 }
 
-.cycler-arrow:hover svg {
+.cycler-half {
+  position: absolute;
+  top: -1.4rem;
+  bottom: -1.4rem;
+  width: 50%;
+}
+
+.cycler-half.is-left {
+  left: 0;
+}
+
+.cycler-half.is-right {
+  right: 0;
+}
+
+.cycler-arrow {
+  display: grid;
+  place-items: center;
+}
+
+.cycler:has(.cycler-half.is-left:hover) .cycler-arrow.is-left svg,
+.cycler:has(.cycler-half.is-right:hover) .cycler-arrow.is-right svg {
   opacity: 1;
 }
 

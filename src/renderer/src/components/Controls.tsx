@@ -66,16 +66,19 @@ export function Cycler<T extends string>({
         <span className="setting-label">{label}</span>
         {hint && <span className="setting-hint">{hint}</span>}
       </span>
-      <span className="cycler">
-        {/* Стрелки — свои зоны клика мышью (кнопку в кнопку не вложить); геймпад и клавиатура листают через data-adjust */}
-        <span
-          className="cycler-arrow"
-          aria-hidden
-          onClick={(e) => {
-            e.stopPropagation()
-            step(-1)
-          }}
-        >
+      {/* Мышью блок значения делится пополам: левая половина листает назад, правая — вперёд, попадать в стрелку не нужно.
+          Геймпад и клавиатура листают через data-adjust */}
+      <span
+        className="cycler"
+        onClick={(e) => {
+          e.stopPropagation()
+          const r = e.currentTarget.getBoundingClientRect()
+          step(e.clientX < r.left + r.width / 2 ? -1 : 1)
+        }}
+      >
+        <span className="cycler-half is-left" aria-hidden />
+        <span className="cycler-half is-right" aria-hidden />
+        <span className="cycler-arrow is-left">
           <IconChevron dir="left" />
         </span>
         <span className="cycler-value">
@@ -83,14 +86,7 @@ export function Cycler<T extends string>({
             {options[i].label}
           </span>
         </span>
-        <span
-          className="cycler-arrow"
-          aria-hidden
-          onClick={(e) => {
-            e.stopPropagation()
-            step(1)
-          }}
-        >
+        <span className="cycler-arrow is-right">
           <IconChevron />
         </span>
       </span>
