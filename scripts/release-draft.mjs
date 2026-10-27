@@ -1,6 +1,6 @@
 // Создаёт черновик релиза v<версия> на GitHub до загрузки файлов.
 // Иначе electron-builder грузит файлы параллельно и может создать два черновика вместо одного.
-// Описание берётся из scripts/notes/<версия>.md, версии до 1.0.0 помечаются как pre-release.
+// Описание берётся из scripts/notes/<версия>.md. Pre-release (бета) — версии до 1.0.0 и с суффиксом: 1.1.0-beta.1.
 import { existsSync, readFileSync } from 'node:fs'
 
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -14,7 +14,7 @@ const headers = { Authorization: `Bearer ${token}`, 'User-Agent': 'PlayOS-releas
 const tag = `v${version}`
 const notesFile = new URL(`./notes/${version}.md`, import.meta.url)
 const body = existsSync(notesFile) ? readFileSync(notesFile, 'utf8') : ''
-const prerelease = Number(version.split('.')[0]) < 1
+const prerelease = Number(version.split('.')[0]) < 1 || version.includes('-')
 
 const list = await (await fetch(`${api}?per_page=50`, { headers })).json()
 if (!Array.isArray(list)) {
