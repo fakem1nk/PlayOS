@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { PLATFORM_NAMES, type AchievementSummaryItem, type Game, type GameDetails, type GameFiles, type RunningGame } from '@shared/types'
+import { platformName, type AchievementSummaryItem, type Game, type GameDetails, type GameFiles, type RunningGame } from '@shared/types'
 import { api } from '../lib/api'
 import { accentOf, bytes, lastPlayed, media, playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
@@ -120,7 +120,7 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
               <h1 className="gp-title">{game.title}</h1>
             )}
             <div className="gp-meta">
-              <span>{PLATFORM_NAMES[game.platform]}</span>
+              <span>{platformName(game)}</span>
               <span>{playtime(played)}</span>
               <span>{isRunning ? t('Запущена сейчас') : t('Последний запуск: {v}', { v: lastPlayed(game.lastPlayed).toLowerCase() })}</span>
               {!game.path && <span className="gp-missing">{t('Не установлена на этом ПК')}</span>}

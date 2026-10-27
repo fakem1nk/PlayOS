@@ -9,6 +9,7 @@ import { play, previewVolume } from '../lib/sound'
 import { ActionRow, BrowseButton, Cycler, Disclosure, Field, Toggle } from './Controls'
 import { SystemInfoDialog } from './SystemInfoDialog'
 import { CloudPanel } from './Cloud'
+import { VrPanel } from './VrPanel'
 import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
 import { gamesCount } from '../lib/format'
@@ -16,7 +17,7 @@ import { THEMES, themeName } from '../lib/theme'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconGrid, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
 import { getLang, locale, t } from '@shared/i18n'
 
-type Section = 'library' | 'emulators' | 'cloud' | 'trophies' | 'display' | 'appearance' | 'gamepad' | 'general' | 'data'
+type Section = 'library' | 'emulators' | 'vr' | 'cloud' | 'trophies' | 'display' | 'appearance' | 'gamepad' | 'general' | 'data'
 /**
  * Три группы по смыслу: всё про игры, всё, что видно и слышно в интерфейсе, и сама система.
  * Подразделы в меню видны всегда — вся карта настроек перед глазами.
@@ -28,6 +29,7 @@ const GROUPS: { label: string; icon: ReactNode; sections: { id: Section; label: 
     sections: [
       { id: 'library', label: t('Библиотека') },
       { id: 'emulators', label: t('Эмуляторы') },
+      { id: 'vr', label: 'VR' },
       { id: 'cloud', label: t('Облако') },
       { id: 'trophies', label: t('Трофеи') }
     ]
@@ -203,6 +205,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
         >
           {section === 'cloud' && <CloudPanel s={s} save={save} />}
+          {section === 'vr' && <VrPanel />}
 
           {section === 'library' && (
             <>

@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { PLATFORM_NAMES, type Game } from '@shared/types'
+import { platformName, type Game } from '@shared/types'
 import { hueOf, media } from '../lib/format'
 import { t } from '@shared/i18n'
-import { IconPlatform } from './Icons'
+import { IconPlatform, IconVr } from './Icons'
 
 /** Разрешены ли анимированные обложки (настройка «Анимированные обложки») */
 export const AnimatedCoversContext = createContext(true)
@@ -38,7 +38,7 @@ export function Cover({ game, animate = false }: { game: Game; animate?: boolean
       <div className="cover-fallback" style={{ '--hue': hueOf(game) } as React.CSSProperties}>
         {game.icon && <img className="cover-icon" src={media(game.icon)} alt="" />}
         <span className="cover-title">{game.title}</span>
-        <span className="cover-platform">{PLATFORM_NAMES[game.platform]}</span>
+        <span className="cover-platform">{platformName(game)}</span>
       </div>
     )
 
@@ -80,8 +80,8 @@ export function Tile({ game, focused, animate, running, onClick, className = '',
     >
       <div className="tile-art">
         <Cover game={game} animate={animate ?? focused} />
-        <span className="tile-platform" title={PLATFORM_NAMES[game.platform]} aria-label={PLATFORM_NAMES[game.platform]}>
-          <IconPlatform platform={game.platform} />
+        <span className="tile-platform" title={platformName(game)} aria-label={platformName(game)}>
+          {game.vr ? <IconVr /> : <IconPlatform platform={game.platform} />}
         </span>
         {running && <span className="tile-live" title={t('Запущена')} />}
       </div>

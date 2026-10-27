@@ -396,6 +396,15 @@ export async function inspectPc(file: string, artTmpDir: string): Promise<Inspec
       /* оставим как есть */
     }
   }
+  // Source 2 (Half-Life: Alyx, CS2, Dota 2): настоящий EXE лежит в game\bin\win64 и грузит engine2.dll рядом с собой.
+  // Копия в корне игры (так делают некоторые сборки) не запускается — «Failed to load the engine2 DLL»
+  const source2 = path.join(path.dirname(exe), 'game', 'bin', 'win64', path.basename(exe))
+  if (path.extname(exe).toLowerCase() === '.exe' && fs.existsSync(source2)) {
+    exe = source2
+    res.path = source2
+  }
+  // Half-Life: Alyx включает VR только с -vr (его добавляет Steam); без него игра открывается в окне на мониторе
+  if (path.basename(exe).toLowerCase() === 'hlvr.exe' && !res.args) res.args = '-vr'
   let dir = path.dirname(exe)
   while (GENERIC_DIRS.test(path.basename(dir)) && path.dirname(dir) !== dir) dir = path.dirname(dir)
   const fromDir = path.basename(dir)

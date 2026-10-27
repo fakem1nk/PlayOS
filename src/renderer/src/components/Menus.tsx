@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useRef, useState, type ReactNode } from 'react'
-import { PLATFORM_NAMES, type Game, type PowerAction, type RunningGame } from '@shared/types'
+import { platformName, type Game, type PowerAction, type RunningGame } from '@shared/types'
 import { api } from '../lib/api'
 import { playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
@@ -177,7 +177,7 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
           <div>
             <div className="side-game-title">{game.title}</div>
             <div className="side-game-sub">
-              {PLATFORM_NAMES[game.platform]}, {playtime(game.playtime).toLowerCase()}
+              {platformName(game)}, {playtime(game.playtime).toLowerCase()}
             </div>
           </div>
         </div>

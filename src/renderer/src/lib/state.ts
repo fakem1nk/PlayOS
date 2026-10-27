@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import type { AppState, PadStatus } from '@shared/types'
+import type { AppState, PadStatus, QuestStatus } from '@shared/types'
 import { api } from './api'
 import { setSoundEnabled, setVolume } from './sound'
 import { setTheme } from './theme'
@@ -37,6 +37,16 @@ export function usePadStatus() {
     return api.onPadStatus(setStatus)
   }, [])
   return status
+}
+
+/** VR-шлем для верхней панели: подключение, способ связи и заряд */
+export function useVrQuest() {
+  const [quest, setQuest] = useState<QuestStatus | null>(null)
+  useEffect(() => {
+    api.vrQuest().then(setQuest)
+    return api.onVrQuest(setQuest)
+  }, [])
+  return quest
 }
 
 export function useNow(interval: number, enabled = true) {

@@ -7,14 +7,15 @@ import { IconPlus } from './Icons'
 import { Tile } from './Tile'
 import { locale, t } from '@shared/i18n'
 
-type Filter = 'all' | Platform | 'favorite'
+type Filter = 'all' | Platform | 'vr' | 'favorite'
 type Sort = 'recent' | 'name' | 'time'
 
-const FILTERS: { id: Filter; label: string }[] = [
+const ALL_FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: t('Все') },
   { id: 'pc', label: 'PC' },
   { id: 'ps2', label: 'PS2' },
   { id: 'ps3', label: 'PS3' },
+  { id: 'vr', label: 'VR' },
   { id: 'favorite', label: t('Избранное') }
 ]
 const SORTS: { id: Sort; label: string }[] = [
@@ -95,9 +96,13 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
   const gridRef = useRef<HTMLDivElement>(null)
   const COLS = useGridColumns(gridRef, games.length > 0)
 
+  // Фильтр «VR» — только когда в библиотеке есть VR-игры
+  const hasVr = games.some((g) => g.vr)
+  const filters = useMemo(() => (hasVr ? ALL_FILTERS : ALL_FILTERS.filter((f) => f.id !== 'vr')), [hasVr])
+
   const list = useMemo(() => {
     const filtered = games.filter((g) =>
-      filter === 'all' ? true : filter === 'favorite' ? g.favorite : g.platform === filter
+      filter === 'all' ? true : filter === 'favorite' ? g.favorite : filter === 'vr' ? !!g.vr : g.platform === filter
     )
     const collator = new Intl.Collator(locale())
     return filtered.sort((a, b) =>
@@ -111,7 +116,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
 
   const idx = Math.min(index, Math.max(0, list.length - 1))
   const focused = list[idx] ?? null
-  const chipCount = FILTERS.length + 1
+  const chipCount = filters.length + 1
 
   useEffect(() => {
     if (active) onFocusGame(zone === 'grid' ? focused : null)
@@ -131,8 +136,8 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
   }, [idx, zone])
 
   const cycleFilter = (d: number) => {
-    const i = FILTERS.findIndex((f) => f.id === filter)
-    const next = FILTERS[(i + d + FILTERS.length) % FILTERS.length]
+    const i = filters.findIndex((f) => f.id === filter)
+    const next = filters[(i + d + filters.length) % filters.length]
     play('move')
     setFilter(next.id)
     setIndex(0)
@@ -152,11 +157,11 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
           if (next === chip) return
           play('move')
           setChip(next)
-          if (next < FILTERS.length) {
-            setFilter(FILTERS[next].id)
+          if (next < filters.length) {
+            setFilter(filters[next].id)
             setIndex(0)
           }
-        } else if (a === 'confirm' && chip === FILTERS.length) {
+        } else if (a === 'confirm' && chip === filters.length) {
           play('toggle')
           setSort(SORTS[(SORTS.findIndex((s) => s.id === sort) + 1) % SORTS.length].id)
         } else if (a === 'down' && list.length) {
@@ -176,7 +181,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
         if (idx >= COLS) move(idx - COLS)
         else {
           play('move')
-          setChip(FILTERS.findIndex((f) => f.id === filter))
+          setChip(filters.findIndex((f) => f.id === filter))
           setZone('chips')
         }
       } else if (a === 'confirm') {
@@ -208,7 +213,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
     <div className="library">
       <div className="library-head">
         <div className="chips">
-          {FILTERS.map((f, i) => (
+          {filters.map((f, i) => (
             <button
               key={f.id}
               tabIndex={-1}
@@ -224,7 +229,7 @@ export function Library({ games, running, active, onFocusGame, onExitTop, onLaun
           <span className="chips-sep" />
           <button
             tabIndex={-1}
-            className={`chip chip-sort ${chipsZone && chip === FILTERS.length ? 'is-focused' : ''}`}
+            className={`chip chip-sort ${chipsZone && chip === filters.length ? 'is-focused' : ''}`}
             onClick={() => setSort(SORTS[(SORTS.findIndex((s) => s.id === sort) + 1) % SORTS.length].id)}
           >
             {t('Сортировка: {sort}', { sort: sortLabel })}

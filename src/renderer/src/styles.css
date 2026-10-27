@@ -1850,3 +1850,70 @@ p {
   display: flex;
   gap: 1rem;
 }
+
+/* Верхняя панель: VR-шлем и его контроллеры — одна капсула */
+.vr-status {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  height: 4.2rem;
+  padding: 0 1.6rem 0 1.4rem;
+  border-radius: 2.1rem;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.vr-device {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 2.4rem;
+  transition: opacity 0.4s ease;
+}
+
+.vr-device.is-idle {
+  opacity: 0.45;
+}
+
+.vr-charge {
+  font-size: 1.55rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--mist);
+}
+
+.vr-device.is-low .vr-charge {
+  color: #ffc46b;
+}
+
+.vr-device.is-empty .vr-charge {
+  color: var(--danger);
+}
+
+.vr-headset {
+  display: grid;
+  font-size: 2.8rem;
+}
+
+/* Способ связи (Wi-Fi или кабель) — маленький приглушённый значок между шлемом и зарядом */
+.vr-link {
+  display: grid;
+  margin-left: -0.2rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+/* Настройки → VR: шлем подключён */
+.vr-dot {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-right: 0.6rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.vr-dot.is-on {
+  background: #4fd08a;
+  box-shadow: 0 0 1rem rgba(79, 208, 138, 0.7);
+}

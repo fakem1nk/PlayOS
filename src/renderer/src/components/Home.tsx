@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
-import { PLATFORM_NAMES, type AchievementSummaryItem, type Game, type RunningGame } from '@shared/types'
+import { platformName, type AchievementSummaryItem, type Game, type RunningGame } from '@shared/types'
 import { gamesCount, lastPlayed, media, playtime, timer } from '../lib/format'
 import { useInputLayer } from '../lib/input'
 import { useNow } from '../lib/state'
@@ -323,7 +323,7 @@ function GameInfo({ game, running, trophies }: { game: Game; running: RunningGam
         </div>
         <div className="stat">
           <dt>{t('Платформа')}</dt>
-          <dd>{PLATFORM_NAMES[game.platform]}</dd>
+          <dd>{platformName(game)}</dd>
         </div>
         {trophies && trophies.total > 0 && (
           <div className="stat">

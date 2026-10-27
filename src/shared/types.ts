@@ -6,6 +6,9 @@ export const PLATFORM_NAMES: Record<Platform, string> = {
   ps3: 'PlayStation 3'
 }
 
+/** Платформа для подписей: у VR-игр — «PC · VR» */
+export const platformName = (g: { platform: Platform; vr?: unknown }) => PLATFORM_NAMES[g.platform] + (g.vr ? ' · VR' : '')
+
 export interface Session {
   start: number
   duration: number // секунды
@@ -64,6 +67,67 @@ export interface Game {
   resetAt?: number
   /** Откуда скачан арт (ссылки): в облако уходят только они, другой ПК скачает арт сам */
   artSrc?: Partial<Record<'cover' | 'coverAnimated' | 'hero' | 'logo' | 'icon', string>>
+  /** Есть — это VR-игра: перед запуском PlayOS ставит рантайм и пишет opencomposite.ini */
+  vr?: GameVr
+}
+
+// ── VR ──
+
+/** VR-API, найденные в папке игры по их DLL */
+export type VrApiKind = 'openvr' | 'openxr' | 'oculus'
+
+/** Настройки игры в шлеме — пишутся в opencomposite.ini в рабочей папке игры */
+export interface OcSettings {
+  /** Чёткость: множитель разрешения рендера, 1.0 = 100% */
+  supersampleRatio: number
+  renderCustomHands: boolean
+  haptics: boolean
+}
+
+export const OC_DEFAULTS: OcSettings = {
+  supersampleRatio: 1,
+  renderCustomHands: true,
+  haptics: true
+}
+
+export interface GameVr {
+  /** undefined — ещё не проверяли */
+  apis?: VrApiKind[]
+  /** Режим совместимости: игра, которая не идёт через OpenComposite, запускается через SteamVR */
+  compat?: boolean
+  /** Свои настройки; нет — значения по умолчанию */
+  oc?: OcSettings
+  /** Игра упала в первые секунды через OpenComposite: время сбоя и код выхода */
+  crash?: { at: number; code: number | null }
+}
+
+export interface QuestStatus {
+  /** Шлем хоть раз подключался к этому ПК */
+  found: boolean
+  connected: boolean
+  model?: string
+  /** Кабель (Link) или Wi-Fi (Air Link) */
+  link?: 'cable' | 'air'
+  /** Заряд в процентах */
+  battery?: number
+  left?: number
+  right?: number
+  /** Контроллер уснул без движения: заряд — последний известный */
+  leftIdle?: boolean
+  rightIdle?: boolean
+}
+
+export interface VrStatus {
+  /** VR-компонент (OpenComposite) */
+  oc: { installed: boolean; installedAt?: number }
+  /** Активный OpenXR-рантайм — Meta Horizon Link: без него шлем через Link не заработает */
+  meta: boolean
+  quest: QuestStatus
+}
+
+export interface VrResult {
+  ok: boolean
+  error?: string
 }
 
 /** Черновик из редактора. Поля арта могут быть http-ссылками — main скачает их при сохранении. */
@@ -560,6 +624,15 @@ export interface PcsApi {
   scanSteam(): Promise<SteamLibraryGame[]>
   importSteam(appIds: number[]): Promise<number>
   onImportProgress(cb: (p: ImportProgress) => void): () => void
+  // ── VR ──
+  vrStatus(): Promise<VrStatus>
+  /** Шлем для верхней панели; дальше изменения приходят в onVrQuest */
+  vrQuest(): Promise<QuestStatus>
+  onVrQuest(cb: (q: QuestStatus) => void): () => void
+  /** Скачать или обновить VR-компонент; прогресс — 0..1 */
+  vrInstallOc(): Promise<VrResult>
+  vrCheckOc(): Promise<{ update: boolean; error?: string }>
+  onVrProgress(cb: (p: number) => void): () => void
 }
 
 // ───────────── Пункт управления ─────────────

@@ -49,6 +49,7 @@ import { dsxStatus, flashLightbar, holdLightbar, pulseLightbar, startDsx } from 
 import { hidControllers, hidStatus, rescanHid, startHid } from './hid'
 import * as launcher from './launcher'
 import * as media from './media'
+import * as vr from './vr'
 import { enablePineInIni, listSlots, pcsx2Config, slotTime, type Pcsx2Config } from './pcsx2'
 import { pineGameId, pineLoad, pineSave, pineStatus } from './pine'
 import { artDir, dataDir, findGame, getDb, loadDb, saveDb, saveDbNow, setDevice } from './store'
@@ -130,6 +131,8 @@ let overlayOpenedAt = 0
 let focusRetries = 0
 /** Текущее сохранение из редактора — его можно отменить */
 let editorSave: AbortController | null = null
+/** Последний запуск VR-игры: шёл ли он через OpenComposite — для учёта сбоя на старте */
+let vrLaunch: { gameId: string; viaOc: boolean } | null = null
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const alive = (w: BrowserWindow | null): w is BrowserWindow => !!w && !w.isDestroyed()
@@ -933,6 +936,17 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
     if (existing) delete existing.accent
   }
 
+  // VR: игра перестала быть VR — убираем наш opencomposite.ini; сменился файл — API игры проверяем заново
+  if (!game.vr) {
+    delete game.vr
+    if (existing?.vr) {
+      vr.forgetVr(existing)
+      delete existing.vr
+    }
+  } else if (existing?.path !== game.path || existing?.installDir !== game.installDir) {
+    game.vr = { ...game.vr, apis: undefined }
+  }
+
   // Время правки — для слияния библиотеки между ПК
   game.updatedAt = Date.now()
   if (existing) Object.assign(existing, game)
@@ -940,7 +954,19 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
   saveDbNow()
   cleanupArt(game)
   broadcast()
-  return existing ?? game
+  const saved = existing ?? game
+  if (saved.vr && !saved.vr.apis) void detectVrApis(saved)
+  return saved
+}
+
+/** Какие VR-API в папке игры — в фоне, после сохранения */
+async function detectVrApis(g: Game) {
+  if (!g.vr || !g.path) return
+  const apis = await vr.detectApis(g.path, g.installDir)
+  if (!g.vr) return
+  g.vr.apis = apis
+  saveDb()
+  broadcast()
 }
 
 /**
@@ -1436,8 +1462,16 @@ function registerIpc() {
       const conflict = await sync.beforeLaunch(game)
       if (conflict) return { ok: false, conflict }
     }
+    // VR-игра: сначала нужный рантайм (PlayOS VR или SteamVR) и opencomposite.ini
+    let viaOc = false
+    if (game.vr && !launcher.running()) {
+      const prep = await vr.prepareLaunch(game, (text) => toast(game.title, text))
+      if (!prep.ok) return { ok: false, error: prep.error }
+      viaOc = !!prep.viaOc
+    }
     const res = await launcher.launchGame(game, getDb().settings)
     log(res.ok ? 'INFO' : 'WARN', `Запуск «${game.title}» (${game.platform})${res.ok ? '' : `: ${res.error}`}`)
+    if (res.ok && game.vr) vrLaunch = { gameId: game.id, viaOc }
     if (res.ok) {
       placeGameWindows(game)
       if (launchTimer) clearTimeout(launchTimer)
@@ -1566,6 +1600,11 @@ function registerIpc() {
     return disc ? [disc, ...found] : found
   })
   ipcMain.handle('scan:ps2', () => scanPs2Folder())
+  // VR
+  ipcMain.handle('vr:status', () => vr.vrStatus())
+  ipcMain.handle('vr:quest', () => vr.questLive())
+  ipcMain.handle('vr:installOc', (e) => vr.installOc((p) => e.sender.send('vr-progress', p)))
+  ipcMain.handle('vr:checkOc', () => vr.checkOcUpdate())
   ipcMain.handle('scan:rpcs3', () => importRpcs3())
   // ── Облако ──
   const cloudChanged = () => send('cloud-status', sync.status())
@@ -1857,6 +1896,29 @@ app.whenReady().then(() => {
   // Игры, добавленные до 0.6.1, ещё без цвета обложки — считаем один раз, не задерживая старт
   setTimeout(backfillAccents, 1500)
   setTimeout(pruneThumbs, 60_000)
+  vr.migrateStandalone()
+  // Шлем в верхней панели: шлём только изменения (подключение, способ связи, заряд)
+  let lastQuest = ''
+  setInterval(() => {
+    const q = vr.questLive()
+    const key = JSON.stringify(q)
+    if (key !== lastQuest) {
+      lastQuest = key
+      send('vr-quest', q)
+    }
+  }, 5000)
+  // VR-игры, у которых ещё не определены API (добавлены из облака или старой версией)
+  for (const g of getDb().games) if (g.vr && !g.vr.apis) void detectVrApis(g)
+
+  // VR: процесс игры, запущенной через OpenComposite, закрылся сразу и с ошибкой — сбой на старте
+  launcher.events.on('child-exit', (e: { gameId: string; code: number | null; ms: number }) => {
+    if (vrLaunch?.gameId !== e.gameId) return
+    const g = findGame(e.gameId)
+    if (!g || !vr.recordExit(g, e.code, e.ms, vrLaunch.viaOc)) return
+    if (g.vr?.crash) toast(t('«{title}» закрылась на старте', { title: g.title }), t('Включите режим совместимости в «Изменить» и запустите снова.'))
+    saveDb()
+    broadcast()
+  })
 
   launcher.events.on('change', () => {
     const r = launcher.running()

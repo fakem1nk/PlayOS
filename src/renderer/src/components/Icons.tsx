@@ -243,6 +243,31 @@ export const IconBackspace = (p: P) => (
     <path d="m12 9.5 5 5M17 9.5l-5 5" />
   </svg>
 )
+/** VR-шлем в стиле Quest 3: скруглённый корпус, вырез под нос и три камеры спереди */
+export const IconVr = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M7 6.5h10a4.5 4.5 0 0 1 4.5 4.5v1.6a4.5 4.5 0 0 1-4.5 4.5h-2.3a2 2 0 0 1-1.6-.8l-.5-.7a.8.8 0 0 0-1.2 0l-.5.7a2 2 0 0 1-1.6.8H7a4.5 4.5 0 0 1-4.5-4.5V11A4.5 4.5 0 0 1 7 6.5Z" />
+    <circle cx="7.2" cy="10.6" r=".95" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="10.6" r=".95" fill="currentColor" stroke="none" />
+    <circle cx="16.8" cy="10.6" r=".95" fill="currentColor" stroke="none" />
+  </svg>
+)
+/** Контроллер Touch Plus (без кольца): голова со стиком и кнопкой, рукоять. Левый — зеркальная копия правого */
+export const IconVrController = ({ side = 'right', ...p }: P & { side?: 'left' | 'right' }) => (
+  <svg {...base(p)}>
+    <g transform={side === 'left' ? 'translate(24 0) scale(-1 1)' : undefined}>
+      <path d="M10 3.5h5.5a4 4 0 0 1 0 8H14l-3.4 8a2 2 0 0 1-3.7-1.5l2.4-6.8A4 4 0 0 1 10 3.5Z" />
+      <circle cx="15.2" cy="7.5" r="1.6" />
+      <circle cx="10.3" cy="7.5" r=".85" fill="currentColor" stroke="none" />
+    </g>
+  </svg>
+)
+export const IconWifi = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M2.8 9.2a13.2 13.2 0 0 1 18.4 0M5.8 12.5a8.7 8.7 0 0 1 12.4 0M8.9 15.7a4.4 4.4 0 0 1 6.2 0" />
+    <circle cx="12" cy="19" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+)
 export const IconDownload = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 4.5v10.5M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />

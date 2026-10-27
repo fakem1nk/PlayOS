@@ -11,6 +11,7 @@ import { play } from '../lib/sound'
 import { ArtSearch } from './ArtSearch'
 import { Field, Toggle } from './Controls'
 import { Glyph, Hint } from './Glyph'
+import { VrGameFields } from './VrGameFields'
 import { ConfirmDialog } from './Menus'
 import { IconClose, IconDisc, IconFolder, IconImage, IconMonitor, IconSearch } from './Icons'
 import { t, locale } from '@shared/i18n'
@@ -61,7 +62,8 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
           favorite: game.favorite,
           overlay: game.overlay,
           saveDirs: game.saveDirs,
-          cloudSaves: game.cloudSaves
+          cloudSaves: game.cloudSaves,
+          vr: game.vr
         }
       : emptyDraft('pc')
   )
@@ -444,6 +446,8 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                   value={draft.overlay !== false}
                   onChange={(v) => set({ overlay: v ? undefined : false })}
                 />
+
+                {draft.platform === 'pc' && <VrGameFields draft={draft} set={set} />}
 
                 {draft.launcher !== 'steam' && (
                   <>

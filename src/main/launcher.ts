@@ -147,6 +147,7 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
     if (err) return { ok: false, error: err }
   } else {
     try {
+      const spawnedAt = Date.now()
       pid = await new Promise<number | undefined>((resolve, reject) => {
         const child = spawn(spec.exe, spec.args, { cwd: spec.cwd, detached: true, stdio: 'ignore', windowsHide: false })
         child.once('error', reject)
@@ -154,6 +155,8 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
           child.unref()
           resolve(child.pid)
         })
+        // Код выхода самого запущенного процесса — по нему VR ловит падение на старте
+        child.once('exit', (code) => events.emit('child-exit', { gameId: game.id, code, ms: Date.now() - spawnedAt }))
       })
     } catch (e) {
       return { ok: false, error: t('Не удалось запустить: {v}', { v: (e as Error).message }) }

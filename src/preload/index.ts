@@ -91,7 +91,13 @@ const api: PcsApi = {
   liveBackground: (gameId) => ipcRenderer.invoke('live:get', gameId),
   scanSteam: () => ipcRenderer.invoke('steam:scan'),
   importSteam: (appIds) => ipcRenderer.invoke('steam:import', appIds),
-  onImportProgress: listen('import-progress')
+  onImportProgress: listen('import-progress'),
+  vrStatus: () => ipcRenderer.invoke('vr:status'),
+  vrQuest: () => ipcRenderer.invoke('vr:quest'),
+  onVrQuest: listen('vr-quest'),
+  vrInstallOc: () => ipcRenderer.invoke('vr:installOc'),
+  vrCheckOc: () => ipcRenderer.invoke('vr:checkOc'),
+  onVrProgress: listen('vr-progress')
 }
 
 contextBridge.exposeInMainWorld('pcs', api)

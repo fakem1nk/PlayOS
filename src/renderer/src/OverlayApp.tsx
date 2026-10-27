@@ -1,6 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { PLATFORM_NAMES, type Achievement, type EmuState, type SaveSlot, type SystemNotice } from '@shared/types'
+import { platformName, type Achievement, type EmuState, type SaveSlot, type SystemNotice } from '@shared/types'
 import { ControlCenterRow, useControlCenter } from './components/ControlCenter'
 import { GlyphStyleContext, Hint } from './components/Glyph'
 import { IconBattery, IconCheck, IconClose, IconHome, IconPlay, IconPlug, IconTrophy } from './components/Icons'
@@ -298,7 +298,7 @@ export function OverlayApp() {
                 <div className="ov-game-text">
                   <div className="ov-title">{game.title}</div>
                   <div className="ov-meta">
-                    <span>{PLATFORM_NAMES[game.platform]}</span>
+                    <span>{platformName(game)}</span>
                     <span>
                       {t('Сессия')} <b className="live-text">{timer(now - running.startedAt)}</b>
                     </span>

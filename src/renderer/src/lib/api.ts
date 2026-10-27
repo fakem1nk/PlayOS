@@ -456,7 +456,18 @@ function createMockApi(): PcsApi {
     onImportProgress: (cb) => {
       importSubs.add(cb)
       return () => importSubs.delete(cb)
-    }
+    },
+    // VR: Quest 3S по Air Link, VR-компонент скачан
+    vrStatus: async () => ({
+      oc: { installed: true, installedAt: Date.now() - 3 * 86400000 },
+      meta: true,
+      quest: { found: true, connected: true, model: 'Quest 3S', link: 'air', battery: 82, left: 70, right: 64 }
+    }),
+    vrQuest: async () => ({ found: true, connected: true, model: 'Quest 3S', link: 'air', battery: 82, left: 70, right: 18, rightIdle: true }),
+    onVrQuest: () => () => {},
+    vrInstallOc: async () => ({ ok: true }),
+    vrCheckOc: async () => ({ update: false }),
+    onVrProgress: () => () => {}
   }
 }
 

@@ -1,13 +1,55 @@
 import { motion } from 'motion/react'
-import type { Game } from '@shared/types'
+import type { Game, QuestStatus } from '@shared/types'
 import { clock, timer } from '../lib/format'
 import { DotText } from './DotText'
 import { usePadInfo } from '../lib/input'
-import { useNow, usePadStatus } from '../lib/state'
+import { useNow, usePadStatus, useVrQuest } from '../lib/state'
 import { Avatar } from './Avatar'
 import { Glyph } from './Glyph'
-import { IconBattery, IconGamepad, IconPlug, IconPower } from './Icons'
+import { IconBattery, IconGamepad, IconPlug, IconPower, IconVr, IconVrController, IconWifi } from './Icons'
 import { t } from '@shared/i18n'
+
+/** Цвет заряда: жёлтый — пора заряжать, красный — вот-вот сядет */
+const chargeClass = (v?: number) => (v === undefined ? '' : v <= 10 ? 'is-empty' : v <= 25 ? 'is-low' : '')
+
+/** Одно устройство: иконка и заряд. Уснувший контроллер — приглушён, заряд последний известный */
+function VrDevice({ icon, value, idle, label }: { icon: React.ReactNode; value?: number; idle?: boolean; label: string }) {
+  const pct = value === undefined ? '—' : `${value}%`
+  return (
+    <span className={`vr-device ${idle ? 'is-idle' : ''} ${chargeClass(value)}`} title={idle ? t('{name}: {v}, спит', { name: label, v: pct }) : `${label}: ${pct}`}>
+      {icon}
+      <span className="vr-charge">{pct}</span>
+    </span>
+  )
+}
+
+/** VR-шлем в верхней панели: способ связи, заряд шлема и обоих контроллеров */
+function VrStatus({ q }: { q: QuestStatus }) {
+  const link = q.link === 'air' ? 'Air Link' : t('Link по кабелю')
+  const pads = q.left !== undefined || q.right !== undefined
+  return (
+    <span className="vr-status">
+      <VrDevice
+        label={`${q.model} · ${link}`}
+        value={q.battery}
+        icon={
+          <>
+            <span className="vr-headset">
+              <IconVr />
+            </span>
+            <span className="vr-link">{q.link === 'air' ? <IconWifi /> : <IconPlug />}</span>
+          </>
+        }
+      />
+      {pads && (
+        <>
+          <VrDevice label={t('Левый контроллер')} value={q.left} idle={q.leftIdle} icon={<IconVrController side="left" />} />
+          <VrDevice label={t('Правый контроллер')} value={q.right} idle={q.rightIdle} icon={<IconVrController side="right" />} />
+        </>
+      )}
+    </span>
+  )
+}
 
 export type Tab = 'home' | 'library' | 'profile' | 'settings'
 export const TABS: { id: Tab; label: string }[] = [
@@ -40,6 +82,7 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
   const status = usePadStatus()
   const connected = pad !== 'none' || status.connected > 0
   const battery = status.battery
+  const quest = useVrQuest()
 
   return (
     <header className="topbar">
@@ -91,6 +134,7 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
           )}
           {connected && status.percent !== undefined && battery !== 'wired' && <span className="battery-percent">{status.percent}%</span>}
         </span>
+        {quest?.connected && <VrStatus q={quest} />}
         <DotText className="clock" text={clock(new Date(now))} />
         <button
           className={`power-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
