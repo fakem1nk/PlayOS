@@ -29,7 +29,9 @@ if (existing && !existing.draft) {
 if (existing) {
   // Пересборка того же черновика: старые файлы удаляем, иначе загрузка новых упадёт
   for (const a of existing.assets) await fetch(`${api}/assets/${a.id}`, { method: 'DELETE', headers })
-  if (body) await fetch(`${api}/${existing.id}`, { method: 'PATCH', headers, body: JSON.stringify({ body }) })
+  // tag_name обязателен: без него GitHub отвязывает черновик от тега («untagged-…»), electron-builder его
+  // не находит и создаёт новые черновики, раскладывая файлы по двум сразу
+  if (body) await fetch(`${api}/${existing.id}`, { method: 'PATCH', headers, body: JSON.stringify({ tag_name: tag, body, prerelease }) })
   console.log(`Черновик ${tag} уже есть — файлы будут заменены`)
 } else {
   const res = await fetch(api, {
