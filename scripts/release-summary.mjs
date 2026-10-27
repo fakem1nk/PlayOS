@@ -32,11 +32,17 @@ const headers = { Authorization: `Bearer ${token}`, 'User-Agent': 'PlayOS-releas
 const tag = `v${version}`
 const name = 'update-summary.json'
 
-const list = await (await fetch(`${api}?per_page=50`, { headers })).json()
-const release = Array.isArray(list) && list.find((r) => r.tag_name === tag)
+// Только что созданный черновик GitHub показывает в списке не сразу — ждём до ~20 секунд
+let release
+for (let i = 0; i < 10 && !release; i++) {
+  if (i) await new Promise((r) => setTimeout(r, 2000))
+  const list = await (await fetch(`${api}?per_page=50`, { headers })).json()
+  release = Array.isArray(list) && list.find((r) => r.tag_name === tag)
+}
+// Без сводки релиз всё равно выходит: окно обновления покажет заметки к релизу
 if (!release) {
-  console.error(`Релиз ${tag} не найден`)
-  process.exit(1)
+  console.warn(`Релиз ${tag} не найден — сводка не приложена, приложите позже: node scripts/release-summary.mjs ${version}`)
+  process.exit(0)
 }
 for (const a of release.assets.filter((a) => a.name === name)) await fetch(`${api}/assets/${a.id}`, { method: 'DELETE', headers })
 
@@ -46,7 +52,7 @@ const res = await fetch(`https://uploads.github.com/repos/fakem1nk/PlayOS/releas
   body: JSON.stringify(summary)
 })
 if (!res.ok) {
-  console.error('Не удалось загрузить сводку:', res.status, await res.text())
-  process.exit(1)
+  console.warn('Не удалось загрузить сводку:', res.status, await res.text())
+  process.exit(0)
 }
 console.log(`Сводка приложена к ${tag}`)

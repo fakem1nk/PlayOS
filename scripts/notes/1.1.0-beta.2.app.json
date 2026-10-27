@@ -2,20 +2,14 @@
   "importance": "normal",
   "ru": {
     "new": [
-      "VR-игры для Meta Quest по кабелю Link и по Air Link: отметьте игру как VR, остальное PlayOS подготовит сам",
-      "Свои настройки VR у каждой игры, заряд шлема и контроллеров в верхней панели",
       "Можно вернуться с беты на стабильную версию: выключите бета-тест в настройках. Игры и настройки сохранятся",
       "Новое окно обновления: коротко и на вашем языке, мелкие исправления больше не отвлекают"
-    ],
-    "fixed": ["Half-Life: Alyx и другие игры на Source 2 добавляются с правильным файлом запуска"]
+    ]
   },
   "en": {
     "new": [
-      "VR games for Meta Quest over Link cable and Air Link: mark a game as VR and PlayOS prepares the rest",
-      "Per-game VR settings, headset and controller battery in the top bar",
       "You can go back from a beta to the stable version: turn off the beta in Settings. Your games and settings stay",
       "A new update window: short and in your language, small fixes no longer interrupt you"
-    ],
-    "fixed": ["Half-Life: Alyx and other Source 2 games are added with the right launch file"]
+    ]
   }
 }
