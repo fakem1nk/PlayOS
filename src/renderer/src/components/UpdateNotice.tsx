@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import type { UpdateSummary } from '@shared/types'
 import { api } from '../lib/api'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
-import { downloadText, updateHighlights, useUpdate } from '../lib/update'
+import { downloadText, isMinor, splitVersion, summaryText, updateHighlights, useUpdate } from '../lib/update'
 import { Hint } from './Glyph'
-import { IconDownload } from './Icons'
+import { IconCheck, IconDownload } from './Icons'
 import { LogoMark } from './Logo'
 import { t } from '@shared/i18n'
 
@@ -24,8 +25,20 @@ export function installNow() {
 export function UpdateNotice({ blocked, booting }: { blocked: boolean; booting: boolean }) {
   const u = useUpdate()
   const [, force] = useState(0)
-  const ask = u.phase === 'ready' && !!u.version && !blocked && postponed !== u.version
+  const ready = u.phase === 'ready' && !!u.version && !blocked && postponed !== u.version
+  // Мелкие исправления не прерывают: короткая карточка «установится при выходе» вместо окна
+  const quiet = ready && !u.rollback && isMinor(u.summary)
+  const ask = ready && !quiet
   const downloading = u.phase === 'downloading' && !booting
+
+  useEffect(() => {
+    if (!quiet) return
+    const id = setTimeout(() => {
+      postponed = u.version!
+      force((n) => n + 1)
+    }, 7_000)
+    return () => clearTimeout(id)
+  }, [quiet, u.version])
 
   return (
     <>
@@ -44,7 +57,9 @@ export function UpdateNotice({ blocked, booting }: { blocked: boolean; booting: 
               <IconDownload />
             </span>
             <div className="upd-card-body">
-              <div className="upd-card-title">{t('Скачивается PlayOS {v}', { v: u.version })}</div>
+              <div className="upd-card-title">
+                {u.rollback ? t('Скачивается стабильная PlayOS {v}', { v: u.version }) : t('Скачивается PlayOS {v}', { v: u.version })}
+              </div>
               <div className="upd-card-meta">
                 {downloadText(u)}
                 <span>{t('можно играть дальше')}</span>
@@ -57,12 +72,37 @@ export function UpdateNotice({ blocked, booting }: { blocked: boolean; booting: 
         )}
       </AnimatePresence>
       <AnimatePresence>
+        {quiet && !booting && (
+          <motion.div
+            key="quiet"
+            className="upd-card"
+            role="status"
+            initial={{ opacity: 0, transform: 'translateY(1rem)' }}
+            animate={{ opacity: 1, transform: 'translateY(0rem)' }}
+            exit={{ opacity: 0, transform: 'translateY(0.6rem)', transition: { duration: 0.18 } }}
+            transition={{ duration: 0.32, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <span className="upd-card-icon">
+              <IconCheck />
+            </span>
+            <div className="upd-card-body">
+              <div className="upd-card-title">{t('PlayOS {v} скачана', { v: u.version })}</div>
+              <div className="upd-card-meta">
+                <span>{t('Установится при выходе из PlayOS')}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
         {ask && (
           <ReadyDialog
             key="ready"
             version={u.version!}
             current={u.current}
             notes={u.notes}
+            summary={u.summary}
+            rollback={!!u.rollback}
             onLater={() => {
               play('back')
               postponed = u.version!
@@ -75,9 +115,15 @@ export function UpdateNotice({ blocked, booting }: { blocked: boolean; booting: 
   )
 }
 
-function ReadyDialog({ version, current, notes, onLater }: { version: string; current: string; notes?: string; onLater: () => void }) {
+function ReadyDialog(props: { version: string; current: string; notes?: string; summary?: UpdateSummary; rollback: boolean; onLater: () => void }) {
+  const { version, current, notes, summary, rollback, onLater } = props
   const ref = useRef<HTMLDivElement>(null)
-  const items = updateHighlights(notes)
+  // Возврат на стабильную: что было в той версии, человек уже видел — список не нужен
+  const text = rollback ? undefined : summaryText(summary)
+  // Старые релизы без сводки — главное из заметок к релизу, одним списком
+  const highlights = text || rollback ? [] : updateHighlights(notes)
+  const critical = summary?.importance === 'critical'
+  const { num, beta } = splitVersion(version)
   useSpatialNav(ref, { priority: 45, onBack: onLater, autoFocus: '.upd-now', onAction: () => {} })
   useEffect(() => play('trophy'), [])
 
@@ -96,30 +142,55 @@ function ReadyDialog({ version, current, notes, onLater }: { version: string; cu
         <header className="upd-head">
           <LogoMark className="upd-logo" />
           <div>
-            <h2 id="upd-title">{t('PlayOS {v} готова', { v: version })}</h2>
-            <p>{t('Обновление скачано. Сейчас у вас {v}', { v: current })}</p>
+            <h2 id="upd-title">
+              PlayOS {num}
+              {beta && <span className="upd-badge">{t('Бета')}</span>}
+            </h2>
+            <p>
+              {rollback
+                ? t('Стабильная версия скачана. Сейчас у вас бета {v}', { v: current })
+                : t('Обновление скачано. Сейчас у вас {v}', { v: current })}
+            </p>
           </div>
         </header>
-        {items.length > 0 && (
+        {text?.new.length ? <Section title={t('Новое')} items={text.new} /> : null}
+        {text?.fixed.length ? <Section title={t('Исправлено')} items={text.fixed} fixed /> : null}
+        {highlights.length > 0 && (
           <ul className="upd-list">
-            {items.map((t) => (
+            {highlights.map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
         )}
-        <p className="upd-note">{t('Перезапуск займёт около минуты. Если отложить, обновление установится само, когда вы выйдете из PlayOS.')}</p>
+        <p className={`upd-note${critical ? ' is-critical' : ''}`}>
+          {rollback
+            ? t('Вы выключили бета-тест, поэтому PlayOS вернётся на стабильную версию. Игры, настройки и прогресс сохранятся. Если отложить, версия сменится, когда вы выйдете из PlayOS.')
+            : critical
+            ? t('Важное исправление — лучше обновиться сейчас. Перезапуск займёт около минуты.')
+            : t('Перезапуск займёт около минуты. Если отложить, обновление установится само, когда вы выйдете из PlayOS.')}
+        </p>
         <footer className="upd-actions">
-          <Hint glyph="back" label={t('Позже')} />
-          <span className="upd-buttons">
-            <button data-nav className="btn btn-glass" onClick={onLater}>
-              {t('Позже')}
-            </button>
-            <button data-nav className="btn btn-primary upd-now" onClick={installNow}>
-              {t('Обновить сейчас')}
-            </button>
-          </span>
+          <button className="upd-later" onClick={onLater}>
+            <Hint glyph="back" label={t('Позже')} />
+          </button>
+          <button data-nav className="btn btn-primary upd-now" onClick={installNow}>
+            {rollback ? t('Вернуться сейчас') : t('Обновить сейчас')}
+          </button>
         </footer>
       </motion.div>
     </motion.div>
+  )
+}
+
+function Section({ title, items, fixed }: { title: string; items: string[]; fixed?: boolean }) {
+  return (
+    <section className="upd-sec">
+      <h3>{title}</h3>
+      <ul className={`upd-list${fixed ? ' is-fixed' : ''}`}>
+        {items.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
+    </section>
   )
 }

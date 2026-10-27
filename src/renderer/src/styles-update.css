@@ -111,6 +111,25 @@
   letter-spacing: -0.01em;
 }
 
+.upd-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+/* «Бета» рядом с номером версии */
+.upd-badge {
+  padding: 0.35rem 1.1rem;
+  border-radius: 99rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
 .upd-head p {
   margin: 0.4rem 0 0;
   font-size: 1.7rem;
@@ -132,6 +151,23 @@
   line-height: 1.45;
 }
 
+.upd-sec {
+  margin-top: 2.6rem;
+}
+
+.upd-sec h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.upd-sec .upd-list {
+  margin-top: 1.2rem;
+}
+
 .upd-list li::before {
   content: '';
   position: absolute;
@@ -142,6 +178,15 @@
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 1.2rem color-mix(in oklch, var(--accent) 60%, transparent);
+}
+
+.upd-list.is-fixed li {
+  color: var(--mist);
+}
+
+.upd-list.is-fixed li::before {
+  background: var(--faint);
+  box-shadow: none;
 }
 
 .upd-note {
@@ -160,9 +205,22 @@
   color: var(--mist);
 }
 
-.upd-buttons {
-  display: flex;
-  gap: 1.4rem;
+.upd-note.is-critical {
+  color: var(--ink);
+}
+
+/* «Позже» — подсказка кнопки геймпада, мышью тоже нажимается */
+.upd-later {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.upd-later:hover {
+  color: var(--ink);
 }
 
 /* Скачанное обновление ждёт — точка на кнопке питания, там же пункт «Обновить» */

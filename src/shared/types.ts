@@ -249,13 +249,34 @@ export interface UpdateState {
   phase: 'idle' | 'dev' | 'checking' | 'latest' | 'downloading' | 'ready' | 'error'
   current: string
   version?: string
+  /** Скачанная версия — возврат с беты на стабильную (выключили бета-тест) */
+  rollback?: boolean
   percent?: number
   /** Скачано и всего, в байтах */
   transferred?: number
   total?: number
   notes?: string
+  /** Короткая сводка для окна обновления (update-summary.json в релизе); у старых релизов её нет */
+  summary?: UpdateSummary
   error?: string
   checkedAt?: number
+}
+
+/** Пункты сводки на одном языке */
+export interface UpdateSummaryText {
+  new?: string[]
+  fixed?: string[]
+}
+
+/**
+ * Сводка обновления: scripts/notes/<версия>.app.json → update-summary.json в релизе.
+ * importance решает, как показать обновление без новых функций: critical — окно с советом обновиться сейчас,
+ * normal — обычное окно, minor — без окна, только короткая карточка «установится при выходе».
+ */
+export interface UpdateSummary {
+  importance?: 'critical' | 'normal' | 'minor'
+  ru?: UpdateSummaryText
+  en?: UpdateSummaryText
 }
 
 /** Сведения для окна «О системе» */

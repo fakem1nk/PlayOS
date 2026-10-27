@@ -106,11 +106,12 @@ function createMockApi(): PcsApi {
       displayId: 0,
       displayLabel: '',
       onboarded: new URLSearchParams(location.search).has('welcome') ? false : true,
-      betaUpdates: false
+      betaUpdates: location.search.includes('beta')
     },
     running: null,
     dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS',
-    version: '1.0.1'
+    // ?beta — демо на бета-версии: выключение бета-теста предлагает вернуться на стабильную
+    version: /[?&](beta|update=rollback)/.test(location.search) ? '1.1.0-beta.2' : '1.0.1'
   }
   const subs = { state: new Set<(s: AppState) => void>(), end: new Set<(e: { gameId: string; duration: number }) => void>() }
   const set = (patch: Partial<AppState>) => {
@@ -292,17 +293,50 @@ function createMockApi(): PcsApi {
       return { phase: 'ready', current: '1.0.1', version: '1.0.2', percent: 100, notes: 'Быстрее запуск\nИсправлена прокрутка профиля' }
     },
     installUpdate: async () => true,
-    // ?update в адресе — показать скачивание и окно «готово» на демо-данных
+    // ?update в адресе — показать скачивание и окно «готово» на демо-данных;
+    // ?update=minor | critical — обновление только с исправлениями, ?update=old — релиз без сводки,
+    // ?update=rollback — возврат с беты на стабильную
     onUpdateState: (cb) => {
-      if (!location.search.includes('update')) return () => {}
+      const mode = new URLSearchParams(location.search).get('update')
+      if (mode === null) return () => {}
       const notes = '• Копия данных одним файлом\n• Восстановление на другом компьютере\n• Окно «О системе» помещается на 1080p'
+      const fixes = {
+        ru: { fixed: ['Прокрутка профиля доходит до конца', 'Геймпад не теряется после сна'] },
+        en: { fixed: ['Profile scrolling reaches the end', 'The gamepad stays connected after sleep'] }
+      }
+      const vr = {
+        importance: 'normal' as const,
+        ru: {
+          new: [
+            'VR-игры для Meta Quest по кабелю Link и по Air Link: отметьте игру как VR, остальное PlayOS подготовит сам',
+            'Свои настройки VR у каждой игры: чёткость, руки, вибрация, режим совместимости',
+            'Заряд шлема и контроллеров в верхней панели',
+            'Раздел VR в настройках и фильтр VR в библиотеке'
+          ],
+          fixed: ['Half-Life: Alyx и другие игры на Source 2 добавляются с правильным файлом запуска']
+        },
+        en: {
+          new: [
+            'VR games for Meta Quest over Link cable and Air Link: mark a game as VR and PlayOS prepares the rest',
+            'Per-game VR settings: sharpness, hands, vibration, compatibility mode',
+            'Headset and controller battery in the top bar',
+            'VR section in Settings and a VR filter in the Library'
+          ],
+          fixed: ['Half-Life: Alyx and other Source 2 games are added with the right launch file']
+        }
+      }
+      const small = mode === 'minor' || mode === 'critical'
+      const summary = mode === 'old' ? undefined : small ? { importance: mode as 'minor' | 'critical', ...fixes } : vr
+      const rollback = mode === 'rollback'
+      const version = rollback ? '1.0.4' : small ? '1.0.5' : '1.1.0-beta.1'
+      const current = rollback ? '1.1.0-beta.2' : '1.0.4'
       let p = 0
       const t = setInterval(() => {
         p = Math.min(100, p + 9)
         const total = 118 * 2 ** 20
         cb(p < 100
-          ? { phase: 'downloading', current: '1.0.1', version: '1.0.2', percent: p, transferred: (total * p) / 100, total }
-          : { phase: 'ready', current: '1.0.1', version: '1.0.2', percent: 100, notes })
+          ? { phase: 'downloading', current, version, rollback, percent: p, transferred: (total * p) / 100, total }
+          : { phase: 'ready', current, version, rollback, percent: 100, notes, summary })
         if (p >= 100) clearInterval(t)
       }, 700)
       return () => clearInterval(t)

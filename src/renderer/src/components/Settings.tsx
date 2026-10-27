@@ -479,12 +479,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               </h2>
               <SystemInfoRow version={state.version} />
               <UpdateRow version={state.version} />
-              <Toggle
-                label={t('Участвовать в бета-тесте')}
-                hint={t('Получать ранние версии PlayOS раньше всех. В них больше нового, но возможны ошибки. Если выключить, обновления будут приходить только со стабильными версиями.')}
-                value={s.betaUpdates}
-                onChange={(v) => save({ betaUpdates: v })}
-              />
+              <BetaRows s={s} save={save} version={state.version} />
             </>
           )}
 
@@ -570,6 +565,50 @@ function UpdateRow({ version }: { version: string }) {
   const button =
     phase === 'ready' ? t('Перезапустить и обновить') : phase === 'checking' ? t('Проверяем…') : phase === 'downloading' ? t('Скачивается {v}%', { v: st?.percent ?? 0 }) : t('Проверить обновления')
   return <ActionRow label={t('Обновления')} hint={hint} button={button} icon={<IconDownload />} onClick={act} />
+}
+
+/**
+ * Бета-тест. На бета-версии его выключение — это возврат на стабильную: PlayOS скачает её и предложит поставить,
+ * поэтому сначала спрашиваем.
+ */
+function BetaRows({ s, save, version }: { s: SettingsT; save: (p: Partial<SettingsT>) => void; version: string }) {
+  const [ask, setAsk] = useState(false)
+  const onBeta = version.includes('-')
+  const toStable = () => {
+    setAsk(false)
+    play('select')
+    save({ betaUpdates: false })
+    toast({ title: t('Возврат на стабильную версию'), message: t('PlayOS скачает её и предложит установить. Игры и настройки сохранятся.'), tone: 'info' })
+  }
+  return (
+    <>
+      <Toggle
+        label={t('Участвовать в бета-тесте')}
+        hint={
+          onBeta && s.betaUpdates
+            ? t('Сейчас у вас бета {v}. Если выключить, PlayOS вернётся на стабильную версию — игры и настройки сохранятся.', { v: version })
+            : t('Получать ранние версии PlayOS раньше всех. В них больше нового, но возможны ошибки. Если выключить, обновления будут приходить только со стабильными версиями.')
+        }
+        value={s.betaUpdates}
+        onChange={(v) => (!v && onBeta ? setAsk(true) : save({ betaUpdates: v }))}
+      />
+      {createPortal(
+        <AnimatePresence>
+          {ask && (
+            <ConfirmDialog
+              key="tostable"
+              title={t('Вернуться на стабильную версию?')}
+              text={t('Бета-тест выключится, PlayOS скачает последнюю стабильную версию и предложит перезапуститься. Игры, настройки и прогресс сохранятся.')}
+              button={t('Вернуться')}
+              onCancel={() => setAsk(false)}
+              onConfirm={toStable}
+            />
+          )}
+        </AnimatePresence>,
+        document.querySelector('.app') ?? document.body
+      )}
+    </>
+  )
 }
 
 /** Отчёт об ошибках: журнал, сведения о системе и об аварийных завершениях — одним файлом на рабочий стол */
