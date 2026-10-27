@@ -1,51 +1,53 @@
-# Кодекс поведения
+# Code of Conduct
 
-PlayOS делают люди, которые любят игры. Мы хотим, чтобы в задачах, обсуждениях и пул-реквестах было так же комфортно, как на диване с геймпадом. Каждый может прийти сюда с вопросом, ошибкой или идеей.
+**English** · [Русский](CODE_OF_CONDUCT.ru.md)
 
-## Наше обещание
+PlayOS is made by people who love games. We want issues, discussions and pull requests to feel as comfortable as a couch with a controller in hand. Everyone is welcome here with a question, a bug or an idea.
 
-Участники и сопровождающие проекта обещают, что общение здесь будет уважительным для всех, независимо от возраста, внешности, опыта, национальности, пола и гендерной идентичности, сексуальной ориентации, инвалидности, религии, взглядов и того, на чём и во что человек играет.
+## Our pledge
 
-## Как мы общаемся
+Contributors and maintainers pledge to keep communication respectful for everyone, regardless of age, appearance, experience, nationality, sex and gender identity, sexual orientation, disability, religion, views, or what and where they play.
 
-**Принято:**
+## How we talk to each other
 
-- Помнить, что по ту сторону экрана живой человек, и отвечать по-доброму.
-- Критиковать код и решения, а не автора. Объяснять, почему, и предлагать, как лучше.
-- Спокойно принимать критику, признавать ошибки и учиться на них.
-- Помогать новичкам: глупых вопросов не бывает.
-- Писать по делу. Одна проблема — одна задача (как сообщать об ошибках, написано в [руководстве](docs/BUG_REPORT.ru.md)).
-- Ставить интересы проекта и сообщества выше желания победить в споре.
+**Expected:**
 
-**Недопустимо:**
+- Remember there is a real person on the other side of the screen, and reply kindly.
+- Criticize code and decisions, not the author. Explain why, and suggest how to do better.
+- Accept criticism calmly, admit mistakes and learn from them.
+- Help newcomers: there are no stupid questions.
+- Stay on topic. One problem — one issue (see the [bug report guide](docs/BUG_REPORT.md) for how to report bugs).
+- Put the interests of the project and the community above winning an argument.
 
-- Оскорбления, унизительные шутки, переход на личности, троллинг.
-- Домогательства и преследование — публично или в личных сообщениях.
-- Публикация чужих личных данных без разрешения: имён, адресов, контактов. Это касается и отчётов об ошибках — если в отчёт попало что-то личное, удалите это перед отправкой.
-- Сексуальный и шокирующий контент, призывы к насилию.
-- Спам, реклама и флуд.
-- Ссылки на пиратские копии игр, образы, BIOS приставок и способы их достать. PlayOS запускает игры, которые у вас уже есть, а сами игры и эмуляторы в проект не входят.
-- Любое поведение, которое в профессиональной среде сочли бы неуместным.
+**Not acceptable:**
 
-## Где действует кодекс
+- Insults, demeaning jokes, personal attacks and trolling.
+- Harassment, in public or in private messages.
+- Publishing other people's private information without permission: names, addresses, contacts. This applies to bug reports too — if something personal ended up in a report, remove it before sending.
+- Sexual or shocking content, calls for violence.
+- Spam, advertising and flooding.
+- Links to pirated games, disc images, console BIOS files or ways to get them. PlayOS launches games you already own; the games and emulators themselves are not part of the project.
+- Any behavior that would be considered inappropriate in a professional setting.
 
-Везде, где речь идёт о PlayOS: в задачах, обсуждениях, пул-реквестах, комментариях к коду и релизам на GitHub, а также там, где человек выступает от имени проекта.
+## Where this applies
 
-## Если вы столкнулись с нарушением
+Everywhere PlayOS is involved: issues, discussions, pull requests, comments on code and releases on GitHub, and anywhere a person represents the project.
 
-Напишите сопровождающему проекта в Telegram: [t.me/indiehellper](https://t.me/indiehellper). Если нарушение публичное, можно также нажать «Report content» в меню комментария — жалоба уйдёт в GitHub.
+## Reporting a violation
 
-Опишите, что произошло, и дайте ссылку на сообщение или задачу. Каждая жалоба будет рассмотрена, а имя того, кто сообщил, останется в тайне.
+Message the maintainer on Telegram: [t.me/indiehellper](https://t.me/indiehellper). If the violation is public, you can also use **Report content** in the comment menu, and the report will go to GitHub.
 
-## Что будет за нарушение
+Describe what happened and include a link to the message or issue. Every report will be reviewed, and the name of the person who reported it will be kept private.
 
-Сопровождающие вправе удалять и править комментарии, код, задачи и другие материалы, которые нарушают кодекс, и объяснят причину. В зависимости от серьёзности:
+## Consequences
 
-1. **Замечание.** Личное сообщение о том, что пошло не так и почему. Иногда — просьба извиниться публично.
-2. **Предупреждение.** Перерыв в общении с участниками конфликта на время. Повторное нарушение ведёт к временной блокировке.
-3. **Временная блокировка** в репозитории за серьёзное или повторяющееся нарушение.
-4. **Постоянная блокировка** за систематические нарушения, преследование или нападки на людей.
+Maintainers may remove or edit comments, code, issues and other content that violates this code, and will explain why. Depending on how serious it is:
 
-## Источник
+1. **Correction.** A private message explaining what went wrong and why. Sometimes a request for a public apology.
+2. **Warning.** A break from interacting with the people involved for a while. Another violation leads to a temporary ban.
+3. **Temporary ban** from the repository for a serious or repeated violation.
+4. **Permanent ban** for systematic violations, harassment or attacks on people.
 
-Кодекс основан на [Contributor Covenant](https://www.contributor-covenant.org) версии 2.1 и адаптирован для PlayOS. Contributor Covenant распространяется по лицензии [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+## Attribution
+
+This code is based on the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1, adapted for PlayOS. The Contributor Covenant is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

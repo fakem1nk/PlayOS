@@ -62,4 +62,4 @@
 
 ## Идеи, а не ошибки
 
-Для предложений есть свой [шаблон](https://github.com/fakem1nk/PlayOS/issues/new?template=feature_request.yml). Пожалуйста, общайтесь уважительно: см. [правила сообщества](../CODE_OF_CONDUCT.md).
+Для предложений есть свой [шаблон](https://github.com/fakem1nk/PlayOS/issues/new?template=feature_request.yml). Пожалуйста, общайтесь уважительно: см. [правила сообщества](../CODE_OF_CONDUCT.ru.md).
