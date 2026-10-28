@@ -9,7 +9,7 @@ import { play } from '../lib/sound'
 import { Avatar } from './Avatar'
 import { CloudPanel, stateLabel, useCloudStatus } from './Cloud'
 import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
-import { Glyph, type GlyphName } from './Glyph'
+import { Glyph, GlyphText, type GlyphName } from './Glyph'
 import { IconCloud, IconDisc, IconDownload, IconFolder, IconImage } from './Icons'
 import { Wordmark } from './Logo'
 import { DisplayPicker } from './Settings'
@@ -24,7 +24,7 @@ const STEPS: { id: Step; label: string; title: string; text: string }[] = [
     title: t('Облако'),
     text: t('Сохранения, библиотека и профиль на Яндекс Диске, Google Drive или в папке синхронизации. Если PlayOS уже стоял на другом ПК, всё вернётся. Шаг можно пропустить.')
   },
-  { id: 'games', label: t('Игры'), title: t('Соберём библиотеку'), text: t('PlayOS сам найдёт игры Steam и образы для эмуляторов. Можно пропустить и добавить игры позже кнопкой ▢.') },
+  { id: 'games', label: t('Игры'), title: t('Соберём библиотеку'), text: t('PlayOS сам найдёт игры Steam и образы для эмуляторов. Можно пропустить и добавить игры позже кнопкой {search}.') },
   { id: 'emulators', label: t('Эмуляторы'), title: t('Эмуляторы'), text: t('Для игр PS2 нужен PCSX2, для PS3 — RPCS3. Если чего-то нет, шаг можно пропустить.') },
   { id: 'screen', label: t('Экран'), title: t('Экран и звук'), text: t('Издалека, с дивана, удобнее крупный интерфейс. Он меняется прямо на картинке слева.') },
   { id: 'done', label: t('Готово'), title: t('Всё готово'), text: t('Вот кнопки, которые пригодятся чаще всего.') }
@@ -128,7 +128,9 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
 
           <div className="wiz-panel">
             <h1 className="wiz-title">{step.title}</h1>
-            <p className="wiz-text">{step.text}</p>
+            <p className="wiz-text">
+              <GlyphText text={step.text} />
+            </p>
             <div className="wiz-controls">
               {step.id === 'hello' && (
                 <>
@@ -195,7 +197,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
               )}
               {step.id === 'done' && (
                 <p className="wiz-note">
-                  {t('Мастер больше не появится. Всё, что вы здесь выбрали, живёт в «Настройках», а игры добавляются кнопкой ▢ на главном экране.')}
+                  <GlyphText text={t('Мастер больше не появится. Всё, что вы здесь выбрали, живёт в «Настройках», а игры добавляются кнопкой {search} на главном экране.')} />
                 </p>
               )}
             </div>
@@ -346,13 +348,14 @@ function ScreenArt({ scale }: { scale: number }) {
   )
 }
 
-const BUTTONS: { glyph: GlyphName | 'ps'; label: string }[] = [
+const BUTTONS: { glyph: GlyphName; label: string }[] = [
   { glyph: 'confirm', label: t('Играть и выбирать') },
   { glyph: 'back', label: t('Назад') },
-  { glyph: 'menu', label: t('Параметры игры') },
+  { glyph: 'menu', label: t('Об игре') },
+  { glyph: 'options', label: t('Параметры игры') },
   { glyph: 'search', label: t('Добавить игру') },
   { glyph: 'r1', label: t('Вкладки') },
-  { glyph: 'ps', label: t('Меню поверх игры') }
+  { glyph: 'guide', label: t('Меню поверх игры') }
 ]
 
 /** Главные кнопки карточками — появляются по очереди */
@@ -367,7 +370,9 @@ function ButtonsArt() {
           animate={{ opacity: 1, transform: 'translateY(0rem) scale(1)' }}
           transition={{ duration: 0.4, delay: 0.08 * k, ease: [0.23, 1, 0.32, 1] }}
         >
-          <span className="wiz-key-glyph">{b.glyph === 'ps' ? <span className="wiz-ps">PS</span> : <Glyph name={b.glyph} />}</span>
+          <span className="wiz-key-glyph">
+            <Glyph name={b.glyph} />
+          </span>
           <span className="wiz-key-label">{b.label}</span>
         </motion.div>
       ))}

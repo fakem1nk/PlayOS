@@ -1,6 +1,9 @@
 import type { Game } from '@shared/types'
 import { locale, plural, t } from '@shared/i18n'
 
+/** Игра пришла из облака и на этом ПК ещё не указан её файл */
+export const notInstalled = (g: Game) => !g.path
+
 export function playtime(sec: number) {
   if (!sec) return t('Ещё не играли')
   const m = Math.floor(sec / 60)

@@ -9,7 +9,7 @@ import { TIER_NAMES } from '../lib/trophies'
 import { Hint } from './Glyph'
 import { IconClose, IconReset, IconSearch, IconTrophy } from './Icons'
 import { Cover } from './Tile'
-import { locale, t } from '@shared/i18n'
+import { locale, plural, t } from '@shared/i18n'
 
 const dateFmt = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', year: 'numeric' })
 const TIERS: TrophyTier[] = ['platinum', 'gold', 'silver', 'bronze']
@@ -310,7 +310,9 @@ function TrophyProblem({
               <button key={g.id} data-nav className="ra-result" onClick={() => link(g)} disabled={busy}>
                 {g.icon && <img src={g.icon} alt="" />}
                 <span className="ra-title">{g.title}</span>
-                <span className="ra-count">{t('{n} трофеев', { n: g.achievements })}</span>
+                <span className="ra-count">
+                  {g.achievements} {plural(g.achievements, ['трофей', 'трофея', 'трофеев'], ['trophy', 'trophies'])}
+                </span>
               </button>
             ))}
             {found && !found.length && <p className="trophy-problem-text">{t('Ничего не нашлось. Попробуйте английское название.')}</p>}

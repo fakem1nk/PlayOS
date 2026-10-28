@@ -1,13 +1,13 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
-import type { AchievementSummaryItem, Game, PowerAction, SaveConflict } from '@shared/types'
+import type { AchievementSummaryItem, Game, LaunchFix, PowerAction, SaveConflict } from '@shared/types'
 import { Background } from './components/Background'
 import { RestoreDialog, SaveConflictDialog, useCloudStatus } from './components/Cloud'
 import { GamePage } from './components/GamePage'
-import { GlyphStyleContext, Hint } from './components/Glyph'
-import { Home } from './components/Home'
-import { Library, type LibraryFocus } from './components/Library'
-import { GameMenu, PowerMenu } from './components/Menus'
+import { GlyphStyleContext, Hint, HoldHint } from './components/Glyph'
+import { Home, SPECIAL, type HomeFocus } from './components/Home'
+import { Library, type LibraryHintState } from './components/Library'
+import { ConfirmDialog, GameMenu, PowerMenu } from './components/Menus'
 import { OnScreenKeyboard } from './components/OnScreenKeyboard'
 import { padName } from './components/PadMapper'
 import { LaunchScreen, Toasts } from './components/Overlays'
@@ -16,7 +16,7 @@ import { AnimatedCoversContext } from './components/Tile'
 import { UpdateNotice } from './components/UpdateNotice'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { api } from './lib/api'
-import { accentOf, DEFAULT_ACCENT, playtime } from './lib/format'
+import { accentOf, DEFAULT_ACCENT, notInstalled, playtime } from './lib/format'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
@@ -99,8 +99,13 @@ export function App() {
   const [tab, setTab] = useState<Tab>(() => (REOPEN_SETTINGS ? 'settings' : 'home'))
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
-  const [libFocus, setLibFocus] = useState<LibraryFocus>('grid')
-  const [editor, setEditor] = useState<{ game?: Game } | null>(null)
+  const [libFocus, setLibFocus] = useState<LibraryHintState>({ focus: 'grid', searching: false, running: false, missing: false, empty: false })
+  const [homeFocus, setHomeFocus] = useState<HomeFocus>({ zone: 'row', item: 'game' })
+  // В фокусе переключатель значений (data-adjust) — подсказываем, что его листают влево/вправо
+  const [adjustFocus, setAdjustFocus] = useState(false)
+  // Игра не запустилась, и понятно, что поправить: файл игры или путь к эмулятору
+  const [launchError, setLaunchError] = useState<{ game: Game; error: string; fix: LaunchFix } | null>(null)
+  const [editor, setEditor] = useState<{ game?: Game; pickFile?: boolean } | null>(null)
   const [menuGameId, setMenuGameId] = useState<string | null>(null)
   const [trophyGameId, setTrophyGameId] = useState<string | null>(null)
   const [conflict, setConflict] = useState<{ conflict: SaveConflict; game: Game } | null>(null)
@@ -127,7 +132,7 @@ export function App() {
   const trophyGame = trophyGameId ? games.find((g) => g.id === trophyGameId) : undefined
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
-  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer
+  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError
   const contentActive = !modal && tabFocus === null
 
   useEffect(
@@ -147,6 +152,11 @@ export function App() {
   }, [state])
 
   useEffect(() => api.onToast((n) => toast({ ...n })), [])
+  useEffect(() => {
+    const onFocus = (e: FocusEvent) => setAdjustFocus(!!(e.target as Element | null)?.hasAttribute?.('data-adjust'))
+    document.addEventListener('focusin', onFocus)
+    return () => document.removeEventListener('focusin', onFocus)
+  }, [])
   useEffect(() => api.onWindowMode((full) => document.documentElement.classList.toggle('is-windowed', !full)), [])
   useEffect(() => setPadMaps(state?.settings.padMaps), [state?.settings.padMaps])
   // Геймпад без стандартной раскладки: подсказываем, где назначить кнопки
@@ -194,6 +204,11 @@ export function App() {
   }, [])
 
   const launch = async (g: Game, opts?: { skipSync?: boolean }) => {
+    // Игра пришла из облака без файла: вместо ошибки запуска — редактор с выбором файла
+    if (notInstalled(g)) {
+      play('select')
+      return setEditor({ game: g, pickFile: true })
+    }
     if (running) {
       if (running.gameId === g.id) return api.resumeGame()
       play('error')
@@ -216,7 +231,9 @@ export function App() {
     } else if (!res.ok) {
       setLaunching(null)
       play('error')
-      toast({ title: t('Не удалось запустить игру'), message: res.error, tone: 'error' })
+      // Известно, что поправить — сразу ведём туда, а не оставляем подсказку в исчезающем уведомлении
+      if (res.fix) setLaunchError({ game: g, error: res.error ?? '', fix: res.fix })
+      else toast({ title: t('Не удалось запустить игру'), message: res.error, tone: 'error' })
     }
   }
 
@@ -297,32 +314,69 @@ export function App() {
   const bgTarget = tab === 'settings' ? null : tab === 'profile' ? (lastGame ?? null) : (bgGame ?? null)
   // Акценты и свечение интерфейса — в цвет обложки игры в фокусе
   const accent = state.settings.gameTint && tab !== 'settings' ? accentOf(bgTarget) : DEFAULT_ACCENT
-  const hints =
-    calm ? (
-      <>
-        <Hint glyph="confirm" label={t('Выбрать')} />
-        <Hint glyph="back" label={t('Назад')} />
-      </>
-    ) : tab === 'library' && libFocus !== 'grid' ? (
+  const hints = calm ? (
+    <>
+      <Hint glyph="confirm" label={t('Выбрать')} />
+      {tab === 'settings' && adjustFocus && <Hint glyph="adjust" label={t('Изменить')} />}
+      <Hint glyph="back" label={t('Назад')} />
+    </>
+  ) : tab === 'library' ? (
+    libFocus.focus !== 'grid' ? (
       // Фишки библиотеки: подсказки под то, что в фокусе
       <>
         <Hint
           glyph="confirm"
           label={
-            libFocus === 'search' ? t('Ввести название') : libFocus === 'collections' ? t('Выбрать подборку') : libFocus === 'sort' ? t('Сменить сортировку') : t('Показать')
+            libFocus.focus === 'search'
+              ? t('Ввести название')
+              : libFocus.focus === 'collections'
+                ? t('Выбрать подборку')
+                : libFocus.focus === 'sort'
+                  ? t('Сменить сортировку')
+                  : t('Показать')
           }
         />
-        <Hint glyph="back" label={t('Назад')} />
+        <Hint glyph="back" label={libFocus.searching ? t('Сбросить поиск') : t('Назад')} />
+        <Hint glyph="r2" label={t('Фильтр')} />
+      </>
+    ) : libFocus.empty ? (
+      <>
+        <Hint glyph="confirm" label={libFocus.searching ? t('Сбросить поиск') : t('Добавить игру')} />
+        <Hint glyph="back" label={libFocus.searching ? t('Сбросить поиск') : t('Назад')} />
         <Hint glyph="r2" label={t('Фильтр')} />
       </>
     ) : (
       <>
-        <Hint glyph="confirm" label={t('Играть')} />
-        <Hint glyph="menu" label={t('Параметры')} />
-        <Hint glyph="search" label={t('Добавить игру')} />
-        {tab === 'library' && <Hint glyph="r2" label={t('Фильтр')} />}
+        <Hint glyph="confirm" label={libFocus.running ? t('Вернуться в игру') : libFocus.missing ? t('Указать файл игры') : t('Играть')} />
+        <Hint glyph="menu" label={t('Об игре')} />
+        <HoldHint label={t('Параметры')} />
+        {libFocus.searching ? <Hint glyph="back" label={t('Сбросить поиск')} /> : <Hint glyph="search" label={t('Добавить игру')} />}
+        <Hint glyph="r2" label={t('Фильтр')} />
       </>
     )
+  ) : homeFocus.zone === 'actions' ? (
+    <>
+      <Hint glyph="confirm" label={t('Выбрать')} />
+      {(homeFocus.item === 'game' || homeFocus.item === 'running' || homeFocus.item === 'missing') && <Hint glyph="menu" label={t('Об игре')} />}
+      <Hint glyph="back" label={t('Назад')} />
+    </>
+  ) : homeFocus.item === 'game' || homeFocus.item === 'running' || homeFocus.item === 'missing' ? (
+    <>
+      <Hint
+        glyph="confirm"
+        label={homeFocus.item === 'running' ? t('Вернуться в игру') : homeFocus.item === 'missing' ? t('Указать файл игры') : t('Играть')}
+      />
+      <Hint glyph="menu" label={t('Об игре')} />
+      <HoldHint label={t('Параметры')} />
+      <Hint glyph="search" label={t('Добавить игру')} />
+    </>
+  ) : (
+    // Плитки «Библиотека», «Случайная», «Добавить» в конце ряда
+    <>
+      <Hint glyph="confirm" label={SPECIAL[homeFocus.item].action} />
+      {homeFocus.item !== 'add' && <Hint glyph="search" label={t('Добавить игру')} />}
+    </>
+  )
 
   return (
     // Системное «Уменьшить движение»: Motion оставляет только плавное появление, без сдвигов и масштаба
@@ -384,6 +438,7 @@ export function App() {
                     uiScale={state.settings.uiScale}
                     trophies={trophySummary}
                     onFocusGame={setBgGame}
+                    onFocusKind={setHomeFocus}
                     onExitTop={exitTop}
                     onLaunch={launch}
                     onResume={() => api.resumeGame()}
@@ -409,6 +464,7 @@ export function App() {
                     onExitTop={exitTop}
                     onLaunch={launch}
                     onMenu={(g) => setMenuGameId(g.id)}
+                    onInfo={(g) => setPageGameId(g.id)}
                     onAdd={() => setEditor({})}
                   />
                 )}
@@ -449,7 +505,12 @@ export function App() {
             <GameEditor
               key="editor"
               game={editor.game}
+              pickFile={editor.pickFile}
               settings={state.settings}
+              onSteamImport={() => {
+                setEditor(null)
+                setSteamImport(true)
+              }}
               onClose={() => {
                 play('back')
                 setEditor(null)
@@ -568,6 +629,31 @@ export function App() {
                 trophyFromPage.current = false
                 setTrophyGameId(null)
                 setEditor({ game: g })
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {launchError && (
+            <ConfirmDialog
+              key="launch-error"
+              title={t('Не удалось запустить «{title}»', { title: launchError.game.title })}
+              text={launchError.error}
+              button={launchError.fix === 'game' ? t('Указать файл игры') : t('Открыть настройки эмуляторов')}
+              cancel={t('Закрыть')}
+              tone="primary"
+              onCancel={() => setLaunchError(null)}
+              onConfirm={() => {
+                const { game, fix } = launchError
+                setLaunchError(null)
+                play('select')
+                if (fix === 'game') setEditor({ game })
+                else {
+                  setSettingsSection('emulators')
+                  setTab('settings')
+                  setTabFocus(null)
+                }
               }}
             />
           )}

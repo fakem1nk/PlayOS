@@ -584,8 +584,14 @@
 }
 
 .osk-label {
+  display: flex;
+  justify-content: space-between;
   font-size: 1.5rem;
   color: var(--faint);
+}
+
+.osk-status {
+  color: var(--mist);
 }
 
 .osk-text {
@@ -1868,12 +1874,6 @@
 
 .wiz-key-glyph .glyph {
   transform: scale(1.5);
-}
-
-.wiz-ps {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 .wiz-key-label {

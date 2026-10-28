@@ -2,7 +2,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { platformName, type Achievement, type EmuState, type SaveSlot, type SystemNotice } from '@shared/types'
 import { ControlCenterRow, useControlCenter } from './components/ControlCenter'
-import { GlyphStyleContext, Hint } from './components/Glyph'
+import { GlyphStyleContext, GlyphText, Hint } from './components/Glyph'
 import { IconBattery, IconCheck, IconClose, IconHome, IconPlay, IconPlug, IconTrophy } from './components/Icons'
 import { Wordmark } from './components/Logo'
 import { DotText } from './components/DotText'
@@ -414,7 +414,9 @@ export function OverlayApp() {
                     <Hint glyph="back" label={t('Вернуться в игру')} />
                   </>
                 )}
-                <span className="ov-hint-ps">{t('Кнопка PS — закрыть оверлей')}</span>
+                <span className="ov-hint-ps">
+                  <GlyphText text={t('{guide} — закрыть оверлей')} />
+                </span>
               </footer>
             </motion.div>
 

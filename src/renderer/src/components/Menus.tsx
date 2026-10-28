@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { platformName, type Game, type GameCollection, type PowerAction, type RunningGame } from '@shared/types'
 import { api } from '../lib/api'
 import { createCollection, deleteCollection, renameCollection, toggleInCollection } from '../lib/collections'
 import { lastInputDevice } from '../lib/input'
 import { beginEdit, openKeyboard } from '../lib/osk'
-import { playtime } from '../lib/format'
+import { notInstalled, playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
@@ -20,6 +20,8 @@ interface Item {
   label: string
   icon: ReactNode
   danger?: boolean
+  /** Тонкий разделитель перед пунктом: начало новой группы */
+  group?: boolean
   confirm?: { title: string; text: string; button: string }
   run: () => void
 }
@@ -69,10 +71,13 @@ function SideMenu({ title, titleAction, header, items, onClose }: { title: strin
         )}
         <div className="menu-list">
           {items.map((item) => (
-            <button key={item.id} data-nav className={`menu-item ${item.danger ? 'is-danger' : ''}`} onClick={() => choose(item)}>
-              <span className="menu-icon">{item.icon}</span>
-              {item.label}
-            </button>
+            <Fragment key={item.id}>
+              {item.group && <hr className="menu-divider" />}
+              <button data-nav className={`menu-item ${item.danger ? 'is-danger' : ''}`} onClick={() => choose(item)}>
+                <span className="menu-icon">{item.icon}</span>
+                {item.label}
+              </button>
+            </Fragment>
           ))}
         </div>
         <footer className="sheet-hints">
@@ -96,9 +101,21 @@ function SideMenu({ title, titleAction, header, items, onClose }: { title: strin
   )
 }
 
-export function ConfirmDialog({ title, text, button, onCancel, onConfirm }: { title: string; text: string; button: string; onCancel: () => void; onConfirm: () => void }) {
+/**
+ * Вопрос с двумя кнопками. tone="danger" — опасное действие, фокус на «Отмене»;
+ * tone="primary" — предложение что-то поправить, фокус сразу на нём.
+ */
+export function ConfirmDialog({ title, text, button, cancel, tone = 'danger', onCancel, onConfirm }: {
+  title: string
+  text: string
+  button: string
+  cancel?: string
+  tone?: 'danger' | 'primary'
+  onCancel: () => void
+  onConfirm: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
-  useSpatialNav(ref, { priority: 40, onBack: onCancel, autoFocus: '.btn-glass' })
+  useSpatialNav(ref, { priority: 40, onBack: onCancel, autoFocus: tone === 'primary' ? '.btn-primary' : '.btn-glass' })
   return (
     <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15 } }}>
       <motion.div
@@ -113,9 +130,9 @@ export function ConfirmDialog({ title, text, button, onCancel, onConfirm }: { ti
         <p className="dialog-text">{text}</p>
         <div className="dialog-actions">
           <button data-nav className="btn btn-glass" onClick={onCancel}>
-            {t('Отмена')}
+            {cancel ?? t('Отмена')}
           </button>
-          <button data-nav className="btn btn-danger" onClick={onConfirm}>
+          <button data-nav className={`btn ${tone === 'primary' ? 'btn-primary' : 'btn-danger'}`} onClick={onConfirm}>
             {button}
           </button>
         </div>
@@ -279,10 +296,12 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
   const items: Item[] = [
     isRunning
       ? { id: 'close', label: t('Закрыть игру'), icon: <IconClose />, run: () => (onClose(), onCloseGame()) }
-      : { id: 'play', label: t('Играть'), icon: <IconPlay />, run: () => (onClose(), onLaunch(game)) },
+      : notInstalled(game)
+        ? { id: 'play', label: t('Указать файл игры'), icon: <IconFolder />, run: () => (onClose(), onEdit(game)) }
+        : { id: 'play', label: t('Играть'), icon: <IconPlay />, run: () => (onClose(), onLaunch(game)) },
     { id: 'info', label: t('Об игре'), icon: <IconInfo />, run: () => onInfo(game) },
     { id: 'trophies', label: t('Трофеи'), icon: <IconTrophy />, run: () => onTrophies(game) },
-    { id: 'edit', label: t('Изменить'), icon: <IconEdit />, run: () => (onClose(), onEdit(game)) },
+    { id: 'edit', label: t('Изменить'), icon: <IconEdit />, group: true, run: () => (onClose(), onEdit(game)) },
     {
       id: 'fav',
       label: game.favorite ? t('Убрать из избранного') : t('Добавить в избранное'),
@@ -295,11 +314,12 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
       icon: <IconGrid />,
       run: () => setPicking(true)
     },
-    { id: 'folder', label: t('Открыть папку игры'), icon: <IconFolder />, run: () => api.openFolder(game.path) },
+    ...(game.path ? [{ id: 'folder', label: t('Открыть папку игры'), icon: <IconFolder />, group: true, run: () => api.openFolder(game.path) }] : []),
     {
       id: 'reset',
       label: t('Сбросить время игры'),
       icon: <IconReset />,
+      group: !game.path,
       confirm: { title: t('Сбросить время игры?'), text: t('Наигранные {v} в «{title}» обнулятся.', { v: playtime(game.playtime), title: game.title }), button: t('Сбросить') },
       run: () => api.resetPlaytime(game.id)
     },

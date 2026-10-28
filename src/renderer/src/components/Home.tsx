@@ -1,18 +1,21 @@
 import { motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { platformName, type AchievementSummaryItem, type Game, type RunningGame } from '@shared/types'
-import { gamesCount, lastPlayed, media, playtime, timer } from '../lib/format'
+import { gamesCount, lastPlayed, media, notInstalled, playtime, timer } from '../lib/format'
 import { useConfirmHold, useInputLayer } from '../lib/input'
 import { useNow } from '../lib/state'
 import { play } from '../lib/sound'
-import { IconDice, IconDots, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
+import { IconDice, IconDots, IconFolder, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
 import { Tile } from './Tile'
 import { t } from '@shared/i18n'
 
 type RowItem = { kind: 'game'; game: Game } | { kind: 'library' } | { kind: 'random' } | { kind: 'add' }
 type SpecialKind = Exclude<RowItem['kind'], 'game'>
 
-const SPECIAL: Record<SpecialKind, { label: string; title: string; sub: string; action: string }> = {
+/** Что в фокусе главного экрана — по нему App подбирает подсказки кнопок внизу */
+export type HomeFocus = { zone: 'row' | 'actions'; item: 'game' | 'running' | 'missing' | SpecialKind }
+
+export const SPECIAL: Record<SpecialKind, { label: string; title: string; sub: string; action: string }> = {
   library: { label: t('Библиотека'), title: t('Библиотека игр'), sub: '', action: t('Открыть библиотеку') },
   random: { label: t('Случайная'), title: t('Случайная игра'), sub: t('Не можете выбрать? PlayOS выберет за вас'), action: t('Выбрать случайно') },
   add: { label: t('Добавить'), title: t('Добавить игру'), sub: t('EXE с компьютера, образ PS2 для PCSX2 или игра PS3 для RPCS3'), action: t('Добавить игру') }
@@ -54,6 +57,7 @@ interface Props {
   uiScale: number
   trophies: Record<string, AchievementSummaryItem>
   onFocusGame: (g: Game | null) => void
+  onFocusKind: (f: HomeFocus) => void
   onExitTop: () => void
   onLaunch: (g: Game) => void
   onResume: () => void
@@ -101,6 +105,12 @@ export function Home(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedGame?.id, focusedGame?.hero, focusedGame?.cover, active])
 
+  const focusItem: HomeFocus['item'] = item.kind !== 'game' ? item.kind : isRunning ? 'running' : notInstalled(item.game) ? 'missing' : 'game'
+  useEffect(() => {
+    if (active) props.onFocusKind({ zone, item: focusItem })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zone, focusItem, active])
+
   const actions = useMemo(() => {
     if (item.kind !== 'game') return [{ id: item.kind, label: SPECIAL[item.kind].action }]
     if (isRunning)
@@ -111,11 +121,11 @@ export function Home(props: Props) {
         { id: 'menu', label: '' }
       ]
     return [
-      { id: 'play', label: t('Играть') },
+      { id: 'play', label: focusedGame && notInstalled(focusedGame) ? t('Указать файл игры') : t('Играть') },
       { id: 'info', label: '' },
       { id: 'menu', label: '' }
     ]
-  }, [item.kind, isRunning])
+  }, [item.kind, isRunning, focusedGame])
 
   const activate = (id: string) => {
     if (!focusedGame && !['library', 'add', 'random'].includes(id)) return
@@ -209,7 +219,9 @@ export function Home(props: Props) {
           setZone('actions')
           setAction(0)
         } else if (a === 'confirm') activateTile()
-        else if ((a === 'menu' || a === 'options') && focusedGame) activate('menu')
+        // △ — страница игры, ☰ и удержание ✕ — параметры
+        else if (a === 'menu' && focusedGame) activate('info')
+        else if (a === 'options' && focusedGame) activate('menu')
         else if (a === 'search') activate('add')
         else return false
         return
@@ -224,7 +236,8 @@ export function Home(props: Props) {
         play('move')
         setZone('row')
       } else if (a === 'confirm') activate(actions[Math.min(action, actions.length - 1)].id)
-      else if ((a === 'menu' || a === 'options') && focusedGame) activate('menu')
+      else if (a === 'menu' && focusedGame) activate('info')
+      else if (a === 'options' && focusedGame) activate('menu')
       else if (a === 'search') activate('add')
       else return false
     },
@@ -269,6 +282,10 @@ export function Home(props: Props) {
                 className="row-tile"
                 style={style}
                 onClick={onClick}
+                onMenu={() => {
+                  play('select')
+                  props.onMenu(it.game)
+                }}
               />
             )
           }
@@ -315,7 +332,7 @@ export function Home(props: Props) {
                 tabIndex={-1}
                 aria-label={a.label || (a.id === 'info' ? t('Об игре') : t('Параметры игры'))}
               >
-                {a.id === 'play' && <IconPlay />}
+                {a.id === 'play' && (focusedGame && notInstalled(focusedGame) ? <IconFolder /> : <IconPlay />)}
                 {a.label || (a.id === 'info' ? <IconInfo /> : <IconDots />)}
               </button>
             )
@@ -354,6 +371,12 @@ function GameInfo({ game, running, trophies }: { game: Game; running: RunningGam
           <dt>{t('Платформа')}</dt>
           <dd>{platformName(game)}</dd>
         </div>
+        {notInstalled(game) && (
+          <div className="stat">
+            <dt>{t('На этом ПК')}</dt>
+            <dd>{t('Не установлена')}</dd>
+          </div>
+        )}
         {trophies && trophies.total > 0 && (
           <div className="stat">
             <dt>{t('Трофеи')}</dt>

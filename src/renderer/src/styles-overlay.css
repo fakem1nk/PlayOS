@@ -302,6 +302,9 @@ html.overlay-mode #root {
 
 .ov-hint-ps {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
   color: var(--faint);
 }
 

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useInputLayer } from '../lib/input'
-import { closeKeyboard, useKeyboardTarget, writeValue, type OskTarget } from '../lib/osk'
+import { closeKeyboard, useKeyboardStatus, useKeyboardTarget, writeValue, type OskTarget } from '../lib/osk'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconBackspace } from './Icons'
@@ -53,6 +53,13 @@ function Keyboard({ el }: { el: OskTarget }) {
     ]
     return [...chars, bottom]
   }, [layout, shift])
+
+  // Живое поле (поиск): текст уходит в него на каждое нажатие, результаты видны сразу
+  const live = el.dataset.oskLive === '1'
+  const status = useKeyboardStatus(el)
+  useEffect(() => {
+    if (live && text !== el.value) writeValue(el, text)
+  }, [live, text, el])
 
   const r = Math.min(pos.r, rows.length - 1)
   const c = Math.min(pos.c, rows[r].length - 1)
@@ -168,7 +175,10 @@ function Keyboard({ el }: { el: OskTarget }) {
       transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
     >
       <div className="osk-field">
-        <span className="osk-label">{label}</span>
+        <span className="osk-label">
+          {label}
+          {status && <span className="osk-status">{status}</span>}
+        </span>
         <span className="osk-text">
           {text.slice(0, caret)}
           <span className="osk-caret" />

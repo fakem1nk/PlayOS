@@ -5,15 +5,15 @@ import { useInputLayer } from '../lib/input'
 import type { ArtCandidate, Game, GameDraft, Platform, SavePreview, SaveProgress, Settings } from '@shared/types'
 import { api } from '../lib/api'
 import { hueOf, media } from '../lib/format'
-import { useSpatialNav } from '../lib/nav'
+import { pressFx, useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { ArtSearch } from './ArtSearch'
-import { Field, Toggle } from './Controls'
+import { Disclosure, Field, Toggle } from './Controls'
 import { Glyph, Hint } from './Glyph'
 import { VrGameFields } from './VrGameFields'
 import { ConfirmDialog } from './Menus'
-import { IconClose, IconDisc, IconFolder, IconImage, IconMonitor, IconSearch } from './Icons'
+import { IconClose, IconDisc, IconDownload, IconFolder, IconImage, IconMonitor, IconSearch } from './Icons'
 import { t, locale } from '@shared/i18n'
 
 const PLATFORMS: { id: Platform; title: string; text: string; icon: React.ReactNode }[] = [
@@ -34,9 +34,13 @@ interface Props {
   settings: Settings
   onClose: () => void
   onSaved: (g: Game) => void
+  /** Карточка «Из Steam» на шаге выбора: вместо ручного добавления — импорт установленных игр Steam */
+  onSteamImport: () => void
+  /** Открыть сразу с выбором файла игры (игра из облака ещё не установлена на этом ПК) */
+  pickFile?: boolean
 }
 
-export function GameEditor({ game, settings, onClose, onSaved }: Props) {
+export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pickFile }: Props) {
   const [step, setStep] = useState<'platform' | 'form'>(game ? 'form' : 'platform')
   const [draft, setDraft] = useState<GameDraft>(() =>
     game
@@ -120,7 +124,11 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     focusKey: step,
     onAction: (a) => {
       if (a === 'search' && step === 'form') openSearch()
-      else if (a !== 'home') return false
+      // ☰ / Options — сохранить из любого места формы, не пролистывая до кнопки
+      else if (a === 'options' && step === 'form') {
+        pressFx(ref.current?.querySelector('.editor-actions .btn-primary'))
+        void save()
+      } else if (a !== 'home') return false
     }
   })
 
@@ -188,6 +196,14 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     !!busy
   )
 
+  // Игра из облака без файла: окно выбора файла открывается сразу, как при добавлении новой игры
+  useEffect(() => {
+    if (!pickFile || !game) return
+    const id = setTimeout(() => pickGameFile(game.platform), 300)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const pickImage = async (field: ArtField) => {
     const file = await api.pickFile('image')
     if (!file) return
@@ -210,6 +226,21 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
             : found?.registry
               ? t('Найдены автоматически в реестре Windows')
               : t('Пока не найдена. Сохранитесь в игре или укажите папку вручную.')
+
+  // Что уже задано в «Дополнительно» — чтобы не раскрывать блок ради проверки
+  const advancedSet = [
+    draft.args?.trim() && t('параметры запуска'),
+    draft.customCommand?.trim() && t('своя команда'),
+    draft.platform === 'pc' && draft.steamAppId && `AppID ${draft.steamAppId}`,
+    draft.overlay === false && t('оверлей выключен')
+  ].filter(Boolean) as string[]
+  const advancedHint = advancedSet.length
+    ? t('Задано: {list}', { list: advancedSet.join(', ') })
+    : draft.platform === 'pc'
+      ? t('Параметры запуска, Steam AppID, оверлей')
+      : draft.platform === 'ps2'
+        ? t('Параметры запуска, своя команда, ID в RetroAchievements, оверлей')
+        : t('Параметры запуска, своя команда, оверлей')
 
   const pickInstallDir = async () => {
     const dir = await api.pickFile('folder')
@@ -305,7 +336,10 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     >
       <div className="sheet-inner" ref={ref}>
         <header className="sheet-head">
-          <h1 className="sheet-title">{game ? t('Изменить игру') : step === 'platform' ? t('Добавить игру') : PLATFORMS.find((p) => p.id === draft.platform)!.title}</h1>
+          <h1 className="sheet-title">
+            {game ? t('Изменить игру') : step === 'platform' ? t('Добавить игру') : PLATFORMS.find((p) => p.id === draft.platform)!.title}
+            {game && <span className="sheet-title-sub">{game.title}</span>}
+          </h1>
           <button data-nav className="btn btn-round" onClick={close} aria-label={t('Закрыть')}>
             <IconClose />
           </button>
@@ -321,6 +355,13 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
               exit={{ opacity: 0, transition: { duration: 0.1 } }}
               transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
             >
+              <button data-nav className="platform-card platform-steam" onClick={() => (play('select'), onSteamImport())}>
+                <span className="platform-icon">
+                  <IconDownload />
+                </span>
+                <span className="platform-title">{t('Из Steam')}</span>
+                <span className="platform-text">{t('Установленные игры из всех библиотек Steam — с обложками и фонами')}</span>
+              </button>
               {PLATFORMS.map((p) => (
                 <button key={p.id} data-nav className={`platform-card platform-${p.id}`} onClick={() => choosePlatform(p.id)}>
                   <span className="platform-icon">{p.icon}</span>
@@ -381,78 +422,20 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
 
                 <Field label={t('Название')} value={draft.title} onChange={(v) => set({ title: v })} placeholder={t('Как игра будет называться в библиотеке')} />
 
-                {draft.platform === 'pc' ? (
-                  <>
-                    {draft.launcher !== 'steam' && (
-                      <div className="field">
-                        <span className="field-label">{t('EXE запуска')}</span>
-                        <div className="field-row">
-                          <div className={`path-display ${draft.path ? '' : 'is-empty'}`} title={draft.path}>
-                            {draft.path ? shortPath(draft.path) : t('Файл не выбран')}
-                          </div>
-                          <button data-nav data-autofocus={!draft.path || undefined} className="btn btn-glass btn-sm" onClick={() => pickGameFile()}>
-                            <IconFolder /> {t('Выбрать файл')}
-                          </button>
-                        </div>
-                        <span className="field-hint">{t('Файл, которым запускается игра: EXE, ярлык или лаунчер. Время считается по всем процессам из папки игры.')}</span>
+                {draft.platform === 'pc' && draft.launcher !== 'steam' && (
+                  <div className="field">
+                    <span className="field-label">{t('EXE запуска')}</span>
+                    <div className="field-row">
+                      <div className={`path-display ${draft.path ? '' : 'is-empty'}`} title={draft.path}>
+                        {draft.path ? shortPath(draft.path) : t('Файл не выбран')}
                       </div>
-                    )}
-                    <Field label={t('Параметры запуска')} value={draft.args ?? ''} onChange={(v) => set({ args: v })} placeholder={t('Необязательно, например -windowed')} mono />
-                    <Field
-                      label="Steam AppID"
-                      value={draft.steamAppId ? String(draft.steamAppId) : ''}
-                      onChange={(v) => set({ steamAppId: Number(v.replace(/\D/g, '')) || undefined })}
-                      placeholder={found?.appId ? t('Найден автоматически: {id}', { id: found.appId }) : t('Не найден — укажите для трофеев Steam')}
-                      hint={
-                        draft.steamAppId
-                          ? t('Указан вручную или взят из Steam при поиске арта.')
-                          : found?.appId
-                            ? t('Найден в файлах игры (steam_appid.txt и подобных). По нему работают трофеи Steam и поиск сохранений.')
-                            : t('Нужен для трофеев Steam. Его можно найти в адресе страницы игры в магазине Steam.')
-                      }
-                      mono
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Field
-                      label={t('Параметры запуска')}
-                      value={draft.args ?? ''}
-                      onChange={(v) => set({ args: v })}
-                      placeholder={draft.platform === 'ps2' ? t('Необязательно, например -nogui') : t('Необязательно, например --no-gui')}
-                      hint={t('Добавятся к команде эмулятора из настроек: на место {args} или перед путём к игре.')}
-                      mono
-                    />
-                    <Field
-                      label={t('Своя команда запуска')}
-                      value={draft.customCommand ?? ''}
-                      onChange={(v) => set({ customCommand: v })}
-                      placeholder={template}
-                      hint={t('Оставьте пустым — будет использован эмулятор из настроек. {rom} подставит путь к игре.')}
-                      mono
-                    />
-                  </>
+                      <button data-nav data-autofocus={!draft.path || undefined} className="btn btn-glass btn-sm" onClick={() => pickGameFile()}>
+                        <IconFolder /> {t('Выбрать файл')}
+                      </button>
+                    </div>
+                    <span className="field-hint">{t('Файл, которым запускается игра: EXE, ярлык или лаунчер. Время считается по всем процессам из папки игры.')}</span>
+                  </div>
                 )}
-                {draft.platform === 'ps2' && (
-                  <Field
-                    label={t('ID в RetroAchievements')}
-                    value={draft.raGameId ? String(draft.raGameId) : ''}
-                    onChange={(v) => set({ raGameId: Number(v.replace(/\D/g, '')) || undefined })}
-                    placeholder={t('Определится по образу — для трофеев PS2')}
-                    mono
-                  />
-                )}
-
-                <Toggle
-                  label={t('Оверлей в этой игре')}
-                  hint={
-                    settings.overlayEnabled === false
-                      ? t('Оверлей выключен в настройках для всех игр.')
-                      : t('Выключите, если кнопка PS/Guide нужна самой игре: PlayOS не будет открывать оверлей и показывать уведомления поверх неё.')
-                  }
-                  value={draft.overlay !== false}
-                  onChange={(v) => set({ overlay: v ? undefined : false })}
-                />
 
                 {draft.platform === 'pc' && <VrGameFields draft={draft} set={set} />}
 
@@ -485,15 +468,68 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                   </>
                 )}
 
-                <div className="editor-actions">
-                  <button data-nav className="btn btn-primary" onClick={save}>
-                    {game ? t('Сохранить') : t('Добавить в библиотеку')}
-                  </button>
-                  <button data-nav className="btn btn-glass" onClick={close}>
-                    {t('Отмена')}
-                  </button>
-                </div>
+                {/* Редкие настройки всегда свёрнуты; в подсказке видно, что в них уже задано */}
+                <Disclosure label={t('Дополнительно')} hint={advancedHint}>
+                  {draft.platform === 'pc' ? (
+                    <>
+                      <Field label={t('Параметры запуска')} value={draft.args ?? ''} onChange={(v) => set({ args: v })} placeholder={t('Необязательно, например -windowed')} mono />
+                      <Field
+                        label="Steam AppID"
+                        value={draft.steamAppId ? String(draft.steamAppId) : ''}
+                        onChange={(v) => set({ steamAppId: Number(v.replace(/\D/g, '')) || undefined })}
+                        placeholder={found?.appId ? t('Определён автоматически') : t('Не найден')}
+                        hint={
+                          draft.steamAppId
+                            ? t('Указан вручную или взят из Steam при поиске арта.')
+                            : found?.appId
+                              ? t('Найден в файлах игры: {id}. По нему работают трофеи Steam и поиск сохранений.', { id: found.appId })
+                              : t('Нужен для трофеев Steam. Его можно найти в адресе страницы игры в магазине Steam.')
+                        }
+                        mono
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Field
+                        label={t('Параметры запуска')}
+                        value={draft.args ?? ''}
+                        onChange={(v) => set({ args: v })}
+                        placeholder={draft.platform === 'ps2' ? t('Необязательно, например -nogui') : t('Необязательно, например --no-gui')}
+                        hint={t('Добавятся к команде эмулятора из настроек: на место {args} или перед путём к игре.')}
+                        mono
+                      />
+                      <Field
+                        label={t('Своя команда запуска')}
+                        value={draft.customCommand ?? ''}
+                        onChange={(v) => set({ customCommand: v })}
+                        placeholder={template}
+                        hint={t('Оставьте пустым — будет использован эмулятор из настроек. {rom} подставит путь к игре.')}
+                        mono
+                      />
+                    </>
+                  )}
+                  {draft.platform === 'ps2' && (
+                    <Field
+                      label={t('ID в RetroAchievements')}
+                      value={draft.raGameId ? String(draft.raGameId) : ''}
+                      onChange={(v) => set({ raGameId: Number(v.replace(/\D/g, '')) || undefined })}
+                      placeholder={t('Определится по образу — для трофеев PS2')}
+                      mono
+                    />
+                  )}
+                  <Toggle
+                    label={t('Оверлей в этой игре')}
+                    hint={
+                      settings.overlayEnabled === false
+                        ? t('Оверлей выключен в настройках для всех игр.')
+                        : t('Выключите, если кнопка PS/Guide нужна самой игре: PlayOS не будет открывать оверлей и показывать уведомления поверх неё.')
+                    }
+                    value={draft.overlay !== false}
+                    onChange={(v) => set({ overlay: v ? undefined : false })}
+                  />
+                </Disclosure>
               </div>
+
 
               <div className="editor-art">
                 <button data-nav className="btn btn-glass art-search-btn" onClick={openSearch}>
@@ -506,12 +542,20 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
                     draft={draft}
                     onPick={pickImage}
                     onClear={() => set({ cover: undefined, coverAnimated: undefined })}
-                    onClearAnimation={() => set({ coverAnimated: undefined })}
                   />
                   <div className="art-col">
                     <ArtSlot label={t('Фон')} field="hero" draft={draft} onPick={pickImage} onClear={() => set({ hero: undefined })} />
                     <ArtSlot label={t('Логотип')} field="logo" draft={draft} onPick={pickImage} onClear={() => set({ logo: undefined })} />
                   </div>
+                </div>
+                {/* Сохранить — под артом справа, всегда на виду: форма слева прокручивается сама по себе */}
+                <div className="editor-actions">
+                  <button data-nav className="btn btn-glass" onClick={close}>
+                    {t('Отмена')}
+                  </button>
+                  <button data-nav className="btn btn-primary" onClick={save}>
+                    {game ? t('Сохранить') : t('Добавить в библиотеку')}
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -522,6 +566,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
           <Hint glyph="confirm" label={t('Выбрать')} />
           <Hint glyph="back" label={step === 'form' && !game ? t('Назад') : t('Закрыть')} />
           {step === 'form' && <Hint glyph="search" label={t('Найти арт')} />}
+          {step === 'form' && <Hint glyph="options" label={game ? t('Сохранить') : t('Добавить')} />}
         </footer>
 
         <AnimatePresence>
@@ -568,43 +613,40 @@ function ArtSlot({
   draft,
   onPick,
   onClear,
-  onClearAnimation
 }: {
   label: string
   field: ArtField
   draft: GameDraft
   onPick: (f: ArtField) => void
   onClear: () => void
-  /** Для обложки: убрать только анимацию */
-  onClearAnimation?: () => void
 }) {
   // У обложки в превью показываем анимацию, если она есть
   const animated = field === 'cover' ? media(draft.coverAnimated) : undefined
   const src = animated ?? media(draft[field])
   return (
     <div className={`art-slot art-${field}`}>
-      <div className="art-preview" style={{ '--hue': hueOf(draft) } as React.CSSProperties}>
-        {src ? <img src={src} alt="" /> : <IconImage />}
-        {animated && <span className="art-anim-badge">{t('Анимация')}</span>}
-      </div>
-      <div className="art-meta">
-        <span className="art-label">{label}</span>
-        <span className="art-buttons">
-          <button data-nav className="btn btn-glass btn-xs" onClick={() => onPick(field)}>
-            {t('Файл…')}
+      {/* Сама картинка — кнопка выбора файла, как аватар в профиле; ✕ в углу убирает арт */}
+      <div className="art-frame">
+        <button
+          data-nav
+          className="art-preview"
+          style={{ '--hue': hueOf(draft) } as React.CSSProperties}
+          onClick={() => onPick(field)}
+          aria-label={t('{name}: выбрать файл', { name: label })}
+        >
+          {src ? <img src={src} alt="" /> : <IconImage />}
+          {animated && <span className="art-anim-badge">{t('Анимация')}</span>}
+          <span className="art-edit" aria-hidden>
+            <IconImage />
+          </span>
+        </button>
+        {src && (
+          <button data-nav className="art-clear" onClick={onClear} aria-label={t('{name}: убрать', { name: label })} title={t('Убрать')}>
+            <IconClose />
           </button>
-          {animated && onClearAnimation && (
-            <button data-nav className="btn btn-glass btn-xs" onClick={onClearAnimation}>
-              {t('Без анимации')}
-            </button>
-          )}
-          {src && (
-            <button data-nav className="btn btn-glass btn-xs" onClick={onClear}>
-              {t('Убрать')}
-            </button>
-          )}
-        </span>
+        )}
       </div>
+      <span className="art-label">{label}</span>
     </div>
   )
 }

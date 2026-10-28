@@ -457,9 +457,13 @@ export interface GameFiles {
   size: number | null
 }
 
+/** Что поправить, чтобы игра запустилась: файл игры в редакторе или путь к эмулятору в настройках */
+export type LaunchFix = 'game' | 'emulator'
+
 export interface LaunchResult {
   ok: boolean
   error?: string
+  fix?: LaunchFix
   /** Сохранения разошлись с облаком — игра не запущена, нужен выбор пользователя */
   conflict?: SaveConflict
   /** Запуск отменили, пока он готовился — игра не запущена или уже остановлена */

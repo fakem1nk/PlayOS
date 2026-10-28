@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
 import { shell } from 'electron'
-import type { Game, RunningGame, Settings } from '@shared/types'
+import type { Game, LaunchFix, RunningGame, Settings } from '@shared/types'
 import { commitSession, getDb, saveDb } from './store'
 import { listProcesses, processAlive } from './win32'
 import { t } from '@shared/i18n'
@@ -101,18 +101,24 @@ interface LaunchSpec {
   url?: string
 }
 
-function buildSpec(game: Game, settings: Settings): LaunchSpec | string {
+/** Почему запуск невозможен и что поправить: файл игры (редактор) или путь к эмулятору (настройки) */
+interface SpecError {
+  error: string
+  fix?: LaunchFix
+}
+
+function buildSpec(game: Game, settings: Settings): LaunchSpec | SpecError {
   if (game.customCommand?.trim()) {
     const [exe, ...args] = parseCommand(expand(game.customCommand, game))
-    if (!exe) return t('Пустая команда запуска')
+    if (!exe) return { error: t('Пустая команда запуска'), fix: 'game' }
     return { exe, args, cwd: game.workDir || path.dirname(exe) }
   }
   if (game.launcher === 'steam' && game.steamAppId) {
-    if (!fs.existsSync(game.path)) return t('Папка игры не найдена — возможно, игра удалена из Steam:\n{path}', { path: game.path })
+    if (!fs.existsSync(game.path)) return { error: t('Папка игры не найдена — возможно, игра удалена из Steam:\n{path}', { path: game.path }), fix: 'game' }
     return { exe: '', args: [], cwd: game.path, url: `steam://rungameid/${game.steamAppId}` }
   }
-  if (!game.path) return t('Игра пришла из облака и ещё не установлена на этом ПК. Укажите файл игры в «Изменить».')
-  if (!fs.existsSync(game.path)) return t('Файл игры не найден:\n{path}', { path: game.path })
+  if (!game.path) return { error: t('Игра пришла из облака и ещё не установлена на этом ПК. Укажите файл игры в «Изменить».'), fix: 'game' }
+  if (!fs.existsSync(game.path)) return { error: t('Файл игры не найден:\n{path}', { path: game.path }), fix: 'game' }
 
   if (game.platform === 'pc') {
     const ext = path.extname(game.path).toLowerCase()
@@ -126,14 +132,14 @@ function buildSpec(game: Game, settings: Settings): LaunchSpec | string {
   const emu = game.platform === 'ps2' ? settings.pcsx2Path : settings.rpcs3Path
   const tpl = game.platform === 'ps2' ? settings.pcsx2Args : settings.rpcs3Args
   const name = game.platform === 'ps2' ? 'PCSX2' : 'RPCS3'
-  if (!emu || !fs.existsSync(emu)) return t('Не найден эмулятор {name}. Укажите путь к нему в настройках.', { name })
+  if (!emu || !fs.existsSync(emu)) return { error: t('Не найден эмулятор {name}. Укажите путь к нему в настройках.', { name }), fix: 'emulator' }
   return { exe: emu, args: parseCommand(expand(withArgs(tpl, game.args), game)), cwd: path.dirname(emu) }
 }
 
-export async function launchGame(game: Game, settings: Settings): Promise<{ ok: boolean; error?: string }> {
+export async function launchGame(game: Game, settings: Settings): Promise<{ ok: boolean; error?: string; fix?: LaunchFix }> {
   if (tracker) return { ok: false, error: t('Сначала закройте запущенную игру') }
   const spec = buildSpec(game, settings)
-  if (typeof spec === 'string') return { ok: false, error: spec }
+  if ('error' in spec) return { ok: false, error: spec.error, fix: spec.fix }
 
   let pid: number | undefined
   if (spec.url) {

@@ -31,6 +31,28 @@ export function useKeyboardTarget() {
   )
 }
 
+/**
+ * Строка состояния над клавиатурой для конкретного поля (например, «Найдено: 3 из 40» у поиска).
+ * Поле с атрибутом data-osk-live получает текст на каждое нажатие — результаты видны, пока набираешь.
+ */
+let status: { el: OskTarget; text: string } | null = null
+const statusListeners = new Set<() => void>()
+
+export function setKeyboardStatus(el: OskTarget | null, text: string) {
+  status = el && text ? { el, text } : null
+  statusListeners.forEach((l) => l())
+}
+
+export function useKeyboardStatus(el: OskTarget) {
+  return useSyncExternalStore(
+    (cb) => {
+      statusListeners.add(cb)
+      return () => statusListeners.delete(cb)
+    },
+    () => (status?.el === el ? status.text : '')
+  )
+}
+
 /** Записать значение в поле React: через нативный сеттер и событие input, чтобы сработал onChange */
 export function writeValue(el: OskTarget, value: string) {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype

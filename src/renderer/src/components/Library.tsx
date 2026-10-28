@@ -4,12 +4,12 @@ import { createPortal } from 'react-dom'
 import type { Game, GameCollection, LibrarySort, Platform, RunningGame } from '@shared/types'
 import { api } from '../lib/api'
 import { createCollection } from '../lib/collections'
-import { gamesCount, playtime } from '../lib/format'
+import { gamesCount, notInstalled, playtime } from '../lib/format'
 import { lastInputDevice, useConfirmHold, useInputLayer } from '../lib/input'
 import { useSpatialNav } from '../lib/nav'
-import { beginEdit, isEditing, openKeyboard } from '../lib/osk'
+import { beginEdit, isEditing, openKeyboard, setKeyboardStatus } from '../lib/osk'
 import { play } from '../lib/sound'
-import { Hint } from './Glyph'
+import { GlyphText, Hint } from './Glyph'
 import { IconCaret, IconCheck, IconClose, IconList, IconPlus, IconSearch, IconSort, IconStar } from './Icons'
 import { CollectionMenu, PromptDialog } from './Menus'
 import { Tile } from './Tile'
@@ -36,6 +36,15 @@ const SORTS: { id: LibrarySort; label: string }[] = [
 
 /** Что сейчас в фокусе библиотеки — по нему App подбирает подсказки кнопок внизу */
 export type LibraryFocus = 'grid' | 'search' | 'filter' | 'collections' | 'sort'
+/** Подсказки зависят и от того, идёт ли поиск (○ его сбрасывает) и запущена ли игра в фокусе */
+export interface LibraryHintState {
+  focus: LibraryFocus
+  searching: boolean
+  running: boolean
+  /** Игра в фокусе пришла из облака и не установлена: ✕ — указать файл */
+  missing: boolean
+  empty: boolean
+}
 
 /** Фишки шапки: поиск, платформы и избранное одной группой, выпадающий список подборок, сортировка */
 type Chip = { kind: 'search' } | { kind: 'filter'; id: Filter; label: string } | { kind: 'collections' } | { kind: 'sort' }
@@ -118,10 +127,11 @@ interface Props {
   collections: GameCollection[]
   sort: LibrarySort
   onFocusGame: (g: Game | null) => void
-  onFocusKind: (k: LibraryFocus) => void
+  onFocusKind: (k: LibraryHintState) => void
   onExitTop: () => void
   onLaunch: (g: Game) => void
   onMenu: (g: Game) => void
+  onInfo: (g: Game) => void
   onAdd: () => void
 }
 
@@ -130,7 +140,7 @@ interface Props {
  * Стрелки по фишкам только двигают фокус — фильтр включает ✕, чтобы по дороге к поиску ничего не переключалось.
  */
 export function Library(props: Props) {
-  const { games, running, active, collections, sort, onFocusGame, onFocusKind, onExitTop, onLaunch, onMenu, onAdd } = props
+  const { games, running, active, collections, sort, onFocusGame, onFocusKind, onExitTop, onLaunch, onMenu, onInfo, onAdd } = props
   const [filter, setFilter] = useState<Filter>('all')
   const [zone, setZone] = useState<'chips' | 'grid'>('grid')
   const [chip, setChip] = useState(0)
@@ -207,10 +217,13 @@ export function Library(props: Props) {
   }, [focused?.id, zone, active])
 
   const focusKind: LibraryFocus = zone === 'grid' ? 'grid' : cur.kind
+  const focusRunning = !!focused && running?.gameId === focused.id
+  const empty = list.length === 0
+  const focusMissing = !!focused && notInstalled(focused)
   useEffect(() => {
-    if (active) onFocusKind(focusKind)
+    if (active) onFocusKind({ focus: focusKind, searching, running: focusRunning, missing: focusMissing, empty })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusKind, active])
+  }, [focusKind, active, searching, focusRunning, focusMissing, empty])
 
   // Выбранный ряд держим в верхней трети: видно и его, и следующий ряд — понятно, куда листать дальше
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -223,6 +236,12 @@ export function Library(props: Props) {
     const top = el.offsetTop - box.clientHeight * 0.18
     if (Math.abs(box.scrollTop - top) > 4) box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
   }, [idx, zone])
+
+  // Сколько нашлось — видно и над экранной клавиатурой, пока набираешь
+  useEffect(() => {
+    setKeyboardStatus(searchRef.current, searching ? t('Найдено: {n} из {m}', { n: list.length, m: games.length }) : '')
+  }, [searching, list.length, games.length])
+  useEffect(() => () => setKeyboardStatus(null, ''), [])
 
   // Ушли из строки поиска к играм — поле закрывается, стрелки снова листают сетку
   useEffect(() => {
@@ -350,11 +369,16 @@ export function Library(props: Props) {
       else if (a === 'up') idx >= COLS ? move(idx - COLS) : toChips()
       else if (a === 'confirm') {
         if (focused) onLaunch(focused)
+        else if (searching) clearSearch()
         else {
           play('select')
           onAdd()
         }
-      } else if ((a === 'menu' || a === 'options') && focused) {
+      } else if (a === 'menu' && focused) {
+        // △ — страница игры, ☰ и удержание ✕ — параметры
+        play('select')
+        onInfo(focused)
+      } else if (a === 'options' && focused) {
         play('select')
         onMenu(focused)
       } else if (a === 'back' && searching) clearSearch()
@@ -416,6 +440,7 @@ export function Library(props: Props) {
                   <IconSearch />
                   <input
                     ref={searchRef}
+                    data-osk-live="1"
                     tabIndex={-1}
                     value={query}
                     placeholder={t('Поиск')}
@@ -499,6 +524,10 @@ export function Library(props: Props) {
                   running={running?.gameId === g.id}
                   className="grid-tile"
                   onClick={() => (i === idx ? onLaunch(g) : (setIndex(i), setZone('grid')))}
+                  onMenu={() => {
+                    play('select')
+                    onMenu(g)
+                  }}
                 />
               )
             })}
@@ -517,7 +546,9 @@ export function Library(props: Props) {
           ) : collection ? (
             <>
               <p className="empty-title">{t('В подборке пока нет игр')}</p>
-              <p className="empty-text">{t('Откройте параметры игры кнопкой △ и выберите «Добавить в подборку».')}</p>
+              <p className="empty-text">
+                <GlyphText text={t('Удерживайте {confirm} на игре и выберите «Добавить в подборку».')} />
+              </p>
             </>
           ) : (
             <>

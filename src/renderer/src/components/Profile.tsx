@@ -11,6 +11,7 @@ import { IconImage, IconTrophy } from './Icons'
 import { Cover } from './Tile'
 import { locale, t } from '@shared/i18n'
 import { DotText } from './DotText'
+import { GlyphText } from './Glyph'
 
 const DAYS = 14
 const weekday = new Intl.DateTimeFormat(locale(), { weekday: 'short' })
@@ -313,7 +314,7 @@ function GameTrophies({ games, trophies, onOpen }: { games: Game[]; trophies: Re
         </div>
       ) : (
         <p className="block-empty">
-          {t('Подключите RetroAchievements (PS2) и Steam в настройках, затем откройте трофеи игры через △ — прогресс появится здесь.')}
+          <GlyphText text={t('Подключите RetroAchievements (PS2) и Steam в настройках, затем откройте страницу игры кнопкой {menu} и выберите «Трофеи» — прогресс появится здесь.')} />
         </p>
       )}
     </section>

@@ -51,8 +51,8 @@ export function dispatch(a: PadAction) {
 // ───────────── Удержание ✕ ─────────────
 
 /**
- * Удержание ✕ (Enter) на игре открывает её параметры — как △. Пока хоть один экран это включил,
- * ✕ срабатывает на отпускании, а удержание дольше HOLD_MS вместо него отправляет 'menu'.
+ * Удержание ✕ (Enter) на игре открывает её параметры (как ☰ Options). Пока хоть один экран это включил,
+ * ✕ срабатывает на отпускании, а удержание дольше HOLD_MS вместо него отправляет 'options'.
  */
 let holdZones = 0
 const HOLD_MS = 500
@@ -68,6 +68,29 @@ export function useConfirmHold(enabled: boolean) {
 
 /** Нажатый ✕, который ждёт отпускания или конца удержания: ключ кнопки → время нажатия */
 const pendingHold = new Map<string, number>()
+
+/** ✕ сейчас удерживают в зоне удержания — плитка в фокусе показывает, что скоро откроются параметры */
+let holding = false
+const holdListeners = new Set<() => void>()
+function setHolding(v: boolean) {
+  if (v === holding) return
+  holding = v
+  holdListeners.forEach((l) => l())
+}
+const syncHolding = () => setHolding(pendingHold.size > 0 || !!(keyHold && !keyHold.fired))
+
+/** Длительность удержания ✕ до параметров — для анимации */
+export const HOLD_DURATION = HOLD_MS
+
+export function useHolding() {
+  return useSyncExternalStore(
+    (cb) => {
+      holdListeners.add(cb)
+      return () => holdListeners.delete(cb)
+    },
+    () => holding
+  )
+}
 
 export function useInputLayer(handler: Handler, priority: number, enabled = true) {
   const ref = useRef(handler)
@@ -173,16 +196,22 @@ function onKey(e: KeyboardEvent) {
     // Стрелки влево/вправо и буквы двигают курсор и печатают; вверх/вниз уводят из поля
     if (!['ArrowUp', 'ArrowDown'].includes(e.key)) a = undefined
   }
+  // Зажатый Enter/пробел: автоповтор — не новые нажатия. Иначе после удержания открылись параметры,
+  // зона удержания пропала, и следующий повтор «нажимал» первый пункт меню — «Играть»
+  if (a === 'confirm' && (e.repeat || (keyHold && e.key === keyHold.key))) {
+    e.preventDefault()
+    return
+  }
   if (a === 'confirm' && holdZones > 0) {
     e.preventDefault()
     setDevice('keyboard')
-    // Автоповтор клавиши — то же удержание
-    if (e.repeat || keyHold) return
     const hold = { key: e.key, fired: false, timer: setTimeout(() => {
       hold.fired = true
-      dispatch('menu')
+      syncHolding()
+      dispatch('options')
     }, HOLD_MS) }
     keyHold = hold
+    syncHolding()
     return
   }
   if (a) {
@@ -200,6 +229,7 @@ function onKeyUp(e: KeyboardEvent) {
   const hold = keyHold
   keyHold = null
   clearTimeout(hold.timer)
+  syncHolding()
   if (!hold.fired) dispatch('confirm')
 }
 
@@ -339,6 +369,7 @@ function pollPads() {
     if (muted) {
       for (const [index, action] of BUTTONS) prev.set(`${p.index}:${index}`, actionDown(p, action, index))
       pendingHold.clear()
+      syncHolding()
       continue
     }
     if (capture) {
@@ -359,16 +390,20 @@ function pollPads() {
         setDevice('pad')
         holdStart.set(key, now)
         lastFire.set(key, now)
-        if (action === 'confirm' && holdZones > 0) pendingHold.set(key, now)
-        else dispatch(action)
+        if (action === 'confirm' && holdZones > 0) {
+          pendingHold.set(key, now)
+          syncHolding()
+        } else dispatch(action)
       } else if (pendingHold.has(key)) {
         // ✕ ждёт: отпустили быстро — обычное нажатие, держат дольше HOLD_MS — параметры
         if (!down) {
           pendingHold.delete(key)
+          syncHolding()
           dispatch('confirm')
         } else if (now - pendingHold.get(key)! >= HOLD_MS) {
           pendingHold.delete(key)
-          dispatch('menu')
+          syncHolding()
+          dispatch('options')
         }
       } else if (down && DIRS.has(action)) {
         const held = now - (holdStart.get(key) ?? now)

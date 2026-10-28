@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { platformName, type Game } from '@shared/types'
-import { hueOf, media } from '../lib/format'
+import { hueOf, media, notInstalled } from '../lib/format'
+import { HOLD_DURATION, useHolding } from '../lib/input'
 import { t } from '@shared/i18n'
 import { IconPlatform, IconVr } from './Icons'
 
@@ -65,16 +66,61 @@ interface TileProps {
   animate?: boolean
   running?: boolean
   onClick?: () => void
+  /** Параметры игры: правый клик или зажатая левая кнопка мыши — как удержание ✕ */
+  onMenu?: () => void
   className?: string
   style?: React.CSSProperties
 }
 
-export function Tile({ game, focused, animate, running, onClick, className = '', style }: TileProps) {
+export function Tile({ game, focused, animate, running, onClick, onMenu, className = '', style }: TileProps) {
+  // Удержание ✕ на плитке в фокусе: обложка медленно вдавливается, вокруг набегает кольцо — отпустить раньше значит «Играть».
+  // Мышью то же самое: зажатая левая кнопка на любой плитке
+  const padHolding = useHolding() && !!focused
+  const [mouseHolding, setMouseHolding] = useState(false)
+  const press = useRef<{ timer: number; fired: boolean } | null>(null)
+  const holding = padHolding || mouseHolding
+  const missing = notInstalled(game)
+
+  const cancelPress = () => {
+    if (press.current) clearTimeout(press.current.timer)
+    if (!press.current?.fired) press.current = null
+    setMouseHolding(false)
+  }
+  useEffect(() => () => cancelPress(), [])
+
   return (
     <div
-      className={`tile ${focused ? 'is-focused' : ''} ${className}`}
-      style={style}
-      onClick={onClick}
+      className={`tile ${focused ? 'is-focused' : ''} ${holding ? 'is-holding' : ''} ${missing ? 'is-missing' : ''} ${className}`}
+      style={{ ...style, '--hold-ms': `${HOLD_DURATION}ms` } as React.CSSProperties}
+      onPointerDown={(e) => {
+        if (!onMenu || e.button !== 0 || e.pointerType === 'touch') return
+        const p = {
+          fired: false,
+          timer: window.setTimeout(() => {
+            p.fired = true
+            setMouseHolding(false)
+            onMenu()
+          }, HOLD_DURATION)
+        }
+        press.current = p
+        setMouseHolding(true)
+      }}
+      onPointerUp={cancelPress}
+      onPointerLeave={cancelPress}
+      onClick={() => {
+        // Клик, которым закончилось удержание, уже открыл параметры — игру не запускаем
+        if (press.current?.fired) {
+          press.current = null
+          return
+        }
+        onClick?.()
+      }}
+      onContextMenu={(e) => {
+        if (!onMenu) return
+        e.preventDefault()
+        cancelPress()
+        onMenu()
+      }}
       role="button"
       aria-label={game.title}
     >
@@ -84,7 +130,13 @@ export function Tile({ game, focused, animate, running, onClick, className = '',
           {game.vr ? <IconVr /> : <IconPlatform platform={game.platform} />}
         </span>
         {running && <span className="tile-live" title={t('Запущена')} />}
+        {missing && <span className="tile-missing">{t('Не установлена')}</span>}
       </div>
+      {(focused || mouseHolding) && (
+        <svg className="tile-hold" aria-hidden>
+          <rect x="0" y="0" width="100%" height="100%" pathLength={1} />
+        </svg>
+      )}
     </div>
   )
 }
