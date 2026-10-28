@@ -6,7 +6,7 @@ import { RestoreDialog, SaveConflictDialog, useCloudStatus } from './components/
 import { GamePage } from './components/GamePage'
 import { GlyphStyleContext, Hint } from './components/Glyph'
 import { Home } from './components/Home'
-import { Library } from './components/Library'
+import { Library, type LibraryFocus } from './components/Library'
 import { GameMenu, PowerMenu } from './components/Menus'
 import { OnScreenKeyboard } from './components/OnScreenKeyboard'
 import { padName } from './components/PadMapper'
@@ -99,6 +99,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>(() => (REOPEN_SETTINGS ? 'settings' : 'home'))
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
+  const [libFocus, setLibFocus] = useState<LibraryFocus>('grid')
   const [editor, setEditor] = useState<{ game?: Game } | null>(null)
   const [menuGameId, setMenuGameId] = useState<string | null>(null)
   const [trophyGameId, setTrophyGameId] = useState<string | null>(null)
@@ -131,9 +132,9 @@ export function App() {
 
   useEffect(
     () =>
-      api.onSessionEnd(({ gameId, duration }) => {
+      api.onSessionEnd(({ gameId, duration, aborted }) => {
         setLaunching(null)
-        sessionToast(state?.games ?? [], gameId, duration)
+        if (!aborted) sessionToast(state?.games ?? [], gameId, duration)
       }),
     [state?.games]
   )
@@ -203,9 +204,9 @@ export function App() {
     setFocusRequest(g.id)
     launchPending.current = g.id
     const res = await api.launch(g.id, opts).finally(() => (launchPending.current = null))
-    if (launchCancelled.current === g.id) {
+    // Отменили, пока main запускал: игру он уже остановил сам
+    if (launchCancelled.current === g.id || res.cancelled) {
       launchCancelled.current = null
-      if (res.ok) void api.closeGame()
       return
     }
     if (res.conflict) {
@@ -219,12 +220,12 @@ export function App() {
     }
   }
 
-  /** ○ на экране запуска: убираем его и останавливаем игру, если она уже успела стартовать */
+  /** ○ на экране запуска: игра не стартует, а если уже стартовала (или ещё стартует через Steam) — закрывается */
   const cancelLaunch = () => {
     if (!launching) return
     play('back')
     if (launchPending.current === launching) launchCancelled.current = launching
-    else void api.closeGame()
+    void api.cancelLaunch(launching)
     setLaunching(null)
   }
 
@@ -301,6 +302,18 @@ export function App() {
       <>
         <Hint glyph="confirm" label={t('Выбрать')} />
         <Hint glyph="back" label={t('Назад')} />
+      </>
+    ) : tab === 'library' && libFocus !== 'grid' ? (
+      // Фишки библиотеки: подсказки под то, что в фокусе
+      <>
+        <Hint
+          glyph="confirm"
+          label={
+            libFocus === 'search' ? t('Ввести название') : libFocus === 'collections' ? t('Выбрать подборку') : libFocus === 'sort' ? t('Сменить сортировку') : t('Показать')
+          }
+        />
+        <Hint glyph="back" label={t('Назад')} />
+        <Hint glyph="r2" label={t('Фильтр')} />
       </>
     ) : (
       <>
@@ -389,7 +402,10 @@ export function App() {
                     games={games}
                     running={running}
                     active={contentActive}
+                    collections={state.settings.collections ?? []}
+                    sort={state.settings.librarySort ?? 'recent'}
                     onFocusGame={setBgGame}
+                    onFocusKind={setLibFocus}
                     onExitTop={exitTop}
                     onLaunch={launch}
                     onMenu={(g) => setMenuGameId(g.id)}
@@ -466,6 +482,7 @@ export function App() {
                 setMenuGameId(null)
                 setPageGameId(g.id)
               }}
+              collections={state.settings.collections ?? []}
             />
           )}
           {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}

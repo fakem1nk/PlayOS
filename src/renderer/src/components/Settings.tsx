@@ -611,11 +611,11 @@ function BetaRows({ s, save, version }: { s: SettingsT; save: (p: Partial<Settin
   )
 }
 
-/** Отчёт об ошибках: журнал, сведения о системе и об аварийных завершениях — одним файлом на рабочий стол */
+/** Отчёт об ошибках: журнал, сведения о системе и об аварийных завершениях — одним файлом в папку reports */
 /** Отчёт об ошибках и папка с данными — одна строка: в папке лежат и логи, и сохранённые отчёты */
 function ReportRow({ dataDir }: { dataDir: string }) {
   const [busy, setBusy] = useState(false)
-  const [hint, setHint] = useState(t('Журнал работы, сведения о системе и об ошибках — одним файлом на рабочий стол. Ключи API в отчёт не попадают.'))
+  const [hint, setHint] = useState(t('Журнал работы, сведения о системе и об ошибках — одним файлом в папку reports в данных PlayOS. Ключи API в отчёт не попадают.'))
   const make = async () => {
     if (busy) return
     setBusy(true)

@@ -122,6 +122,8 @@ let overlay: BrowserWindow | null = null
 let overlayOpen = false
 let gameHwnd: bigint | null = null
 let launchTimer: NodeJS.Timeout | null = null
+/** Запуск этой игры отменили (○ на экране запуска), пока main ещё готовил его */
+let launchCancelled: string | null = null
 /** Замороженные (поставленные на паузу) процессы игры */
 let frozen: number[] = []
 /** Текущий слот PCSX2 в режиме горячих клавиш (каждый запуск эмулятор начинает с первого) */
@@ -872,7 +874,8 @@ interface SaveOptions {
 async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game> {
   const db = getDb()
   const existing = draft.id ? findGame(draft.id) : undefined
-  const id = existing?.id ?? randomUUID()
+  // Новой игре id даёт редактор и держит его между попытками: повторное «Сохранить» обновляет ту же игру, а не создаёт вторую
+  const id = existing?.id ?? draft.id ?? randomUUID()
   const dir = artDir(id)
   const game: Game = {
     ...(existing ?? { playtime: 0, addedAt: Date.now(), sessions: [] }),
@@ -885,6 +888,8 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
   let step = 0
   // Ссылки на скачанный арт — для облака; у выбранных с диска файлов ссылки нет
   const src = { ...(existing?.artSrc ?? {}) }
+  // Файлы, скачанные этой попыткой: при отмене убираем только их — в ту же папку может качать следующая попытка
+  const fresh: string[] = []
   for (const field of ART_FIELDS) {
     const value = draft[field]
     if (!value) {
@@ -898,10 +903,10 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
       if ('file' in res) {
         game[field] = res.file
         src[field] = value
+        fresh.push(res.file)
       } else if (res.error === 'cancelled') {
         // Убираем то, что успели скачать за эту попытку, — игра остаётся как была
-        if (existing) cleanupArt(existing)
-        else fs.rmSync(dir, { recursive: true, force: true })
+        for (const f of fresh) fs.rmSync(f, { force: true })
         throw new Error('cancelled')
       } else {
         // Сервер не ответил — сохраняем игру без этого файла (или со старым артом)
@@ -949,12 +954,14 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
 
   // Время правки — для слияния библиотеки между ПК
   game.updatedAt = Date.now()
-  if (existing) Object.assign(existing, game)
+  // Пока качался арт, игру с этим id могла сохранить другая попытка — тогда обновляем её, а не добавляем вторую
+  const target = existing ?? findGame(id)
+  if (target) Object.assign(target, game)
   else db.games.push(game)
   saveDbNow()
   cleanupArt(game)
   broadcast()
-  const saved = existing ?? game
+  const saved = target ?? game
   if (saved.vr && !saved.vr.apis) void detectVrApis(saved)
   return saved
 }
@@ -1413,7 +1420,8 @@ function registerIpc() {
     const db = getDb()
     const gone = db.games.find((g) => g.id === id)
     // Надгробие: без него другой ПК вернул бы игру из облака
-    if (gone) db.deleted = [...(db.deleted ?? []).filter((d) => d.key !== libraryKey(gone)), { key: libraryKey(gone), at: Date.now() }]
+    const key = gone && (gone.cloudKey ?? libraryKey(gone))
+    if (key) db.deleted = [...(db.deleted ?? []).filter((d) => d.key !== key), { key, at: Date.now() }]
     db.games = db.games.filter((g) => g.id !== id)
     fs.rmSync(artDir(id), { recursive: true, force: true })
     ach.forget(id)
@@ -1457,6 +1465,7 @@ function registerIpc() {
   ipcMain.handle('game:launch', async (_e, id: string, opts?: { skipSync?: boolean }) => {
     const game = findGame(id)
     if (!game) return { ok: false, error: t('Игра не найдена') }
+    launchCancelled = null
     // Сначала свежие сохранения из облака; разошлись — решает пользователь, игра пока не запускается
     if (!opts?.skipSync && !launcher.running()) {
       const conflict = await sync.beforeLaunch(game)
@@ -1469,7 +1478,13 @@ function registerIpc() {
       if (!prep.ok) return { ok: false, error: prep.error }
       viaOc = !!prep.viaOc
     }
+    // Отменили, пока шли синхронизация или подготовка VR — игру не запускаем вовсе
+    if (launchCancelled === id) return { ok: false, cancelled: true }
     const res = await launcher.launchGame(game, getDb().settings)
+    if (res.ok && launchCancelled === id) {
+      launcher.abortLaunch()
+      return { ok: false, cancelled: true }
+    }
     log(res.ok ? 'INFO' : 'WARN', `Запуск «${game.title}» (${game.platform})${res.ok ? '' : `: ${res.error}`}`)
     if (res.ok && game.vr) vrLaunch = { gameId: game.id, viaOc }
     if (res.ok) {
@@ -1484,6 +1499,13 @@ function registerIpc() {
       }, 20000)
     }
     return res
+  })
+  ipcMain.handle('game:cancelLaunch', (_e, id: string) => {
+    launchCancelled = id
+    if (launcher.running()?.gameId === id) {
+      log('INFO', 'Запуск отменён')
+      launcher.abortLaunch()
+    }
   })
   ipcMain.handle('game:close', () => {
     // Размораживаем, чтобы игра могла корректно закрыться сама (сохранить настройки и т. п.)

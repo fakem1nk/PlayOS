@@ -39,6 +39,7 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'gameDisplayLabel',
   'onboarded',
   'betaUpdates',
+  'collections',
   'cloud'
 ])
 export const isPortableSetting = (k: string) => !DEVICE_KEYS.has(k as keyof Settings)
@@ -156,7 +157,10 @@ export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: num
   const seen = new Set<string>()
 
   for (const g of games) {
-    const key = libraryKey(g)
+    // Ключ запоминается при первой синхронизации: потом название или Steam AppID могут поменяться (выбрали арт из Steam),
+    // а игра должна остаться той же — иначе старая запись в облаке вернулась бы второй игрой
+    const key = g.cloudKey ?? libraryKey(g)
+    g.cloudKey = key
     // Две локальные записи одной игры — в облако уходит одна
     if (seen.has(key)) {
       kept.push(g)
@@ -215,6 +219,7 @@ export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: num
     if (tomb && tomb > Math.max(r.updatedAt, r.lastPlayed ?? 0)) continue
     const g: Game = {
       id: randomUUID(),
+      cloudKey: r.key,
       title: r.title,
       platform: r.platform,
       path: '',

@@ -142,7 +142,11 @@ export function saveReport(settings: Record<string, unknown>, gamesCount: number
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const name = `${getLang() === 'en' ? 'PlayOS-report' : 'PlayOS-отчёт'}-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.txt`
-  const out = path.join(app.getPath('desktop'), name)
+  // Отчёты — своей папкой в данных PlayOS (рядом с logs и backups), а не россыпью на рабочем столе.
+  // Не в папке установки: обновление переустанавливает её целиком
+  const dir = path.join(app.getPath('userData'), 'reports')
+  fs.mkdirSync(dir, { recursive: true })
+  const out = path.join(dir, name)
   fs.writeFileSync(out, text, 'utf8')
   log('INFO', `Сохранён отчёт ${out}`)
   shell.showItemInFolder(out)

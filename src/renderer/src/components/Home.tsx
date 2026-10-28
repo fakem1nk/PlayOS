@@ -1,8 +1,8 @@
 import { motion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { platformName, type AchievementSummaryItem, type Game, type RunningGame } from '@shared/types'
 import { gamesCount, lastPlayed, media, playtime, timer } from '../lib/format'
-import { useInputLayer } from '../lib/input'
+import { useConfirmHold, useInputLayer } from '../lib/input'
 import { useNow } from '../lib/state'
 import { play } from '../lib/sound'
 import { IconDice, IconDots, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
@@ -24,6 +24,10 @@ const FOCUS_W = 20.8
 const GAP = 1.5
 const SCALE = BASE_W / FOCUS_W
 const PAD_X = 6.4 // боковой отступ страницы (--pad-x)
+/** Сколько недавних игр стоит в ряду главного экрана */
+const RECENT_MAX = 15
+/** Сколько пикселей прокрутки колеса — один шаг по ряду */
+const WHEEL_STEP = 40
 
 /** Ширина окна в rem — чтобы понимать, какие плитки помещаются целиком */
 function useViewportRem(scale: number) {
@@ -63,7 +67,8 @@ interface Props {
 export function Home(props: Props) {
   const { games, running, active } = props
   const items = useMemo<RowItem[]>(() => {
-    const sorted = [...games].sort((a, b) => (b.lastPlayed ?? b.addedAt / 1e3) - (a.lastPlayed ?? a.addedAt / 1e3))
+    // Как на консоли: в ряду только недавние игры, вся коллекция — в «Библиотеке» в конце ряда
+    const sorted = [...games].sort((a, b) => (b.lastPlayed ?? b.addedAt / 1e3) - (a.lastPlayed ?? a.addedAt / 1e3)).slice(0, RECENT_MAX)
     const special: RowItem[] = [{ kind: 'library' }, ...(games.length > 1 ? [{ kind: 'random' } as const] : []), { kind: 'add' }]
     return [...sorted.map((game) => ({ kind: 'game' as const, game })), ...special]
   }, [games])
@@ -77,6 +82,8 @@ export function Home(props: Props) {
   const item = items[idx]
   const focusedGame = item.kind === 'game' ? item.game : null
   const isRunning = !!focusedGame && running?.gameId === focusedGame.id
+  // Удержание ✕ на плитке игры — её параметры
+  useConfirmHold(active && zone === 'row' && !!focusedGame)
 
   // Внешний запрос сфокусировать игру (после добавления или запуска)
   useEffect(() => {
@@ -168,6 +175,28 @@ export function Home(props: Props) {
     } else play('bump')
   }
 
+  // Колесо мыши (и тачпад) листает ряд: шаг на каждые WHEEL_STEP пикселей прокрутки, не чаще раза в 70 мс
+  const wheel = useRef({ acc: 0, at: 0 })
+  const onWheel = (e: React.WheelEvent) => {
+    if (!active || shuffling) return
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+    const w = wheel.current
+    // Сменили направление — копим заново
+    if (Math.sign(d) !== Math.sign(w.acc)) w.acc = 0
+    w.acc += d
+    const now = performance.now()
+    if (Math.abs(w.acc) < WHEEL_STEP || now - w.at < 70) return
+    const step = Math.sign(w.acc)
+    w.acc = 0
+    w.at = now
+    const next = Math.max(0, Math.min(items.length - 1, idx + step))
+    if (next === idx) return
+    play('move')
+    setIndex(next)
+    setAction(0)
+    setZone('row')
+  }
+
   useInputLayer(
     (a) => {
       if (shuffling) return
@@ -213,7 +242,7 @@ export function Home(props: Props) {
   const to = Math.min(items.length, idx + 13)
 
   return (
-    <div className="home">
+    <div className="home" onWheel={onWheel}>
       <div className="row" aria-label={t('Игры')}>
         {items.slice(from, to).map((it, k) => {
           const i = from + k

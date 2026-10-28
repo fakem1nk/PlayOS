@@ -683,6 +683,8 @@ p {
   inset: 0;
   display: grid;
   grid-template-rows: auto 1fr;
+  /* Колонка ровно по ширине экрана: длинная шапка не должна растягивать сетку плиток */
+  grid-template-columns: minmax(0, 1fr);
   gap: 2rem;
   padding-top: 2.6rem;
 }
@@ -699,6 +701,229 @@ p {
   gap: 1rem;
   align-items: center;
 }
+
+/* Шапка библиотеки: фишки своей ширины, название игры справа сжимается с многоточием */
+.library-head .chips {
+  flex: none;
+}
+
+.library-head .chip {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Платформы и избранное — одна капсула с сегментами */
+.seg {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  height: 4.2rem;
+  padding: 0.4rem;
+  border-radius: 2.1rem;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: blur(1.4rem) saturate(1.4);
+  backdrop-filter: blur(1.4rem) saturate(1.4);
+}
+
+.seg-item {
+  /* Кольцо фокуса — общий ::after: без position он прилипал ко всей капсуле */
+  position: relative;
+  --r: 1.7rem;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-width: 5.4rem;
+  padding: 0 1.6rem;
+  border: 0;
+  border-radius: 1.7rem;
+  background: transparent;
+  color: var(--mist);
+  font: inherit;
+  font-size: 1.7rem;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.seg-item > svg {
+  font-size: 1.8rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .seg-item:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.07);
+  }
+}
+
+.seg-item.is-active {
+  background: #fff;
+  color: #000;
+}
+
+/* Фокус геймпада — общее белое кольцо (::after), сегмент только светлеет */
+.seg-item.is-focused {
+  z-index: 1;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.seg-item.is-active.is-focused {
+  color: #000;
+  background: #fff;
+}
+
+/* Идёт поиск — фильтры не действуют, приглушаем их */
+.chips.is-searching .seg,
+.chips.is-searching .chip-pick.is-active {
+  opacity: 0.45;
+}
+
+/* Фишки «Подборки ▾» и сортировка: значок, подпись и стрелка */
+.chip.chip-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0 1.8rem;
+}
+
+.chip-pick > svg {
+  flex: none;
+  font-size: 1.9rem;
+}
+
+.chip-pick-name {
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-pick .chip-caret {
+  margin-right: -0.4rem;
+  font-size: 1.6rem;
+  opacity: 0.7;
+}
+
+/* Выпадающий список подборок */
+.pop-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+}
+
+.pop {
+  position: fixed;
+  z-index: 56;
+  width: 40rem;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.4rem;
+  border-radius: 2.4rem;
+  border: 1px solid var(--stroke);
+  /* Матовое стекло, как у окон PlayOS: что под списком — только размытым пятном */
+  background: rgba(20, 26, 44, 0.9);
+  -webkit-backdrop-filter: blur(4rem) saturate(1.6);
+  backdrop-filter: blur(4rem) saturate(1.6);
+  box-shadow: 0 3rem 8rem rgba(0, 0, 0, 0.55);
+  transform-origin: top left;
+}
+
+.pop-item.is-active .pop-name {
+  font-weight: 500;
+}
+
+.pop-title {
+  padding: 0.6rem 1.2rem 1rem;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.pop-empty {
+  margin: 0 1.2rem 1.2rem;
+  font-size: 1.6rem;
+  line-height: 1.45;
+  color: var(--mist);
+}
+
+.pop-list {
+  display: grid;
+  gap: 0.4rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.pop-item {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  width: 100%;
+  height: 5rem;
+  padding: 0 1.4rem;
+  border: 0;
+  border-radius: 1.4rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.8rem;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+.pop-item:focus,
+.pop-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pop-item:focus {
+  box-shadow: inset 0 0 0 0.2rem rgba(255, 255, 255, 0.85);
+}
+
+.pop-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pop-count {
+  color: var(--faint);
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pop-check {
+  display: grid;
+  width: 2rem;
+  color: var(--accent);
+  font-size: 1.9rem;
+}
+
+.pop-item.is-new {
+  margin-top: 0.6rem;
+  color: var(--mist);
+  border-top: 1px solid var(--stroke);
+  border-radius: 0 0 1.4rem 1.4rem;
+}
+
+.pop-item.is-new > svg {
+  font-size: 1.9rem;
+}
+
+.pop-hints {
+  display: flex;
+  gap: 2.2rem;
+  padding: 1.2rem 1.2rem 0.4rem;
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+
 
 .chip {
   --r: 2.1rem;
@@ -727,7 +952,62 @@ p {
   margin: 0 0.8rem;
 }
 
+/* Поиск — такая же фишка, при вводе становится шире */
+.lib-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.4rem 0 1.6rem;
+  cursor: text;
+}
+
+.lib-search > svg {
+  flex: none;
+  font-size: 1.8rem;
+}
+
+.lib-search input {
+  width: 8rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  transition: width 0.25s var(--ease-out);
+}
+
+.lib-search input::placeholder {
+  color: var(--mist);
+}
+
+.lib-search.has-query input,
+.lib-search:focus-within input {
+  width: 20rem;
+}
+
+.lib-search-clear {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.lib-search-clear:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .library-meta {
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--mist);
   font-size: 1.7rem;
   white-space: nowrap;
@@ -739,7 +1019,10 @@ p {
   overflow-y: auto;
   overflow-x: hidden;
   margin: 0 -2rem;
-  padding: 1.6rem 2rem 6rem;
+  /* Снизу запас под свечение плитки (::before, 6rem за краем) вместе с увеличением в фокусе: иначе у нижнего ряда
+     высота прокрутки растёт, пока плитка плавно увеличивается, и картинка дрожит */
+  padding: 1.6rem 2rem 8rem;
+  overflow-anchor: none;
   mask-image: linear-gradient(180deg, transparent 0, #000 1.4rem, #000 calc(100% - 6rem), transparent);
 }
 
@@ -1503,6 +1786,29 @@ p {
   font-size: 1.55rem;
   color: var(--mist);
   margin-top: 0.6rem;
+}
+
+/* Строка под заголовком шторки: название игры или число игр в подборке */
+.side-sub {
+  margin-bottom: 1.6rem;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+/* Пустой кружок вместо галочки — подборка без этой игры */
+.menu-check-empty {
+  width: 1.8rem;
+  height: 1.8rem;
+  margin: 0.3rem;
+  border-radius: 50%;
+  border: 0.2rem solid currentColor;
+  opacity: 0.5;
+}
+
+.prompt-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 3.4rem;
 }
 
 .side-title {

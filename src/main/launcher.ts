@@ -271,6 +271,34 @@ export async function closeGame() {
   }
 }
 
+/**
+ * Отмена запуска (○ на экране запуска). Игра — особенно через Steam или свой лаунчер — может появиться через
+ * несколько секунд после команды, поэтому не только закрываем то, что уже есть, но и столько же, сколько ждём
+ * игру при запуске, закрываем её новые процессы. Сессия не засчитывается.
+ */
+export function abortLaunch() {
+  if (!tracker) return
+  const t = tracker
+  tracker = null
+  clearInterval(t.timer)
+  clearInterval(t.checkpoint)
+  getDb().activeSession = undefined
+  saveDb()
+  const until = Date.now() + t.grace
+  const sweep = () => {
+    for (const p of listProcesses()) {
+      const ours =
+        p.pid !== process.pid &&
+        (p.pid === t.pid || (t.trackName && path.basename(p.path).toLowerCase() === t.trackName) || (t.exeDir && p.path.toLowerCase().startsWith(t.exeDir)))
+      if (ours) void taskkill(p.pid, true)
+    }
+    if (Date.now() < until) setTimeout(sweep, 1000)
+  }
+  sweep()
+  events.emit('change')
+  events.emit('end', { gameId: t.gameId, duration: 0, aborted: true })
+}
+
 /** Если прошлый запуск лаунчера упал во время игры — засчитываем время до последней отметки. */
 export function recoverSession() {
   const s = getDb().activeSession

@@ -48,6 +48,27 @@ export function dispatch(a: PadAction) {
   for (const l of sorted) if (l.handler.current(a) !== false) return
 }
 
+// ───────────── Удержание ✕ ─────────────
+
+/**
+ * Удержание ✕ (Enter) на игре открывает её параметры — как △. Пока хоть один экран это включил,
+ * ✕ срабатывает на отпускании, а удержание дольше HOLD_MS вместо него отправляет 'menu'.
+ */
+let holdZones = 0
+const HOLD_MS = 500
+export function useConfirmHold(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return
+    holdZones++
+    return () => {
+      holdZones--
+    }
+  }, [enabled])
+}
+
+/** Нажатый ✕, который ждёт отпускания или конца удержания: ключ кнопки → время нажатия */
+const pendingHold = new Map<string, number>()
+
 export function useInputLayer(handler: Handler, priority: number, enabled = true) {
   const ref = useRef(handler)
   ref.current = handler
@@ -152,11 +173,34 @@ function onKey(e: KeyboardEvent) {
     // Стрелки влево/вправо и буквы двигают курсор и печатают; вверх/вниз уводят из поля
     if (!['ArrowUp', 'ArrowDown'].includes(e.key)) a = undefined
   }
+  if (a === 'confirm' && holdZones > 0) {
+    e.preventDefault()
+    setDevice('keyboard')
+    // Автоповтор клавиши — то же удержание
+    if (e.repeat || keyHold) return
+    const hold = { key: e.key, fired: false, timer: setTimeout(() => {
+      hold.fired = true
+      dispatch('menu')
+    }, HOLD_MS) }
+    keyHold = hold
+    return
+  }
   if (a) {
     e.preventDefault()
     setDevice('keyboard')
     dispatch(a)
   }
+}
+
+/** Enter/пробел, нажатые там, где включено удержание: срабатывают на отпускании */
+let keyHold: { key: string; fired: boolean; timer: ReturnType<typeof setTimeout> } | null = null
+
+function onKeyUp(e: KeyboardEvent) {
+  if (!keyHold || e.key !== keyHold.key) return
+  const hold = keyHold
+  keyHold = null
+  clearTimeout(hold.timer)
+  if (!hold.fired) dispatch('confirm')
 }
 
 // ───────────── Gamepad API ─────────────
@@ -294,6 +338,7 @@ function pollPads() {
     }
     if (muted) {
       for (const [index, action] of BUTTONS) prev.set(`${p.index}:${index}`, actionDown(p, action, index))
+      pendingHold.clear()
       continue
     }
     if (capture) {
@@ -314,7 +359,17 @@ function pollPads() {
         setDevice('pad')
         holdStart.set(key, now)
         lastFire.set(key, now)
-        dispatch(action)
+        if (action === 'confirm' && holdZones > 0) pendingHold.set(key, now)
+        else dispatch(action)
+      } else if (pendingHold.has(key)) {
+        // ✕ ждёт: отпустили быстро — обычное нажатие, держат дольше HOLD_MS — параметры
+        if (!down) {
+          pendingHold.delete(key)
+          dispatch('confirm')
+        } else if (now - pendingHold.get(key)! >= HOLD_MS) {
+          pendingHold.delete(key)
+          dispatch('menu')
+        }
       } else if (down && DIRS.has(action)) {
         const held = now - (holdStart.get(key) ?? now)
         if (held > REPEAT_DELAY && now - (lastFire.get(key) ?? 0) > repeatRate(held)) {
@@ -331,6 +386,7 @@ export function startInput() {
   if (started) return
   started = true
   window.addEventListener('keydown', onKey)
+  window.addEventListener('keyup', onKeyUp)
   // Не даём пробелу «кликать» кнопку повторно на keyup — клик уже сделан через dispatch
   window.addEventListener('keyup', (e) => {
     const t = e.target as HTMLElement

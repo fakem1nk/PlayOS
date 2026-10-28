@@ -16,6 +16,8 @@ export interface Session {
 
 export interface Game {
   id: string
+  /** Ключ игры в облачной библиотеке — запоминается при первой синхронизации и больше не меняется */
+  cloudKey?: string
   title: string
   platform: Platform
   /** EXE для PC, образ/EBOOT.BIN для эмуляторов */
@@ -238,7 +240,21 @@ export interface Settings {
   language?: 'ru' | 'en'
   /** Тема интерфейса; по умолчанию тёмная */
   theme?: ThemeMode
+  /** Свои подборки игр в библиотеке («плейлисты»); у каждого ПК свои — id игр на разных ПК не совпадают */
+  collections?: GameCollection[]
+  /** Сортировка библиотеки; по умолчанию — недавние */
+  librarySort?: LibrarySort
 }
+
+/** Подборка: название и игры в порядке добавления */
+export interface GameCollection {
+  id: string
+  name: string
+  games: string[]
+}
+
+/** manual — порядок подборки, имеет смысл только внутри подборки */
+export type LibrarySort = 'recent' | 'name' | 'time' | 'added' | 'manual'
 
 /** dark — тёмная, light — светлая, system — как в Windows */
 export type ThemeMode = 'dark' | 'light' | 'system'
@@ -430,6 +446,8 @@ export interface SaveProgress {
 export interface SessionEndEvent {
   gameId: string
   duration: number
+  /** Запуск отменили — сессии не было */
+  aborted?: boolean
 }
 
 /** Где лежит игра: папка установки или файл образа; size — null, если папку не посчитать (корень диска и т.п.) */
@@ -444,6 +462,8 @@ export interface LaunchResult {
   error?: string
   /** Сохранения разошлись с облаком — игра не запущена, нужен выбор пользователя */
   conflict?: SaveConflict
+  /** Запуск отменили, пока он готовился — игра не запущена или уже остановлена */
+  cancelled?: boolean
 }
 
 // ── Облачные сохранения ──
@@ -550,6 +570,8 @@ export interface PcsApi {
   /** skipSync — запустить без проверки облака (после «Позже» в диалоге конфликта) */
   launch(id: string, opts?: { skipSync?: boolean }): Promise<LaunchResult>
   closeGame(): Promise<void>
+  /** Отменить запуск: игра не стартует, а если уже стартовала — закрывается, время не идёт */
+  cancelLaunch(id: string): Promise<void>
   resumeGame(): Promise<void>
   hideOverlay(): Promise<void>
   pickFile(kind: PickKind): Promise<string | null>

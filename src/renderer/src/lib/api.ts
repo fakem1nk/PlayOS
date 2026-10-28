@@ -156,6 +156,7 @@ function createMockApi(): PcsApi {
       setTimeout(() => state.running && set({ running: { ...state.running, phase: 'running' } }), 2500)
       return { ok: true }
     },
+    cancelLaunch: async () => set({ running: null }),
     closeGame: async () => {
       const r = state.running
       if (!r) return
@@ -341,7 +342,7 @@ function createMockApi(): PcsApi {
       }, 700)
       return () => clearInterval(t)
     },
-    saveReport: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-отчёт.txt',
+    saveReport: async () => 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS\\reports\\PlayOS-отчёт.txt',
     exportData: async () => 'C:\\Users\\demo\\Desktop\\PlayOS-копия-2026-10-21_12-00.playos',
     inspectBackup: async () => ({ version: '1.0.1', createdAt: Date.now() - 86400_000, games: 9 }),
     importData: async () => true,

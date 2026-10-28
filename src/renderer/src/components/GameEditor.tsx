@@ -72,6 +72,9 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
   const [slow, setSlow] = useState(false)
   // Номер текущего чтения файла: отменённое чтение просто игнорируется
   const inspectToken = useRef(0)
+  // id новой игры — один на все попытки сохранения (после отмены загрузки арта и повторного «Сохранить»)
+  const newId = useRef(crypto.randomUUID())
+  const saving = useRef(false)
   const [searching, setSearching] = useState(false)
   const [searchedOnce, setSearchedOnce] = useState(false)
   // Что облако найдёт для игры: папка сохранений и AppID. Пересчитывается, когда меняются влияющие поля
@@ -246,6 +249,8 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
   }
 
   const save = async () => {
+    // Второе нажатие, пока идёт сохранение (качается арт), не должно создавать вторую игру
+    if (saving.current) return
     if (!draft.path.trim()) {
       play('error')
       toast({ title: t('Не выбран файл игры'), message: t('Нажмите «Выбрать файл» и укажите игру.'), tone: 'error' })
@@ -263,8 +268,9 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
     const off = api.onSaveProgress(setProgress)
     // Если сервер долго не отдаёт файл — подсказываем, что можно отменить
     const slowTimer = window.setTimeout(() => setSlow(true), 8000)
+    saving.current = true
     try {
-      const saved = await api.saveGame({ ...draft, title: draft.title.trim() })
+      const saved = await api.saveGame({ ...draft, id: draft.id ?? newId.current, title: draft.title.trim() })
       play('select')
       onSaved(saved)
     } catch (e) {
@@ -276,6 +282,7 @@ export function GameEditor({ game, settings, onClose, onSaved }: Props) {
         toast({ title: t('Не удалось сохранить'), message: msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
       }
     } finally {
+      saving.current = false
       off()
       clearTimeout(slowTimer)
       setBusy(null)

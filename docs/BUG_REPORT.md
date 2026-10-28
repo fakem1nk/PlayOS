@@ -13,7 +13,7 @@ A good report gets a bug fixed in one pass. A vague one turns into a week of que
 ## What to collect
 
 - **PlayOS version.** Settings → System → “System info”.
-- **Error report.** Settings → System → “Save error report”. A `PlayOS-report-….txt` file appears on your desktop with the log and system info. It doesn't contain API keys or cloud tokens.
+- **Error report.** Settings → System → “Save error report”. A `PlayOS-report-….txt` file with the log and system info is saved to the `reports` folder in PlayOS data (`%APPDATA%\PlayOS\reports`), and the folder opens on its own. It doesn't contain API keys or cloud tokens.
 - **If PlayOS doesn't start at all**, attach the log instead: `%APPDATA%\PlayOS\logs\playos.log`.
 - **A screenshot or a short video**, if the problem is visual or hard to describe.
 

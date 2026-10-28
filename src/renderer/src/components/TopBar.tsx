@@ -53,7 +53,7 @@ function VrStatus({ q }: { q: QuestStatus }) {
 
 export type Tab = 'home' | 'library' | 'profile' | 'settings'
 export const TABS: { id: Tab; label: string }[] = [
-  { id: 'home', label: t('Игры') },
+  { id: 'home', label: t('Недавние') },
   { id: 'library', label: t('Библиотека') },
   { id: 'profile', label: t('Профиль') },
   { id: 'settings', label: t('Настройки') }

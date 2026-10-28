@@ -175,6 +175,27 @@ export const IconChevron = ({ dir = 'right', ...p }: P & { dir?: 'left' | 'right
     <path d={dir === 'right' ? 'm9.5 6 6 6-6 6' : 'm14.5 6-6 6 6 6'} />
   </svg>
 )
+/** Сортировка: стрелки вверх и вниз */
+export const IconSort = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M8 18V6m0 0L5 9m3-3 3 3M16 6v12m0 0-3-3m3 3 3-3" />
+  </svg>
+)
+/** Список: подборки игр */
+export const IconList = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9 7h11M9 12h11M9 17h11" />
+    <circle cx="4.5" cy="7" r="1" fill="currentColor" stroke="none" />
+    <circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="4.5" cy="17" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
+/** Раскрыть список вниз */
+export const IconCaret = (p: P) => (
+  <svg {...base(p)}>
+    <path d="m7 10 5 5 5-5" />
+  </svg>
+)
 export const IconTrophy = (p: P) => (
   <svg {...base(p)}>
     <path d="M8 4.5h8v5.2a4 4 0 0 1-8 0Z" />

@@ -2,13 +2,22 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { VrResult } from '@shared/types'
+import { listProcesses } from '../win32'
 import { t } from '@shared/i18n'
 
 const run = (file: string, args: string[]) =>
   new Promise<string>((resolve) => execFile(file, args, { windowsHide: true, encoding: 'utf8' }, (_err, stdout) => resolve(stdout ?? '')))
 
 /** Активный OpenXR-рантайм из реестра Khronos: имя из его манифеста (runtime.name) */
-export async function openXrStatus() {
+let openXrCache: { at: number; value: Promise<{ name?: string; meta: boolean }> } | null = null
+
+/** Рантайм меняют редко, а reg.exe запускается заметно — раздел VR опрашивает раз в 4 с, держим ответ 30 с */
+export function openXrStatus() {
+  if (!openXrCache || Date.now() - openXrCache.at > 30_000) openXrCache = { at: Date.now(), value: readOpenXr() }
+  return openXrCache.value
+}
+
+async function readOpenXr(): Promise<{ name?: string; meta: boolean }> {
   const out = await run('reg', ['query', 'HKLM\\SOFTWARE\\Khronos\\OpenXR\\1', '/v', 'ActiveRuntime'])
   const manifest = /ActiveRuntime\s+REG_\w+\s+(.+)/.exec(out)?.[1]?.trim()
   if (!manifest) return { meta: false }
@@ -22,12 +31,12 @@ export async function openXrStatus() {
 /** Процессы SteamVR: монитор, сервер, композитор, дашборд и их помощники */
 const STEAMVR_EXES = ['vrmonitor.exe', 'vrserver.exe', 'vrcompositor.exe', 'vrdashboard.exe', 'vrwebhelper.exe', 'vrstartup.exe']
 
-/** Запущенные VR-сервисы — одним вызовом tasklist */
+/** Запущенные VR-сервисы — список процессов через WinAPI: в разы быстрее tasklist, раздел VR открывается сразу */
 export async function vrProcesses() {
-  const out = (await run('tasklist', ['/FO', 'CSV', '/NH'])).toLowerCase()
+  const names = new Set(listProcesses().map((p) => path.basename(p.path).toLowerCase()))
   return {
-    metaLink: out.includes('"ovrserver_x64.exe"'),
-    steamvr: out.includes('"vrserver.exe"') || out.includes('"vrmonitor.exe"')
+    metaLink: names.has('ovrserver_x64.exe'),
+    steamvr: names.has('vrserver.exe') || names.has('vrmonitor.exe')
   }
 }
 

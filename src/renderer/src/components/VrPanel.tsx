@@ -19,9 +19,16 @@ function questHint(q: QuestStatus) {
   ].join(' · ')
 }
 
+/** Последнее известное состояние: при повторном открытии раздел показывается сразу, свежие данные догоняют */
+let lastStatus: VrStatus | null = null
+
 /** Раздел настроек «VR»: шлем и VR-компонент. Всё остальное PlayOS делает сам при запуске VR-игры */
 export function VrPanel() {
-  const [s, setS] = useState<VrStatus | null>(null)
+  const [s, setStatus] = useState<VrStatus | null>(lastStatus)
+  const setS = (v: VrStatus) => {
+    lastStatus = v
+    setStatus(v)
+  }
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
   const [update, setUpdate] = useState(false)
