@@ -62,7 +62,7 @@ export function SystemInfoDialog({ onClose }: { onClose: () => void }) {
     try {
       await navigator.clipboard.writeText(asText(info))
       play('select')
-      toast({ title: t('Сведения скопированы'), message: t('Их можно вставить в сообщение или отчёт об ошибке'), tone: 'success' })
+      toast({ title: t('Сведения скопированы'), message: t('Их можно вставить в сообщение или отчёт об ошибке'), tone: 'success', history: false })
     } catch {
       play('error')
     }

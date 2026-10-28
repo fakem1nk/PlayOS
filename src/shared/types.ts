@@ -589,7 +589,7 @@ export interface PcsApi {
   onPad(cb: (a: PadAction) => void): () => void
   onOverlay(cb: (e: OverlayEvent) => void): () => void
   onSessionEnd(cb: (e: SessionEndEvent) => void): () => void
-  onToast(cb: (t: { title: string; message: string }) => void): () => void
+  onToast(cb: (t: { title: string; message: string; history?: false }) => void): () => void
   onPadStatus(cb: (s: PadStatus) => void): () => void
   /** Идёт игра, и PlayOS не на переднем плане: геймпад принадлежит игре */
   onPadBlock(cb: (blocked: boolean) => void): () => void

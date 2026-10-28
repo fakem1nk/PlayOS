@@ -3,10 +3,10 @@ import type { Game, QuestStatus } from '@shared/types'
 import { clock, timer } from '../lib/format'
 import { DotText } from './DotText'
 import { usePadInfo } from '../lib/input'
-import { useNow, usePadStatus, useVrQuest } from '../lib/state'
+import { useNoticeHistory, useNow, usePadStatus, useVrQuest } from '../lib/state'
 import { Avatar } from './Avatar'
 import { Glyph } from './Glyph'
-import { IconBattery, IconGamepad, IconPlug, IconPower, IconVr, IconVrController, IconWifi } from './Icons'
+import { IconBattery, IconBell, IconGamepad, IconPlug, IconPower, IconVr, IconVrController, IconWifi } from './Icons'
 import { t } from '@shared/i18n'
 
 /** Цвет заряда: жёлтый — пора заряжать, красный — вот-вот сядет */
@@ -64,7 +64,7 @@ const BATTERY_TEXT = { empty: t('Геймпад разряжен'), low: t('Ни
 
 interface Props {
   tab: Tab
-  /** Индекс фокуса в зоне вкладок (TABS.length = кнопка питания) или null, если фокус в контенте */
+  /** Индекс фокуса в зоне вкладок (TABS.length — уведомления, TABS.length + 1 — питание) или null, если фокус в контенте */
   tabFocus: number | null
   userName: string
   avatar?: string
@@ -73,16 +73,18 @@ interface Props {
   /** Скачано обновление — точка на кнопке питания */
   updateReady?: boolean
   onTab: (t: Tab) => void
+  onNotices: () => void
   onPower: () => void
 }
 
-export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSince, updateReady, onTab, onPower }: Props) {
+export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSince, updateReady, onTab, onNotices, onPower }: Props) {
   const now = useNow(1000)
   const pad = usePadInfo()
   const status = usePadStatus()
   const connected = pad !== 'none' || status.connected > 0
   const battery = status.battery
   const quest = useVrQuest()
+  const notices = useNoticeHistory()
 
   return (
     <header className="topbar">
@@ -137,7 +139,16 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
         {quest?.connected && <VrStatus q={quest} />}
         <DotText className="clock" text={clock(new Date(now))} />
         <button
-          className={`power-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
+          className={`power-btn notice-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
+          onClick={onNotices}
+          tabIndex={-1}
+          aria-label={notices.unread ? t('Уведомления: новых {n}', { n: notices.unread }) : t('Уведомления')}
+        >
+          <IconBell />
+          {notices.unread > 0 && <span className="power-dot" />}
+        </button>
+        <button
+          className={`power-btn ${tabFocus === TABS.length + 1 ? 'is-focused' : ''}`}
           onClick={onPower}
           tabIndex={-1}
           aria-label={updateReady ? t('Питание. Готово обновление PlayOS') : t('Питание')}

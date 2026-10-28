@@ -2076,6 +2076,130 @@ p {
   margin: -0.9rem;
 }
 
+/* ───────────── Центр уведомлений ───────────── */
+.notice-btn {
+  margin-right: -0.8rem;
+}
+
+.notice-list {
+  gap: 0.8rem;
+}
+
+.notice-item {
+  --r: 1.4rem;
+  position: relative;
+  flex: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1.4rem;
+  padding: 1.4rem 1.6rem;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.notice-item:focus::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: calc(var(--r) + 0.55rem);
+  border: 0.3rem solid #fff;
+  pointer-events: none;
+}
+
+.notice-img,
+.notice-icon {
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 1rem;
+  flex: none;
+}
+
+.notice-img {
+  object-fit: cover;
+}
+
+.notice-icon {
+  display: grid;
+  place-items: center;
+  font-size: 2.2rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mist);
+}
+
+.notice-item.is-error .notice-icon {
+  color: var(--danger);
+}
+
+.notice-item.is-success .notice-icon {
+  color: var(--live);
+}
+
+.notice-item.trophy-bronze .notice-icon {
+  color: #d08b5b;
+}
+
+.notice-item.trophy-silver .notice-icon {
+  color: #c8d2de;
+}
+
+.notice-item.trophy-gold .notice-icon {
+  color: #f2c14e;
+}
+
+.notice-item.trophy-platinum .notice-icon {
+  color: #a8c8ff;
+}
+
+.notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.notice-title {
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.notice-text {
+  font-size: 1.55rem;
+  line-height: 1.4;
+  color: var(--mist);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.notice-action {
+  align-self: flex-start;
+  margin-top: 0.8rem;
+}
+
+.notice-time {
+  font-size: 1.4rem;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.notice-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
+  text-align: center;
+  color: var(--faint);
+  font-size: 1.7rem;
+  line-height: 1.5;
+}
+
+.notice-empty svg {
+  font-size: 4.4rem;
+}
+
 /* Граница между группами пунктов: игра — библиотека — файлы и удаление */
 .menu-divider {
   flex: none;

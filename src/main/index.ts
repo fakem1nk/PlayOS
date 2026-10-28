@@ -155,7 +155,8 @@ const state = (): AppState => ({
 })
 
 const broadcast = () => send('state', state())
-const toast = (title: string, message: string) => sendTo(win, 'toast', { title, message })
+/** history false — не записывать в центр уведомлений */
+const toast = (title: string, message: string, history?: false) => sendTo(win, 'toast', { title, message, history })
 
 // ───────────────────────── Окна ─────────────────────────
 
@@ -1017,7 +1018,7 @@ async function scanPs2Folder() {
   if (res.canceled || !res.filePaths[0]) return 0
   const known = knownPaths()
   const files = walk(res.filePaths[0], media.PS2_EXTENSIONS).filter((f) => !known.has(f.toLowerCase()))
-  toast(t('Сканирование'), t('Найдено новых образов: {length}', { length: files.length }))
+  toast(t('Сканирование'), t('Найдено новых образов: {length}', { length: files.length }), false)
   let added = 0
   // Небольшими пачками, чтобы не забивать сеть при загрузке обложек
   for (let i = 0; i < files.length; i += 4) {

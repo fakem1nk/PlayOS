@@ -92,7 +92,7 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
     const p = await api.pickFile('image')
     if (!p) return
     await api.saveSettings({ avatar: p })
-    toast({ title: t('Аватар обновлён'), image: p, tone: 'success' })
+    toast({ title: t('Аватар обновлён'), image: p, tone: 'success', history: false })
   }
 
   return (
@@ -255,7 +255,7 @@ function NameField({ name }: { name: string }) {
     setDraft(v)
     if (v !== name) {
       void api.saveSettings({ userName: v })
-      toast({ title: t('Имя изменено'), message: v, tone: 'success' })
+      toast({ title: t('Имя изменено'), message: v, tone: 'success', history: false })
     }
   }
   return (

@@ -76,7 +76,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
   const run = async (fn: () => Promise<number>, what: string) => {
     try {
       const n = await fn()
-      toast({ title: what, message: n ? t('Добавлено: {v}', { v: gamesCount(n) }) : t('Новых игр не найдено'), tone: n ? 'success' : 'info' })
+      toast({ title: what, message: n ? t('Добавлено: {v}', { v: gamesCount(n) }) : t('Новых игр не найдено'), tone: n ? 'success' : 'info', history: false })
     } catch (e) {
       toast({ title: what, message: (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
     }

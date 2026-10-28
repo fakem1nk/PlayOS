@@ -68,8 +68,12 @@ export interface Toast {
   message?: string
   image?: string
   tone?: 'info' | 'error' | 'success'
-  kind?: 'trophy'
+  kind?: 'trophy' | 'update'
+  /** Для kind 'update': какая версия скачана — в центре уведомлений у неё кнопка «Обновить» */
+  version?: string
   tier?: 'bronze' | 'silver' | 'gold' | 'platinum'
+  /** false — только всплывающее окошко, без записи в центр уведомлений (мелкие подтверждения, итоги импорта) */
+  history?: false
 }
 
 let toasts: Toast[] = []
@@ -81,6 +85,8 @@ export function toast(t: Omit<Toast, 'id'>) {
   toasts = [item, ...toasts].slice(0, 4)
   toastSubs.forEach((s) => s())
   setTimeout(() => dismissToast(item.id), t.tone === 'error' ? 7000 : 4800)
+  if (t.history === false) return
+  remember(item)
 }
 
 export function dismissToast(id: number) {
@@ -95,5 +101,71 @@ export function useToasts() {
       return () => toastSubs.delete(cb)
     },
     () => toasts
+  )
+}
+
+// ───────────── Центр уведомлений ─────────────
+
+/** Уведомление в истории: то же, что всплывало, и когда */
+export interface Notice extends Toast {
+  at: number
+}
+
+const HISTORY_KEY = 'playos-notifications'
+const HISTORY_MAX = 50
+
+/**
+ * Всплывающие уведомления исчезают через 5–7 секунд — история хранит последние 50, чтобы к ошибке или трофею
+ * можно было вернуться. Живёт в localStorage: переживает перезагрузку окна (смена языка, выгрузка интерфейса в игре)
+ */
+let history: { items: Notice[]; unread: number } = loadHistory()
+const historySubs = new Set<() => void>()
+
+function loadHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? 'null')
+    if (raw && Array.isArray(raw.items)) return { items: raw.items as Notice[], unread: Number(raw.unread) || 0 }
+  } catch {
+    /* хранилище недоступно или испорчено — начинаем с пустой истории */
+  }
+  return { items: [], unread: 0 }
+}
+
+function setHistory(next: typeof history) {
+  history = next
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+  } catch {
+    /* без хранилища история живёт до перезагрузки окна */
+  }
+  historySubs.forEach((s) => s())
+}
+
+function remember(item: Toast) {
+  const at = Date.now()
+  setHistory({ items: [{ ...item, id: at * 100 + (item.id % 100), at }, ...history.items].slice(0, HISTORY_MAX), unread: history.unread + 1 })
+}
+
+/** Только в историю, без всплывающего окошка: о скачанном обновлении и так говорит своё окно */
+export function addNotice(item: Omit<Toast, 'id'>) {
+  remember({ ...item, id: toastId++ })
+}
+
+/** Центр открыли — всё прочитано */
+export function markNoticesRead() {
+  if (history.unread) setHistory({ ...history, unread: 0 })
+}
+
+export function clearNotices() {
+  setHistory({ items: [], unread: 0 })
+}
+
+export function useNoticeHistory() {
+  return useSyncExternalStore(
+    (cb) => {
+      historySubs.add(cb)
+      return () => historySubs.delete(cb)
+    },
+    () => history
   )
 }

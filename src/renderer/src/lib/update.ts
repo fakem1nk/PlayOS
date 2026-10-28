@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { UpdateState, UpdateSummary, UpdateSummaryText } from '@shared/types'
 import { api } from './api'
+import { addNotice } from './state'
 import { locale, t } from '@shared/i18n'
 
 /** Состояние обновления PlayOS — одно на всё окно: уведомление, меню питания и настройки */
@@ -11,6 +12,27 @@ let started = false
 function set(s: UpdateState) {
   state = s
   subs.forEach((f) => f())
+  noteReady(s)
+}
+
+const NOTED_KEY = 'playos-update-noted'
+
+/** Обновление скачалось — запись в центре уведомлений, один раз на версию (не при каждом запуске) */
+function noteReady(s: UpdateState) {
+  if (s.phase !== 'ready' || !s.version) return
+  try {
+    if (localStorage.getItem(NOTED_KEY) === s.version) return
+    localStorage.setItem(NOTED_KEY, s.version)
+  } catch {
+    /* без хранилища запись может повториться после перезапуска — не страшно */
+  }
+  addNotice({
+    kind: 'update',
+    version: s.version,
+    tone: 'success',
+    title: t('Обновление PlayOS {v}', { v: s.version }),
+    message: t('Скачано и установится при выходе из PlayOS. Можно обновиться сразу.')
+  })
 }
 
 function start() {

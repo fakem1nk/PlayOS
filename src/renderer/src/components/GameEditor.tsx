@@ -275,7 +275,7 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
         logo: c.logo,
         ...(appId && draft.platform === 'pc' ? { steamAppId: appId } : {})
       })
-      if (title && title !== draft.title) toast({ title: t('Название взято из Steam'), message: title })
+      if (title && title !== draft.title) toast({ title: t('Название взято из Steam'), message: title, history: false })
     }
   }
 

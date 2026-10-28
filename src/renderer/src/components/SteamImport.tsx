@@ -68,7 +68,7 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
     try {
       const n = await api.importSteam([...picked])
       play('launch')
-      toast({ title: t('Импорт Steam'), message: n ? t('Добавлено: {v}', { v: gamesCount(n) }) : t('Ничего не добавлено'), tone: n ? 'success' : 'info' })
+      toast({ title: t('Импорт Steam'), message: n ? t('Добавлено: {v}', { v: gamesCount(n) }) : t('Ничего не добавлено'), tone: n ? 'success' : 'info', history: false })
       onClose()
     } catch (e) {
       setProgress(null)

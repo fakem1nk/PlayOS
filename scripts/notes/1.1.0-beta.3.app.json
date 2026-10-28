@@ -1,0 +1,27 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Центр уведомлений: ошибки, итоги сессий и трофеи больше не пропадают",
+      "Поиск и подборки в библиотеке, 15 недавних игр на главном экране",
+      "Удержание ✕ открывает параметры игры, △ — страницу игры",
+      "Новый редактор игры: арт меняется нажатием на картинку, добавление из Steam"
+    ],
+    "fixed": [
+      "Удержание Enter больше не запускает игру",
+      "Игры больше не дублируются в облаке"
+    ]
+  },
+  "en": {
+    "new": [
+      "Notification Center: errors, session results and trophies no longer disappear",
+      "Library search and collections, 15 recent games on the home screen",
+      "Hold ✕ for game options, △ opens the game page",
+      "A new game editor: click a picture to change art, add games from Steam"
+    ],
+    "fixed": [
+      "Holding Enter no longer starts a game",
+      "Games no longer get duplicated in the cloud"
+    ]
+  }
+}

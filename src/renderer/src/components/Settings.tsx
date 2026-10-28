@@ -160,7 +160,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
   const run = async (fn: () => Promise<number>, what: string) => {
     try {
       const n = await fn()
-      toast({ title: what, message: n ? t('Добавлено игр: {n}', { n }) : t('Новых игр не найдено'), tone: n ? 'success' : 'info' })
+      toast({ title: what, message: n ? t('Добавлено игр: {n}', { n }) : t('Новых игр не найдено'), tone: n ? 'success' : 'info', history: false })
     } catch (e) {
       toast({ title: what, message: (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })
     }
@@ -807,7 +807,7 @@ function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) =>
                 setResetting(false)
                 play('back')
                 void save({ padMaps: {} })
-                toast({ title: t('Раскладка сброшена'), tone: 'info' })
+                toast({ title: t('Раскладка сброшена'), tone: 'info', history: false })
               }}
             />
           )}
@@ -897,7 +897,7 @@ function Pcsx2Pine() {
   }, [])
   const enable = async () => {
     const r = await api.enablePine()
-    toast({ title: r.ok ? t('PINE включён') : t('Не получилось'), message: r.message, tone: r.ok ? 'success' : 'error' })
+    toast({ title: r.ok ? t('PINE включён') : t('Не получилось'), message: r.message, tone: r.ok ? 'success' : 'error', ...(r.ok && { history: false as const }) })
     if (r.ok) setInfo(await api.pcsx2Info())
   }
   if (!info) return null

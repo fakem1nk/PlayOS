@@ -10,7 +10,7 @@ import { Library, type LibraryHintState } from './components/Library'
 import { ConfirmDialog, GameMenu, PowerMenu } from './components/Menus'
 import { OnScreenKeyboard } from './components/OnScreenKeyboard'
 import { padName } from './components/PadMapper'
-import { LaunchScreen, Toasts } from './components/Overlays'
+import { LaunchScreen, NoticeCenter, Toasts } from './components/Overlays'
 import { Screensaver } from './components/Screensaver'
 import { AnimatedCoversContext } from './components/Tile'
 import { UpdateNotice } from './components/UpdateNotice'
@@ -119,6 +119,7 @@ export function App() {
   const [trophySummary, setTrophySummary] = useState<Record<string, AchievementSummaryItem>>({})
   const [settingsSection, setSettingsSection] = useState<string | undefined>(REOPEN_SETTINGS || undefined)
   const [power, setPower] = useState(false)
+  const [notices, setNotices] = useState(false)
   const [launching, setLaunching] = useState<string | null>(null)
   // Игра, чей запуск ещё ждёт ответа main, и отменённая на экране запуска: её закрываем, как только она стартует
   const launchPending = useRef<string | null>(null)
@@ -132,7 +133,7 @@ export function App() {
   const trophyGame = trophyGameId ? games.find((g) => g.id === trophyGameId) : undefined
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
-  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError
+  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices
   const contentActive = !modal && tabFocus === null
 
   useEffect(
@@ -281,7 +282,7 @@ export function App() {
     (a) => {
       if (tabFocus === null) return false
       if (a === 'left' || a === 'right') {
-        const next = Math.max(0, Math.min(TABS.length, tabFocus + (a === 'left' ? -1 : 1)))
+        const next = Math.max(0, Math.min(TABS.length + 1, tabFocus + (a === 'left' ? -1 : 1)))
         if (next === tabFocus) return
         setTabFocus(next)
         if (next < TABS.length) goTab(TABS[next].id)
@@ -292,7 +293,11 @@ export function App() {
       } else if (a === 'confirm') {
         if (tabFocus === TABS.length) {
           play('select')
-          pressFx(document.querySelector('.power-btn'))
+          pressFx(document.querySelector('.notice-btn'))
+          setNotices(true)
+        } else if (tabFocus === TABS.length + 1) {
+          play('select')
+          pressFx(document.querySelector('.power-btn:not(.notice-btn)'))
           setPower(true)
         } else setTabFocus(null)
       } else return false
@@ -416,6 +421,10 @@ export function App() {
               setTabFocus(null)
             }}
             updateReady={update.phase === 'ready'}
+            onNotices={() => {
+              play('select')
+              setNotices(true)
+            }}
             onPower={() => setPower(true)}
           />
 
@@ -516,7 +525,7 @@ export function App() {
                 setEditor(null)
               }}
               onSaved={(g) => {
-                toast({ title: editor.game ? t('Изменения сохранены') : t('Игра добавлена'), message: g.title, image: g.cover, tone: 'success' })
+                toast({ title: editor.game ? t('Изменения сохранены') : t('Игра добавлена'), message: g.title, image: g.cover, tone: 'success', history: false })
                 setEditor(null)
                 focusGame(g)
               }}
@@ -546,6 +555,7 @@ export function App() {
               collections={state.settings.collections ?? []}
             />
           )}
+          {notices && <NoticeCenter key="notices" onClose={() => setNotices(false)} />}
           {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
         </AnimatePresence>
 
