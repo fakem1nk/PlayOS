@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { focusEl, useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
 import { play, previewVolume } from '../lib/sound'
+import { rumble } from '../lib/haptics'
 import { ActionRow, BrowseButton, Cycler, Disclosure, Field, Toggle } from './Controls'
 import { SystemInfoDialog } from './SystemInfoDialog'
 import { CloudPanel } from './Cloud'
@@ -394,6 +395,16 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 <IconGamepad /> {t('Управление')}
               </h2>
               <PadMapRow s={s} save={save} />
+              <Toggle
+                label={t('Вибрация в меню')}
+                hint={t('Лёгкий отклик геймпада: край списка, долгое нажатие на игре, открытие меню. Работает с Xbox и DualSense.')}
+                value={!!s.menuRumble}
+                onChange={(v) => {
+                  // Включили — сразу пробный толчок, чтобы было понятно, как это ощущается
+                  if (v) rumble('hold', true)
+                  save({ menuRumble: v })
+                }}
+              />
               <Disclosure label={t('Дополнительно')} hint={t('Значки кнопок')}>
                 <Cycler
                   label={t('Значки кнопок')}

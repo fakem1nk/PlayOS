@@ -1,4 +1,5 @@
 import type { PadAction, SoundVolume } from '@shared/types'
+import { rumble } from './haptics'
 
 /**
  * Звуковой дизайн PlayOS: всё синтезируется на лету через WebAudio, без файлов.
@@ -297,6 +298,8 @@ function arp(notes: number[], start: number, step: number, o: VoiceOpts & { rati
 }
 
 export function play(kind: SoundKind) {
+  // Упёрся в край или нажатие не сработало — ещё и лёгкая дрожь геймпада, даже без звуков
+  if (kind === 'bump') rumble('bump')
   if (!enabled) return
   try {
     switch (kind) {

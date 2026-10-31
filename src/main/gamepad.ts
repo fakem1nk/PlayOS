@@ -1,4 +1,5 @@
-import type { PadAction } from '@shared/types'
+import type { PadAction, PadDir } from '@shared/types'
+import { REPEAT_DELAY, repeatInterval, stickDir } from '@shared/pad'
 import { HID_L2, HID_R2, hidPads } from './hid'
 import { readPad, XI } from './win32'
 
@@ -9,10 +10,7 @@ import { readPad, XI } from './win32'
  * пересылает навигацию в интерфейс.
  */
 
-const STICK = 16000
 const COMBO_MS = 600
-const REPEAT_DELAY = 380
-const REPEAT_RATE = 110
 // Один и тот же DualSense может прийти и по HID, и через Steam Input как XInput —
 // не даём одному нажатию открыть и тут же закрыть оверлей
 const HOTKEY_DEBOUNCE = 450
@@ -33,6 +31,7 @@ const BUTTON_ACTIONS: [number, PadAction][] = [
   [HID_R2, 'r2']
 ]
 const DIRECTIONS = XI.UP | XI.DOWN | XI.LEFT | XI.RIGHT
+const STICK_BITS: Record<PadDir, number> = { up: XI.UP, down: XI.DOWN, left: XI.LEFT, right: XI.RIGHT }
 
 interface Options {
   /** PS / Guide или удержание View+Menu (Select+Start) */
@@ -45,6 +44,7 @@ interface SlotState {
   prev: number
   comboSince: number
   comboFired: boolean
+  stick: PadDir | null
 }
 
 export function startGamepad({ onHotkey, onNav, shouldForward }: Options) {
@@ -58,9 +58,12 @@ export function startGamepad({ onHotkey, onNav, shouldForward }: Options) {
     onHotkey()
   }
 
-  const handle = (key: string, b: number, now: number) => {
+  /** x, y — левый стик от −1 до 1 (вниз — плюс): направление считается так же, как в интерфейсе */
+  const handle = (key: string, b: number, x: number, y: number, now: number) => {
     let s = slots.get(key)
-    if (!s) slots.set(key, (s = { prev: 0, comboSince: 0, comboFired: false }))
+    if (!s) slots.set(key, (s = { prev: 0, comboSince: 0, comboFired: false, stick: null }))
+    s.stick = stickDir(x, y, s.stick)
+    if (s.stick) b |= STICK_BITS[s.stick]
     const pressed = b & ~s.prev
     s.prev = b
 
@@ -86,7 +89,7 @@ export function startGamepad({ onHotkey, onNav, shouldForward }: Options) {
         held.set(id, { since: now, last: now })
       } else if (b & bit & DIRECTIONS) {
         const h = held.get(id)
-        if (h && now - h.since > REPEAT_DELAY && now - h.last > REPEAT_RATE) {
+        if (h && now - h.since > REPEAT_DELAY && now - h.last > repeatInterval(now - h.since)) {
           h.last = now
           onNav(action)
         }
@@ -105,14 +108,11 @@ export function startGamepad({ onHotkey, onNav, shouldForward }: Options) {
         continue
       }
       let b = st.buttons
-      if (st.ly > STICK) b |= XI.UP
-      if (st.ly < -STICK) b |= XI.DOWN
-      if (st.lx < -STICK) b |= XI.LEFT
-      if (st.lx > STICK) b |= XI.RIGHT
       if (st.lt > 128) b |= HID_L2
       if (st.rt > 128) b |= HID_R2
-      handle(`x${i}`, b, now)
+      // У XInput вверх — плюс: переворачиваем, как в Gamepad API
+      handle(`x${i}`, b, st.lx / 32768, -st.ly / 32768, now)
     }
-    for (const p of hidPads()) handle(p.key, p.bits, now)
+    for (const p of hidPads()) handle(p.key, p.bits, p.x, p.y, now)
   }, 16)
 }

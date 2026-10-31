@@ -8,6 +8,7 @@ import { beginEdit, openKeyboard } from '../lib/osk'
 import { notInstalled, playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
+import { rumble } from '../lib/haptics'
 import { Hint } from './Glyph'
 import { IconCheck, IconClose, IconDownload, IconEdit, IconExit, IconFolder, IconGrid, IconInfo, IconMonitor, IconMoon, IconPlay, IconPlus, IconPower, IconReset, IconRestart, IconStar, IconSun, IconTrash, IconTrophy } from './Icons'
 import { Cover } from './Tile'
@@ -32,6 +33,7 @@ function SideMenu({ title, titleAction, header, items, onClose }: { title: strin
   const [confirming, setConfirming] = useState<Item | null>(null)
 
   useSpatialNav(ref, { priority: 30, active: !confirming, onBack: onClose, autoFocus: '.menu-item' })
+  useEffect(() => rumble('open'), [])
 
   const choose = (item: Item) => {
     if (item.confirm) {

@@ -1,8 +1,10 @@
 import { useIsPresent } from 'motion/react'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import type { PadAction, PadDir, PadInput, PadMaps } from '@shared/types'
+import { REPEAT_DELAY, repeatInterval, stickDir } from '@shared/pad'
 import { api } from './api'
 import { noteAction } from './sound'
+import { holdRumble, setRumblePad } from './haptics'
 import { beginEdit, endEdit, isEditing, isTextInput } from './osk'
 
 /**
@@ -16,10 +18,38 @@ interface Layer {
   id: number
   priority: number
   handler: { current: Handler }
+  opts: { current: LayerOptions }
+}
+
+export interface LayerOptions {
+  /** Слой снова стал верхним после закрытия окна над ним — вернуть фокус */
+  onResume?: () => void
+  /** Кнопки, которые повторяются при удержании, пока слой верхний (стрелки повторяются всегда) */
+  repeat?: PadAction[]
 }
 
 const layers: Layer[] = []
 let nextId = 1
+const sortedLayers = () => [...layers].sort((x, y) => y.priority - x.priority || y.id - x.id)
+
+/** Повторять ли действие при удержании кнопки */
+const repeats = (a: PadAction) => DIRS.has(a) || !!sortedLayers()[0]?.opts.current.repeat?.includes(a)
+
+/**
+ * Слой ушёл (закрылось окно или меню) — верхний из слоёв, которые умеют возвращать фокус, возвращает его.
+ * После всех эффектов кадра: экран под окном к этому времени уже снова включён
+ */
+let resumeQueued = false
+function queueResume() {
+  if (resumeQueued) return
+  resumeQueued = true
+  queueMicrotask(() => {
+    resumeQueued = false
+    sortedLayers()
+      .find((l) => l.opts.current.onResume)
+      ?.opts.current.onResume?.()
+  })
+}
 
 // ───────────── Активность пользователя (для заставки) ─────────────
 
@@ -44,8 +74,7 @@ export function onActivity(cb: () => void) {
 export function dispatch(a: PadAction) {
   markActivity()
   noteAction(a)
-  const sorted = [...layers].sort((x, y) => y.priority - x.priority || y.id - x.id)
-  for (const l of sorted) if (l.handler.current(a) !== false) return
+  for (const l of sortedLayers()) if (l.handler.current(a) !== false) return
 }
 
 // ───────────── Удержание ✕ ─────────────
@@ -92,19 +121,22 @@ export function useHolding() {
   )
 }
 
-export function useInputLayer(handler: Handler, priority: number, enabled = true) {
+export function useInputLayer(handler: Handler, priority: number, enabled = true, options: LayerOptions = {}) {
   const ref = useRef(handler)
   ref.current = handler
+  const opts = useRef(options)
+  opts.current = options
   // Компонент в фазе исчезающей анимации больше не должен перехватывать ввод
   const present = useIsPresent()
   const active = enabled && present
   useEffect(() => {
     if (!active) return
-    const layer = { id: nextId++, priority, handler: ref }
+    const layer = { id: nextId++, priority, handler: ref, opts }
     layers.push(layer)
     return () => {
       const i = layers.indexOf(layer)
       if (i >= 0) layers.splice(i, 1)
+      queueResume()
     }
   }, [active, priority])
 }
@@ -148,6 +180,7 @@ export function useLastDevice() {
 }
 
 function setDevice(d: 'pad' | 'keyboard') {
+  if (d === 'keyboard') setRumblePad(null)
   if (d === lastDevice) return
   lastDevice = d
   emitPad()
@@ -181,6 +214,11 @@ function onKey(e: KeyboardEvent) {
   // Enter, который «нажала» экранная клавиатура, — не навигация
   if (!e.isTrusted) return
   markActivity()
+  // Свой Tab у браузера уводит фокус куда угодно, даже на кнопки под открытым окном — навигация только своя
+  if (e.key === 'Tab') {
+    e.preventDefault()
+    return
+  }
   const t = e.target as HTMLElement
   // Поле в режиме ввода; не открытое поле ведёт себя как обычная кнопка (Enter его открывает)
   const typing = isTextInput(t) && isEditing(t)
@@ -199,6 +237,11 @@ function onKey(e: KeyboardEvent) {
   // Зажатый Enter/пробел: автоповтор — не новые нажатия. Иначе после удержания открылись параметры,
   // зона удержания пропала, и следующий повтор «нажимал» первый пункт меню — «Играть»
   if (a === 'confirm' && (e.repeat || (keyHold && e.key === keyHold.key))) {
+    e.preventDefault()
+    return
+  }
+  // Автоповтор системы — только для того, что и на геймпаде повторяется: зажатый Backspace не закрывает окно за окном
+  if (a && e.repeat && !repeats(a)) {
     e.preventDefault()
     return
   }
@@ -252,8 +295,8 @@ const BUTTONS: [number, PadAction][] = [
   [15, 'right']
 ]
 const DIRS = new Set<PadAction>(['up', 'down', 'left', 'right'])
-const REPEAT_DELAY = 380
-const repeatRate = (held: number) => (held > 1500 ? 55 : 105)
+/** Направление левого стика по геймпадам (индекс → направление прошлого опроса) */
+const sticks = new Map<number, PadDir | null>()
 /** Крестовина DirectInput (POV) приходит одной осью: −1…1 по кругу от «вверх», в покое больше 1 */
 const HAT_AXIS = 9
 const HAT_DIRS: Record<PadDir, number[]> = { up: [7, 0, 1], right: [1, 2, 3], down: [3, 4, 5], left: [5, 6, 7] }
@@ -278,18 +321,13 @@ function inputDown(p: Gamepad, inp: PadInput) {
   return inp.d > 0 ? v > 0.5 : v < -0.5
 }
 
-function actionDown(p: Gamepad, action: PadAction, index: number) {
+function actionDown(p: Gamepad, action: PadAction, index: number, stick: PadDir | null) {
   const map = padMaps[p.id]
   const mapped = map?.[action]
   let down = mapped ? inputDown(p, mapped) : !map ? inputDown(p, { b: index }) : false
   if (!DIRS.has(action)) return down
   // Левый стик и крестовина-«шапка» работают всегда, даже без настройки
-  const ax = p.axes[0] ?? 0
-  const ay = p.axes[1] ?? 0
-  if (action === 'up') down ||= ay < -0.55
-  if (action === 'down') down ||= ay > 0.55
-  if (action === 'left') down ||= ax < -0.55
-  if (action === 'right') down ||= ax > 0.55
+  down ||= stick === action
   if (p.mapping !== 'standard' && !mapped) down ||= inputDown(p, { h: HAT_AXIS, dir: action as PadDir })
   return down
 }
@@ -366,8 +404,11 @@ function pollPads() {
       announced.add(p.id)
       onUnknownPad(p)
     }
+    const stick = stickDir(p.axes[0] ?? 0, p.axes[1] ?? 0, sticks.get(p.index) ?? null)
+    sticks.set(p.index, stick)
     if (muted) {
-      for (const [index, action] of BUTTONS) prev.set(`${p.index}:${index}`, actionDown(p, action, index))
+      for (const [index, action] of BUTTONS) prev.set(`${p.index}:${index}`, actionDown(p, action, index, stick))
+      if (pendingHold.size) holdRumble('cancel')
       pendingHold.clear()
       syncHolding()
       continue
@@ -377,7 +418,7 @@ function pollPads() {
       continue
     }
     for (const [index, action] of BUTTONS) {
-      const down = actionDown(p, action, index)
+      const down = actionDown(p, action, index, stick)
       const key = `${p.index}:${index}`
       const was = prev.get(key) ?? false
       prev.set(key, down)
@@ -388,26 +429,30 @@ function pollPads() {
           emitPad()
         }
         setDevice('pad')
+        setRumblePad(p.index)
         holdStart.set(key, now)
         lastFire.set(key, now)
         if (action === 'confirm' && holdZones > 0) {
           pendingHold.set(key, now)
           syncHolding()
+          holdRumble('start', HOLD_MS)
         } else dispatch(action)
       } else if (pendingHold.has(key)) {
         // ✕ ждёт: отпустили быстро — обычное нажатие, держат дольше HOLD_MS — параметры
         if (!down) {
           pendingHold.delete(key)
           syncHolding()
+          holdRumble('cancel')
           dispatch('confirm')
         } else if (now - pendingHold.get(key)! >= HOLD_MS) {
           pendingHold.delete(key)
           syncHolding()
+          holdRumble('done')
           dispatch('options')
         }
-      } else if (down && DIRS.has(action)) {
+      } else if (down && repeats(action)) {
         const held = now - (holdStart.get(key) ?? now)
-        if (held > REPEAT_DELAY && now - (lastFire.get(key) ?? 0) > repeatRate(held)) {
+        if (held > REPEAT_DELAY && now - (lastFire.get(key) ?? 0) > repeatInterval(held)) {
           lastFire.set(key, now)
           dispatch(action)
         }

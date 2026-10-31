@@ -46,7 +46,7 @@ import { savePreview } from './cloud/locate'
 import { pruneThumbs, thumbFile } from './thumbs'
 import { getLang, setLang, t } from '@shared/i18n'
 import { dsxStatus, flashLightbar, holdLightbar, pulseLightbar, startDsx } from './dsx'
-import { hidControllers, hidStatus, rescanHid, startHid } from './hid'
+import { hidControllers, hidStatus, rescanHid, rumbleDualSense, startHid } from './hid'
 import * as launcher from './launcher'
 import * as media from './media'
 import * as vr from './vr'
@@ -1879,6 +1879,7 @@ function backfillAccents() {
 app.on('second-instance', () => bringToFront())
 
 ipcMain.on('lang:get', (e) => (e.returnValue = getLang()))
+ipcMain.on('pad:rumble', (_e, fx) => rumbleDualSense(fx))
 ipcMain.on('theme:get', (e) => (e.returnValue = getDb().settings.theme ?? 'dark'))
 
 app.whenReady().then(() => {

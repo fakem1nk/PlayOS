@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { AppState, PadStatus, QuestStatus } from '@shared/types'
 import { api } from './api'
 import { setSoundEnabled, setVolume } from './sound'
+import { setHaptics } from './haptics'
 import { setTheme } from './theme'
 
 export function useAppState() {
@@ -20,6 +21,7 @@ export function useAppState() {
     setSoundEnabled(state.settings.sounds)
     setVolume(state.settings.volume)
   }, [state?.settings.sounds, state?.settings.volume])
+  useEffect(() => setHaptics(!!state?.settings.menuRumble), [state?.settings.menuRumble])
   // Масштаб интерфейса: множитель для базового размера rem
   useEffect(() => {
     document.documentElement.style.setProperty('--ui-scale', String(state?.settings.uiScale ?? 1))

@@ -5,6 +5,7 @@ import { media } from '../lib/format'
 import { useInputLayer } from '../lib/input'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
+import { rumble } from '../lib/haptics'
 import { clearNotices, dismissToast, markNoticesRead, useNoticeHistory, useToasts, type Notice } from '../lib/state'
 import { Hint } from './Glyph'
 import { IconBell, IconDownload, IconTrash, IconTrophy } from './Icons'
@@ -114,6 +115,7 @@ export function NoticeCenter({ onClose }: { onClose: () => void }) {
   const { items } = useNoticeHistory()
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => markNoticesRead(), [items.length])
+  useEffect(() => rumble('open'), [])
   const clear = () => {
     if (!items.length) return play('bump')
     play('back')

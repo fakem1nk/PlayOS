@@ -151,6 +151,13 @@ export type GameDraft = Omit<Game, 'id' | 'playtime' | 'addedAt' | 'sessions'> &
 export type GlyphStyle = 'auto' | 'playstation' | 'xbox' | 'nintendo' | 'keyboard'
 
 export type PadDir = 'up' | 'down' | 'left' | 'right'
+
+/** Короткий толчок геймпада: длительность в мс, сила моторов 0…1 */
+export interface RumbleEffect {
+  duration: number
+  strong: number
+  weak: number
+}
 /** Вход геймпада: кнопка, ось с направлением или крестовина-«шапка» DirectInput */
 export type PadInput = { b: number } | { a: number; d: 1 | -1 } | { h: number; dir: PadDir }
 /** Ручная раскладка: id геймпада из Gamepad API → действие → вход */
@@ -177,6 +184,8 @@ export interface Settings {
   rpcs3Args: string
   sounds: boolean
   volume: SoundVolume
+  /** Лёгкая вибрация геймпада в меню: край списка, удержание ✕, открытие меню. Нет — выключена */
+  menuRumble?: boolean
   /** Фоновая эмбиент-музыка на главном экране */
   music: boolean
   /** Громкость фоновой музыки (не зависит от громкости звуков интерфейса); нет — средне */
@@ -593,6 +602,8 @@ export interface PcsApi {
   onPadStatus(cb: (s: PadStatus) => void): () => void
   /** Идёт игра, и PlayOS не на переднем плане: геймпад принадлежит игре */
   onPadBlock(cb: (blocked: boolean) => void): () => void
+  /** Вибрация DualSense по HID (Gamepad API её не умеет) */
+  padRumble(fx: RumbleEffect): void
   /** Окно перешло в полный экран или вышло из него */
   onWindowMode(cb: (fullscreen: boolean) => void): () => void
   getPadStatus(): Promise<PadStatus>

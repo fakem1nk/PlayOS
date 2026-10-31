@@ -213,6 +213,7 @@ function createMockApi(): PcsApi {
     onToast: noop,
     onPadStatus: () => () => {},
     onPadBlock: () => () => {},
+    padRumble: noop,
     onWindowMode: () => () => {},
     getPadStatus: async () => ({ connected: 1, battery: 'medium' }),
     emuState: async () => ({

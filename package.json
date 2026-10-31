@@ -1,7 +1,7 @@
 {
   "name": "playos",
   "productName": "PlayOS",
-  "version": "1.1.0-beta.3",
+  "version": "1.1.0-beta.4",
   "description": "Лаунчер в стиле PlayStation для PC, PS2 и PS3 игр с управлением геймпадом",
   "main": "out/main/index.js",
   "private": true,

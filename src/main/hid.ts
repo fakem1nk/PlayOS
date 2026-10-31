@@ -1,5 +1,6 @@
 import HID from 'node-hid'
-import type { BatteryLevel } from '@shared/types'
+import { crc32 } from 'node:zlib'
+import type { BatteryLevel, RumbleEffect } from '@shared/types'
 import { XI } from './win32'
 
 /**
@@ -25,9 +26,19 @@ interface Pad {
   dev: HID.HIDAsync
   kind: Kind
   bits: number
+  x: number
+  y: number
   battery: BatteryLevel | null
   percent?: number
   bt: boolean
+  /** DualSense по Bluetooth шлёт полный отчёт 0x31 (режим включили Steam или DSX) */
+  full: boolean
+  /** Когда последний раз нажимали кнопки — вибрирует тот, которым управляют */
+  lastInput: number
+  /** Вибрация v2 (прошивка 2.21+): null — ещё не узнали */
+  v2: boolean | null
+  seq: number
+  stopTimer?: NodeJS.Timeout
 }
 
 const pads = new Map<string, Pad>()
@@ -54,6 +65,7 @@ function parse(pad: Pad, b: Buffer) {
   const l = layout(pad.kind, b)
   if (!l) return
   pad.bt = l.battery < 0 || b[0] === 0x31 || b[0] === 0x11
+  pad.full = b[0] === 0x31
   const b0 = b[l.btn]
   const b1 = b[l.btn + 1]
   const b2 = b[l.btn + 2]
@@ -69,12 +81,10 @@ function parse(pad: Pad, b: Buffer) {
   if (b1 & 0x10) bits |= XI.BACK // Create / Share
   if (b1 & 0x20) bits |= XI.START // Options
   if (b2 & 0x01) bits |= XI.GUIDE // кнопка PS
-  const lx = b[l.stick] - 128
-  const ly = b[l.stick + 1] - 128
-  if (ly < -64) bits |= XI.UP
-  if (ly > 64) bits |= XI.DOWN
-  if (lx < -64) bits |= XI.LEFT
-  if (lx > 64) bits |= XI.RIGHT
+  // Левый стик: −1…1, вниз — плюс. В направление его превращает gamepad.ts — так же, как в интерфейсе
+  pad.x = (b[l.stick] - 128) / 128
+  pad.y = (b[l.stick + 1] - 128) / 128
+  if (bits !== pad.bits || Math.abs(pad.x) > 0.5 || Math.abs(pad.y) > 0.5) pad.lastInput = Date.now()
   pad.bits = bits
 
   if (l.battery > 0) {
@@ -102,7 +112,7 @@ async function scan() {
       if (!kind || !d.path || d.usagePage !== 1 || d.usage !== 5 || pads.has(d.path)) continue
       try {
         const dev = await HID.HIDAsync.open(d.path, { nonExclusive: true })
-        const pad: Pad = { dev, kind, bits: 0, battery: null, bt: false }
+        const pad: Pad = { dev, kind, bits: 0, x: 0, y: 0, battery: null, bt: false, full: false, lastInput: 0, v2: null, seq: 0 }
         const path = d.path
         pads.set(path, pad)
         dev.on('data', (buf: Buffer) => parse(pad, buf))
@@ -140,8 +150,62 @@ export function rescanHid() {
   }, 700)
 }
 
-export function hidPads(): { key: string; bits: number }[] {
-  return [...pads.entries()].map(([key, p]) => ({ key, bits: p.bits }))
+/**
+ * Вибрация DualSense. Chromium её не умеет (Gamepad API вибрирует только Xbox и DualShock 4), поэтому отчёт пишем сами:
+ * моторы в режиме совместимости, как у DualShock 4. Флаги подсветки и звука не ставим — их не трогаем (DSX тоже).
+ * По Bluetooth — только в полном режиме (его включают Steam или DSX): наш отчёт сам переключил бы геймпад туда,
+ * и Windows с Chromium перестали бы видеть его кнопки.
+ */
+export function rumbleDualSense(fx: RumbleEffect) {
+  const now = Date.now()
+  // Тот DualSense, которым управляют прямо сейчас; если играют на Xbox, DualSense на столе не дрожит
+  const pad = [...pads.values()]
+    .filter((p) => p.kind === 'dualsense' && (!p.bt || p.full) && now - p.lastInput < 3000)
+    .sort((a, b) => b.lastInput - a.lastInput)[0]
+  if (!pad) return
+  void (async () => {
+    if (pad.v2 === null) pad.v2 = await vibrationV2(pad)
+    write(pad, fx.strong, fx.weak)
+    clearTimeout(pad.stopTimer)
+    // Моторы в режиме совместимости крутятся, пока их не остановят
+    pad.stopTimer = setTimeout(() => write(pad, 0, 0), fx.duration)
+  })()
+}
+
+/** Версия прошивки из отчёта 0x20: с 2.21 вибрация совместимости включается другим флагом */
+async function vibrationV2(pad: Pad) {
+  try {
+    const f = await pad.dev.getFeatureReport(0x20, 64)
+    return (f[44] | (f[45] << 8)) >= 0x0215
+  } catch {
+    return true
+  }
+}
+
+function write(pad: Pad, strong: number, weak: number) {
+  // Общая часть отчёта (47 байт): флаги, правый (слабый) и левый (сильный) моторы, остальное не трогаем
+  const common = Buffer.alloc(47)
+  common[0] = 0x02 // моторы вместо звуковой вибрации
+  if (pad.v2) common[38] = 0x04
+  else common[0] |= 0x01
+  common[2] = Math.round(Math.min(1, weak) * 255)
+  common[3] = Math.round(Math.min(1, strong) * 255)
+  let buf: Buffer
+  if (!pad.bt) buf = Buffer.concat([Buffer.from([0x02]), common, Buffer.alloc(15)])
+  else {
+    buf = Buffer.alloc(78)
+    buf[0] = 0x31
+    buf[1] = pad.seq << 4
+    pad.seq = (pad.seq + 1) & 0x0f
+    buf[2] = 0x10
+    common.copy(buf, 3)
+    buf.writeUInt32LE(crc32(Buffer.concat([Buffer.from([0xa2]), buf.subarray(0, 74)])), 74)
+  }
+  pad.dev.write(buf).catch(() => {})
+}
+
+export function hidPads(): { key: string; bits: number; x: number; y: number }[] {
+  return [...pads.entries()].map(([key, p]) => ({ key, bits: p.bits, x: p.x, y: p.y }))
 }
 
 export function hidStatus(): { connected: number; battery: BatteryLevel | null; percent?: number } {

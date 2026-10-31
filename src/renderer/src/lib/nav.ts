@@ -151,6 +151,30 @@ interface Options {
 export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options) {
   const active = opts.active ?? true
 
+  // Фокус-память: последний пункт экрана в фокусе. После окна или меню поверх экрана фокус возвращается сюда,
+  // а не на первый пункт (элемент, на котором стоял фокус, окно забрало себе — после него фокус «нигде»)
+  const last = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const onFocus = (e: FocusEvent) => {
+      const el = e.target as HTMLElement
+      if (el.matches?.('[data-nav]') && ref.current?.contains(el)) last.current = el
+    }
+    document.addEventListener('focusin', onFocus)
+    return () => document.removeEventListener('focusin', onFocus)
+  }, [ref])
+  /** Запомненный пункт, если он ещё на экране и доступен */
+  const remembered = () => {
+    const el = last.current
+    const root = ref.current
+    return el && root && el.isConnected && root.contains(el) && !el.hasAttribute('disabled') && el.getClientRects().length > 0 ? el : null
+  }
+  const restore = () => {
+    const root = ref.current
+    if (!root || root.contains(document.activeElement)) return
+    const el = remembered()
+    if (el) focusEl(el)
+  }
+
   useInputLayer(
     (a) => {
       const root = ref.current
@@ -166,7 +190,7 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
       const cur = activeEl && root.contains(activeEl) && activeEl.matches('[data-nav]') ? activeEl : null
       if (a === 'up' || a === 'down' || a === 'left' || a === 'right') {
         if (!cur) {
-          focusEl(items[0])
+          focusEl(remembered() ?? items[0])
           return
         }
         if ((a === 'left' || a === 'right') && cur.hasAttribute('data-adjust')) {
@@ -190,7 +214,8 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
         return
       }
       if (a === 'confirm') {
-        if (!cur) return
+        // Фокуса нет — сначала показываем, где он, а не нажимаем вслепую
+        if (!cur) return focusEl(remembered())
         // Текстовое поле: с клавиатуры — открываем для ввода на месте, с геймпада — экранная клавиатура
         if (isTextInput(cur)) {
           play('select')
@@ -205,7 +230,8 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
       return opts.onAction ? opts.onAction(a) : false
     },
     opts.priority,
-    active
+    active,
+    { onResume: restore }
   )
 
   // При активации (и смене focusKey) ставим фокус на нужный элемент. Ждём несколько кадров —
@@ -222,7 +248,8 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
       const root = ref.current
       const activeEl = document.activeElement
       if (!force && root && activeEl && activeEl !== document.body && root.contains(activeEl)) return
-      const target = root && opts.autoFocus ? root.querySelector<HTMLElement>(opts.autoFocus) : null
+      // Экран снова включился (закрылось окно над ним) — на пункт, где был фокус; новый шаг — на autoFocus
+      const target = (!force && remembered()) || (root && opts.autoFocus ? root.querySelector<HTMLElement>(opts.autoFocus) : null)
       const el = target ?? (root && tries > 20 ? navItems(root)[0] : null)
       if (el) focusEl(el)
       else if (tries++ < 40) id = window.setTimeout(attempt, 16)

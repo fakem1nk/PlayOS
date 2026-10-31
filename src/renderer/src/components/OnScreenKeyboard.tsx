@@ -1,7 +1,7 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useInputLayer } from '../lib/input'
-import { closeKeyboard, useKeyboardStatus, useKeyboardTarget, writeValue, type OskTarget } from '../lib/osk'
+import { markActivity, useInputLayer } from '../lib/input'
+import { beginEdit, closeKeyboard, useKeyboardStatus, useKeyboardTarget, writeValue, type OskTarget } from '../lib/osk'
 import { play } from '../lib/sound'
 import { Hint } from './Glyph'
 import { IconBackspace } from './Icons'
@@ -60,6 +60,46 @@ function Keyboard({ el }: { el: OskTarget }) {
   useEffect(() => {
     if (live && text !== el.value) writeValue(el, text)
   }, [live, text, el])
+
+  // Начали печатать на обычной клавиатуре — экранная уходит, набор продолжается прямо в поле.
+  // Раньше буквы шли в навигацию: C закрывала клавиатуру как «Готово», F стирала, Backspace закрывал
+  const present = useIsPresent()
+  useEffect(() => {
+    // Клавиатура закрывается (анимация ухода) — следующие буквы уже идут в само поле
+    if (!present) return
+    let done = false
+    const onKey = (e: KeyboardEvent) => {
+      if (done || !e.isTrusted || e.ctrlKey || e.metaKey || e.altKey) return
+      const char = e.key.length === 1 ? e.key : ''
+      if (!char && e.key !== 'Backspace' && e.key !== 'Delete') return
+      // Дальше не пускаем: слой экранной клавиатуры ещё живёт до перерисовки и принял бы букву как команду
+      e.preventDefault()
+      e.stopPropagation()
+      markActivity()
+      done = true
+      let value = text
+      let at = caret
+      if (char) {
+        value = text.slice(0, at) + char + text.slice(at)
+        at += 1
+      } else if (e.key === 'Backspace' && at > 0) {
+        value = text.slice(0, at - 1) + text.slice(at)
+        at -= 1
+      } else if (e.key === 'Delete') value = text.slice(0, at) + text.slice(at + 1)
+      if (value !== el.value) writeValue(el, value)
+      closeKeyboard()
+      el.focus({ preventScroll: true })
+      beginEdit(el)
+      try {
+        el.setSelectionRange(at, at)
+      } catch {
+        /* у type=number выделения нет */
+      }
+    }
+    // В фазе перехвата — раньше общего обработчика клавиш
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [text, caret, el, present])
 
   const r = Math.min(pos.r, rows.length - 1)
   const c = Math.min(pos.c, rows[r].length - 1)
@@ -161,7 +201,10 @@ function Keyboard({ el }: { el: OskTarget }) {
           return finish(false)
       }
     },
-    60
+    60,
+    true,
+    // Держишь ▢ — стирает подряд, держишь L1/R1 — курсор едет
+    { repeat: ['search', 'l1', 'r1'] }
   )
 
   const label = el.getAttribute('aria-label') || el.placeholder || t('Ввод текста')

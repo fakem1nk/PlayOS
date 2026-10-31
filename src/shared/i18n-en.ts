@@ -489,6 +489,8 @@ export const EN: Record<string, string> = {
   'Спокойный эмбиент на главном экране, затихает, когда запущена игра': 'Calm ambient music on the home screen; fades out while a game runs',
   'Управление': 'Controls',
   'Значки кнопок': 'Button icons',
+  'Вибрация в меню': 'Vibration in menus',
+  'Лёгкий отклик геймпада: край списка, долгое нажатие на игре, открытие меню. Работает с Xbox и DualSense.': 'A light response from the controller: end of a list, a long press on a game, opening a menu. Works with Xbox and DualSense.',
   'Авто — по подключённому геймпаду': 'Auto matches the connected controller',
   'Авто': 'Auto',
   'Nintendo и 8BitDo': 'Nintendo and 8BitDo',

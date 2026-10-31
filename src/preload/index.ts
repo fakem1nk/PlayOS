@@ -37,6 +37,7 @@ const api: PcsApi = {
   onToast: listen('toast'),
   onPadStatus: listen('pad-status'),
   onPadBlock: listen('pad-block'),
+  padRumble: (fx) => ipcRenderer.send('pad:rumble', fx),
   onWindowMode: listen('window-mode'),
   getPadStatus: () => ipcRenderer.invoke('pad:status'),
   emuState: () => ipcRenderer.invoke('emu:state'),

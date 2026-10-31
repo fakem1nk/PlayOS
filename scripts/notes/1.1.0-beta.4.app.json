@@ -1,0 +1,25 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Вибрация в меню для Xbox и DualSense: включается в настройках геймпада",
+      "Плавный разгон при удержании стрелок",
+      "На экранной клавиатуре можно держать ▢ и L1/R1"
+    ],
+    "fixed": [
+      "Стик по диагонали больше не делает два шага",
+      "После закрытия окна фокус возвращается на прежний пункт"
+    ]
+  },
+  "en": {
+    "new": [
+      "Vibration in menus for Xbox and DualSense: turn it on in controller settings",
+      "Smooth speed-up when holding a direction",
+      "Hold ▢ and L1/R1 on the on-screen keyboard"
+    ],
+    "fixed": [
+      "The stick no longer makes two steps on diagonals",
+      "Focus returns to the same item after closing a window"
+    ]
+  }
+}
