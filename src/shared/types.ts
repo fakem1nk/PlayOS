@@ -582,8 +582,11 @@ export interface CloudDeviceCode {
   expiresAt: number
 }
 
-/** pending — с запуска PlayOS ещё не проверялось; playing — игра запущена, файлы заняты; steam — сохранения хранит Steam Cloud */
-export type CloudSyncState = 'off' | 'synced' | 'syncing' | 'pending' | 'playing' | 'steam' | 'conflict' | 'offline' | 'error' | 'nosaves'
+/**
+ * pending — с запуска PlayOS ещё не проверялось; playing — игра запущена, файлы заняты; steam — сохранения хранит Steam Cloud;
+ * full — в облаке нет места; signin — вход отозван или устарел, нужно войти снова
+ */
+export type CloudSyncState = 'off' | 'synced' | 'syncing' | 'pending' | 'playing' | 'steam' | 'conflict' | 'offline' | 'full' | 'signin' | 'error' | 'nosaves'
 
 export interface SaveVersion {
   name: string

@@ -126,6 +126,9 @@ function createMockApi(): PcsApi {
   const noop = () => () => {}
   // Облако в демо: вход проходит сразу, сохранения «синхронизированы» несколько минут назад
   let cloud: CloudStatus = { account: null, state: 'off', available: ['yandex', 'google', 'folder'] }
+  // Демо состояний облака: ?cloud=full|signin|offline — уже вошли в Яндекс
+  const cloudDemo = new URLSearchParams(location.search).get('cloud') as CloudStatus['state'] | null
+  if (cloudDemo) cloud = { ...cloud, account: { provider: 'yandex', name: 'Игрок', used: 200 * 2 ** 30, total: 200 * 2 ** 30 }, state: cloudDemo, lastSync: Date.now() - 3600_000 }
   const cloudSubs = new Set<(s: CloudStatus) => void>()
   const setCloud = (patch: Partial<CloudStatus>) => {
     cloud = { ...cloud, ...patch }

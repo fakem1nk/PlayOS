@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import zlib from 'node:zlib'
+import { t } from '@shared/i18n'
 import { crc32, readZipBuffer } from '../backup'
 import { dataDir } from '../store'
 import type { SaveSet } from './locate'
@@ -94,12 +96,22 @@ export function collect(set: SaveSet): LocalFile[] {
   return [...seen.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
 }
 
-function fileHash(f: LocalFile) {
+const sha = (data: Buffer) => createHash('sha256').update(data).digest('hex')
+
+async function fileHash(f: LocalFile) {
   const hit = fileHashes.get(f.abs)
   if (hit && hit.size === f.size && hit.mtime === f.mtime) return hit.hash
-  const hash = createHash('sha256').update(fs.readFileSync(f.abs)).digest('hex')
+  const hash = sha(await fs.promises.readFile(f.abs))
   fileHashes.set(f.abs, { size: f.size, mtime: f.mtime, hash })
   return hash
+}
+
+/** Хэш снимка: имена файлов (без регистра) с хэшами содержимого по порядку, затем ключи реестра */
+function snapshotHash(files: { name: string; hash: string }[], registry: { name: string; hash: string }[]) {
+  const h = createHash('sha256')
+  for (const f of files) h.update(`${f.name.toLowerCase()}\0${f.hash}\n`)
+  for (const r of registry) h.update(`${r.name}\0${r.hash}\n`)
+  return h.digest('hex').slice(0, 16)
 }
 
 const run = (cmd: string, args: string[]) =>
@@ -138,26 +150,30 @@ export async function localState(set: SaveSet): Promise<LocalState> {
   const files = collect(set)
   const registry = set.registry.length ? await exportRegistry(set) : []
   if (!files.length && !registry.length) return { files, registry, hash: null, size: 0, at: 0 }
-  const h = createHash('sha256')
-  for (const f of files) h.update(`${f.name.toLowerCase()}\0${fileHash(f)}\n`)
-  for (const r of registry) h.update(`${r.name}\0${createHash('sha256').update(r.data).digest('hex')}\n`)
+  const hashes: { name: string; hash: string }[] = []
+  for (const f of files) hashes.push({ name: f.name, hash: await fileHash(f) })
   return {
     files,
     registry,
-    hash: h.digest('hex').slice(0, 16),
+    hash: snapshotHash(
+      hashes,
+      registry.map((r) => ({ name: r.name, hash: sha(r.data) }))
+    ),
     size: files.reduce((a, f) => a + f.size, 0) + registry.reduce((a, r) => a + r.data.length, 0),
     at: files.reduce((a, f) => Math.max(a, f.mtime), 0)
   }
 }
 
-/** ZIP с deflate: сохранения хорошо сжимаются (карта памяти PS2 — 8 МБ почти пустых блоков) */
-function zip(entries: { name: string; data: Buffer }[]) {
+const deflate = promisify(zlib.deflateRaw)
+
+/** ZIP с deflate: сохранения хорошо сжимаются (карта памяти PS2 — 8 МБ почти пустых блоков). Сжатие — в пуле потоков, не в главном */
+async function zip(entries: { name: string; data: Buffer }[]) {
   const parts: Buffer[] = []
   const central: Buffer[] = []
   let offset = 0
   for (const e of entries) {
     const name = Buffer.from(e.name, 'utf8')
-    const packed = zlib.deflateRawSync(e.data)
+    const packed = await deflate(e.data)
     const deflated = packed.length < e.data.length
     const body = deflated ? packed : e.data
     const crc = crc32(e.data)
@@ -195,33 +211,60 @@ function zip(entries: { name: string; data: Buffer }[]) {
   return Buffer.concat([...parts, ...central, end])
 }
 
-export function pack(state: LocalState): Buffer {
-  const entries = state.files.map((f) => ({ name: f.name, data: fs.readFileSync(f.abs) }))
+/**
+ * ZIP снимка и его хэш — по тем же байтам, что легли в архив: файл мог измениться после localState,
+ * а хэш в имени снимка должен точно описывать содержимое (по нему другой ПК проверяет скачанное)
+ */
+export async function pack(state: LocalState): Promise<{ data: Buffer; hash: string }> {
+  const entries: { name: string; data: Buffer }[] = []
+  for (const f of state.files) entries.push({ name: f.name, data: await fs.promises.readFile(f.abs) })
   const meta = { version: 1, files: Object.fromEntries(state.files.map((f) => [f.name, f.mtime])) }
-  return zip([{ name: META, data: Buffer.from(JSON.stringify(meta)) }, ...entries, ...state.registry])
+  return {
+    data: await zip([{ name: META, data: Buffer.from(JSON.stringify(meta)) }, ...entries, ...state.registry]),
+    hash: snapshotHash(
+      entries.map((e) => ({ name: e.name, hash: sha(e.data) })),
+      state.registry.map((r) => ({ name: r.name, hash: sha(r.data) }))
+    )
+  }
+}
+
+/** Хэш содержимого архива — тот же, что у снимка при упаковке */
+function zipHash(files: Map<string, Buffer>) {
+  const all = [...files].filter(([name]) => name !== META).map(([name, data]) => ({ name, hash: sha(data) }))
+  return snapshotHash(
+    all.filter((f) => !f.name.startsWith(REG)),
+    all.filter((f) => f.name.startsWith(REG))
+  )
 }
 
 const backupDir = (key: string) => path.join(dataDir(), 'backups', 'saves', key.replace(/[^\w.-]+/g, '_'))
 const KEEP_BACKUPS = 5
 
 /** Копия текущих сохранений перед перезаписью из облака: backups/saves/<ключ>/<время>.zip, последние 5 */
-function backupLocal(set: SaveSet, state: LocalState) {
+async function backupLocal(set: SaveSet, state: LocalState) {
   if (!state.hash) return
   const dir = backupDir(set.key)
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, `${Date.now()}-${state.hash}.zip`), pack(state))
+  fs.writeFileSync(path.join(dir, `${Date.now()}-${state.hash}.zip`), (await pack(state)).data)
   const old = fs.readdirSync(dir).sort().slice(0, -KEEP_BACKUPS)
   for (const f of old) fs.rmSync(path.join(dir, f), { force: true })
 }
 
 /**
- * Кладёт снимок на место: сначала копия текущих файлов, затем запись файлов снимка с их временем,
- * затем удаление локальных файлов набора, которых в снимке нет (их удалили в игре на другом ПК).
+ * Кладёт снимок на место: сначала проверка, что скачан он целиком и без порчи (хэш содержимого = хэш в имени),
+ * затем копия текущих файлов, запись файлов снимка с их временем и удаление локальных файлов набора,
+ * которых в снимке нет (их удалили в игре на другом ПК).
  */
-export async function apply(set: SaveSet, data: Buffer, current: LocalState) {
-  const files = readZipBuffer(data)
+export async function apply(set: SaveSet, data: Buffer, current: LocalState, expect?: string) {
+  let files: Map<string, Buffer>
+  try {
+    files = readZipBuffer(data)
+  } catch {
+    files = new Map()
+  }
+  if (!files.size || (expect && zipHash(files) !== expect)) throw new Error(t('Снимок в облаке повреждён — сохранения на этом ПК не тронуты'))
   const meta = JSON.parse(files.get(META)?.toString('utf8') ?? '{"files":{}}') as { files: Record<string, number> }
-  backupLocal(set, current)
+  await backupLocal(set, current)
   const keep = new Set<string>()
   for (const [name, buf] of files) {
     if (name === META) continue

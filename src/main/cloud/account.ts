@@ -7,7 +7,7 @@ import type { CloudAccount, CloudDeviceCode, CloudProviderId } from '@shared/typ
 import { httpFetch } from '../http'
 import { log } from '../log'
 import { dataDir } from '../store'
-import { folderRemote, googleRemote, OfflineError, yandexRemote, type Remote } from './remote'
+import { AuthError, folderRemote, googleRemote, OfflineError, yandexRemote, type Remote } from './remote'
 
 /**
  * Вход в облако и его токены. Своего сервера у PlayOS нет: аккаунт — это вход в Яндекс Диск или Google Drive
@@ -78,7 +78,12 @@ function load(): CloudFile {
   if (state) return state
   try {
     state = JSON.parse(fs.readFileSync(file(), 'utf8')) as CloudFile
-  } catch {
+  } catch (e) {
+    // Файл есть, но не читается — откладываем копию для отчёта об ошибке, а не молча теряем вход
+    if (fs.existsSync(file())) {
+      log('WARN', 'Облако: cloud.json повреждён', (e as Error).message)
+      fs.copyFileSync(file(), file() + '.broken')
+    }
     state = { deviceId: randomUUID() }
   }
   if (!state.deviceId) state.deviceId = randomUUID()
@@ -86,9 +91,11 @@ function load(): CloudFile {
   return state
 }
 
+/** Временный файл и переименование: сбой питания во время записи не оставит пустой cloud.json (новый deviceId, потерянный вход) */
 function save() {
   fs.mkdirSync(path.dirname(file()), { recursive: true })
-  fs.writeFileSync(file(), JSON.stringify(state, null, 2))
+  fs.writeFileSync(file() + '.tmp', JSON.stringify(state, null, 2))
+  fs.renameSync(file() + '.tmp', file())
 }
 
 const seal = (t: Tokens) =>
@@ -122,38 +129,67 @@ async function oauthToken(app: OAuthApp, params: Record<string, string>) {
     throw new OfflineError((e as Error).message)
   }
   const body = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number; error?: string }
-  return { ok: res.ok, body }
+  return { ok: res.ok, status: res.status, body }
 }
 
-/** Действующий токен облака: при необходимости обновляется по refresh_token */
-async function accessToken(): Promise<string> {
+let refreshing: Promise<string> | null = null
+
+/** Действующий токен облака: при необходимости обновляется по refresh_token. force — облако ответило 401 */
+async function accessToken(force = false): Promise<string> {
   const s = load()
   const t = unseal(s.tokens)
-  if (!t || (s.provider !== 'yandex' && s.provider !== 'google')) throw new Error('Нет входа в облако')
+  if (!t || (s.provider !== 'yandex' && s.provider !== 'google')) throw new AuthError('Нет входа в облако')
   const app = OAUTH[s.provider]
-  if (Date.now() < t.expiresAt - app.refreshMargin || !t.refresh) return t.access
-  const { ok, body } = await oauthToken(app, { grant_type: 'refresh_token', refresh_token: t.refresh })
-  if (!ok || !body.access_token) throw new Error('Вход в облако устарел — войдите снова')
-  const next = { access: body.access_token, refresh: body.refresh_token ?? t.refresh, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 }
-  s.tokens = seal(next)
-  save()
-  return next.access
+  if (!force && (Date.now() < t.expiresAt - app.refreshMargin || !t.refresh)) return t.access
+  if (!t.refresh) throw new AuthError('Вход в облако устарел — войдите снова')
+  // Один запрос обновления на всех: опрос и история версий могут попросить токен одновременно
+  refreshing ??= (async () => {
+    const { ok, status, body } = await oauthToken(app, { grant_type: 'refresh_token', refresh_token: t.refresh! })
+    // Сбой сервера входа — подождём; отказ (invalid_grant: вход отозвали, сменили пароль) — нужен новый вход
+    if (status >= 500 || status === 429) throw new OfflineError(`Сервер входа: HTTP ${status}`)
+    if (!ok || !body.access_token) throw new AuthError('Вход в облако устарел — войдите снова')
+    const next = { access: body.access_token, refresh: body.refresh_token ?? t.refresh, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 }
+    s.tokens = seal(next)
+    save()
+    return next.access
+  })().finally(() => (refreshing = null))
+  return refreshing
 }
 
-/** Хранилище текущего аккаунта; null — облако не подключено */
+/**
+ * Хранилище текущего аккаунта; null — облако не подключено. Объект один на вход:
+ * в нём кэши id папок Google и созданных папок Яндекса — без них каждый список папки стоил бы лишних запросов
+ */
+let cached: { key: string; remote: Remote } | null = null
 export function remote(): Remote | null {
   const s = load()
-  if (s.provider === 'folder' && s.folder) return folderRemote(s.folder)
-  if (s.provider === 'yandex' && s.tokens) return yandexRemote(accessToken)
-  if (s.provider === 'google' && s.tokens) return googleRemote(accessToken)
-  return null
+  const key = `${s.provider}|${s.folder ?? ''}`
+  if (cached?.key === key && (s.provider === 'folder' || s.tokens)) return cached.remote
+  const r =
+    s.provider === 'folder' && s.folder
+      ? folderRemote(s.folder)
+      : s.provider === 'yandex' && s.tokens
+        ? yandexRemote(accessToken)
+        : s.provider === 'google' && s.tokens
+          ? googleRemote(accessToken)
+          : null
+  cached = r && { key, remote: r }
+  return r
 }
 
 async function finish(provider: CloudProviderId) {
+  cached = null
   const r = remote()
   if (!r) throw new Error('Облако не подключено')
   const s = load()
-  s.account = await r.account()
+  try {
+    s.account = await r.account()
+  } catch (e) {
+    // Токен уже получен, а имя и место не прочитались (сеть) — вход всё равно состоялся: имя подтянется при синхронизации
+    if (provider === 'folder') throw e
+    log('WARN', 'Облако: не удалось прочитать аккаунт', (e as Error).message)
+    s.account = { provider, name: provider === 'yandex' ? 'Яндекс' : 'Google' }
+  }
   s.provider = provider
   save()
   log('INFO', `Облако подключено: ${provider}`)
@@ -235,6 +271,7 @@ export function cancelSignIn() {
 
 export function signOut() {
   const s = load()
+  cached = null
   cancelSignIn()
   delete s.provider
   delete s.folder

@@ -723,8 +723,12 @@ html.liquid .steam-import .steam-row:focus {
 /* Статус окрашивается только при проблеме: обычное состояние — тихий текст */
 .cloud-state.is-conflict,
 .cloud-state.is-error,
+.cloud-state.is-full,
+.cloud-state.is-signin,
 .gp-cloud.is-conflict,
-.gp-cloud.is-error {
+.gp-cloud.is-error,
+.gp-cloud.is-full,
+.gp-cloud.is-signin {
   color: #ffb36b;
 }
 

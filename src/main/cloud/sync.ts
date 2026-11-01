@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
+import { t } from '@shared/i18n'
 import type { CloudRestoreChoice, CloudRestoreOffer, CloudStatus, CloudSyncState, Game, GameCloudStatus, SaveConflict, SaveVersion, Settings } from '@shared/types'
 import { log } from '../log'
 import { dataDir } from '../store'
@@ -8,7 +9,7 @@ import * as account from './account'
 import { cloudOffer, syncLibrary, syncProfile, type Hooks, type Seen } from './library'
 import { updateManifest } from './ludusavi'
 import { saveSetsFor, type SaveSet } from './locate'
-import { OfflineError, type Remote } from './remote'
+import { AuthError, OfflineError, QuotaError, type Remote } from './remote'
 import { apply, localState, pack, type LocalState } from './snapshot'
 
 /**
@@ -51,8 +52,8 @@ interface DeviceFile {
 
 interface SyncStateFile {
   sets: Record<string, { base?: string; lastSync?: number }>
-  /** Время изменения чужих devices/*.json при прошлом опросе */
-  devices: Record<string, { modified: number; file: DeviceFile }>
+  /** Время изменения и размер чужих devices/*.json при прошлом опросе */
+  devices: Record<string, { modified: number; size?: number; file: DeviceFile }>
   /** Свои головы: что лежит на этом ПК по каждому ключу (копия devices/<свой id>.json) */
   mine: Record<string, string>
   /** Пользователь ответил на предложение подтянуть профиль из облака (или облако было пустым) */
@@ -73,8 +74,20 @@ interface Deps {
 }
 
 const SNAP = /^(\d+)_([0-9a-f]{8})_([0-9a-f]{16})\.zip$/
+/**
+ * Файл устройства — <uuid>.json, внутри тот же id. Копии-конфликты клиентов синхронизации
+ * (OneDrive «<id>-ИМЯПК.json», Dropbox «(conflicted copy)», Syncthing «.sync-conflict-…») — не устройства:
+ * их устаревшие головы навсегда защищали бы старые снимки от удаления
+ */
+const DEVICE_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.json$/i
 const POLL_MS = 10 * 60_000
 const LAUNCH_TIMEOUT = 10_000
+/** Нет связи — повторяем раньше обычного опроса: через минуту, потом через три */
+const RETRY_MS = [60_000, 3 * 60_000]
+/** Имя аккаунта и место в облаке — раз в 6 часов (для полосы занятого места) */
+const ACCOUNT_MS = 6 * 3600_000
+/** Больше — в облако не загружаем: снимок целиком в памяти, а у облаков лимиты на файл */
+const MAX_SET_BYTES = 512 * 2 ** 20
 
 const folderOf = (key: string) => key.replace(/[^\w.-]+/g, '_')
 const parseSnap = (name: string): Head | null => {
@@ -93,13 +106,29 @@ let globalError: string | undefined
 let globalState: CloudSyncState = 'off'
 let lastRun: number | undefined
 let offer: CloudRestoreOffer | null = null
+/** Меняется при выходе из облака: начатая до выхода синхронизация не пишет в состояние нового входа */
+let generation = 0
+let retries = 0
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+let accountAt = 0
+let changeTimer: ReturnType<typeof setTimeout> | undefined
 /** Состояние наборов сохранений: по ключу */
 const setStatus = new Map<string, { state: CloudSyncState; size?: number; error?: string; conflict?: SaveConflict; dirs?: string[] }>()
 
 const dev8 = () => account.deviceId().replace(/-/g, '').slice(0, 8)
 
+/** Временный файл и переименование: оборванная запись не стирает базы (иначе — конфликт по каждой игре) */
 function saveState() {
-  fs.writeFileSync(stateFile(), JSON.stringify(file))
+  fs.writeFileSync(stateFile() + '.tmp', JSON.stringify(file))
+  fs.renameSync(stateFile() + '.tmp', stateFile())
+}
+
+/** Окну — не чаще раза в 150 мс: за синхронизацию статус меняется дважды на каждый набор */
+function changed() {
+  changeTimer ??= setTimeout(() => {
+    changeTimer = undefined
+    deps.onChange()
+  }, 150)
 }
 
 const cloudOn = () => !!account.remote() && !!deps.settings().cloud
@@ -112,16 +141,25 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
   return next
 }
 
+/** Состояние по ошибке: нет сети, нет места, нужен вход — или просто ошибка */
+const stateOf = (e: unknown): CloudSyncState =>
+  e instanceof OfflineError ? 'offline' : e instanceof QuotaError ? 'full' : e instanceof AuthError ? 'signin' : 'error'
+
 /** Читает devices/ и собирает самые свежие снимки по каждому ключу */
 async function refreshHeads(r: Remote) {
   const list = await r.list('devices')
+  // Копии-конфликты, запомненные прошлыми версиями PlayOS
+  for (const id of Object.keys(file.devices)) if (!DEVICE_FILE.test(`${id}.json`)) delete file.devices[id]
   for (const e of list) {
-    const id = e.name.replace(/\.json$/, '')
-    if (!e.name.endsWith('.json') || id === account.deviceId()) continue
+    const id = DEVICE_FILE.exec(e.name)?.[1].toLowerCase()
+    if (!id || id === account.deviceId()) continue
     const known = file.devices[id]
-    if (known && known.modified === e.modified) continue
+    // Время и размер: у Яндекса время с точностью до секунды
+    if (known && known.modified === e.modified && (known.size ?? e.size) === e.size) continue
     try {
-      file.devices[id] = { modified: e.modified, file: JSON.parse((await r.read(`devices/${e.name}`)).toString('utf8')) as DeviceFile }
+      const dev = JSON.parse((await r.read(`devices/${e.name}`)).toString('utf8')) as DeviceFile
+      if (dev.id?.toLowerCase() !== id) continue
+      file.devices[id] = { modified: e.modified, size: e.size, file: dev }
     } catch (err) {
       if (err instanceof OfflineError) throw err
     }
@@ -161,24 +199,47 @@ async function prune(r: Remote, folder: string) {
   for (const s of snaps.slice(keep)) if (!protectedNames.has(s.name)) await r.remove(`saves/${folder}/${s.name}`)
 }
 
+const tooBig = (local: LocalState) => local.size > MAX_SET_BYTES
+
+/** Загружает снимок; возвращает его хэш — по байтам, которые легли в архив */
 async function upload(r: Remote, set: SaveSet, local: LocalState) {
+  if (tooBig(local)) throw new Error(t('Сохранения больше 512 МБ — в облако не загружаются'))
   const folder = folderOf(set.key)
-  const name = `${Date.now()}_${dev8()}_${local.hash}.zip`
-  await r.write(`saves/${folder}/${name}`, pack(local))
+  const packed = await pack(local)
+  // Время снимка не меньше времени головы, на которой он основан: ПК с отстающими часами не загрузит «старую» новую версию
+  const at = Math.max(Date.now(), (heads.get(folder)?.at ?? 0) + 1)
+  const name = `${at}_${dev8()}_${packed.hash}.zip`
+  await r.write(`saves/${folder}/${name}`, packed.data)
   file.mine[folder] = name
   myDirty = true
   heads.set(folder, parseSnap(name)!)
   await prune(r, folder).catch((e) => log('WARN', 'Облако: не удалось убрать старые версии', (e as Error).message))
   log('INFO', `Облако: загружены сохранения ${set.key} (${local.size} байт)`)
+  return packed.hash
 }
 
+/**
+ * Выбрали облачную версию в конфликте: версия этого ПК остаётся в истории облака, как обещает диалог.
+ * Время — до облачной версии: в истории она ниже выбранной, головой этого ПК не становится
+ */
+async function park(r: Remote, set: SaveSet, local: LocalState, head: Head) {
+  if (tooBig(local)) return
+  const packed = await pack(local)
+  if (packed.hash === head.hash) return
+  const at = Math.max(1, Math.min(local.at || head.at - 1, head.at - 1))
+  await r.write(`saves/${folderOf(set.key)}/${at}_${dev8()}_${packed.hash}.zip`, packed.data)
+}
+
+/** false — пока снимок качался, запустили игру этого набора: файлы не трогаем */
 async function download(r: Remote, set: SaveSet, local: LocalState, head: Head) {
   const folder = folderOf(set.key)
   const data = await r.read(`saves/${folder}/${head.name}`)
-  await apply(set, data, local)
+  if (blocked(set)) return false
+  await apply(set, data, local, head.hash)
   file.mine[folder] = head.name
   myDirty = true
   log('INFO', `Облако: скачаны сохранения ${set.key} с ${deviceLabel(head.device)}`)
+  return true
 }
 
 function blocked(set: SaveSet) {
@@ -190,25 +251,39 @@ function blocked(set: SaveSet) {
 
 async function syncSet(r: Remote, game: Game, set: SaveSet, force?: 'local' | 'cloud'): Promise<SaveConflict | null> {
   const st = (file.sets[set.key] ??= {})
+  const folder = folderOf(set.key)
   const status = { state: 'syncing' as CloudSyncState, dirs: set.patterns }
   setStatus.set(set.key, status)
-  deps.onChange()
+  changed()
+  const playing = () => {
+    setStatus.set(set.key, { ...status, state: 'playing' })
+    return null
+  }
   try {
-    if (blocked(set)) {
-      setStatus.set(set.key, { ...status, state: 'playing' })
-      return null
-    }
+    if (blocked(set)) return playing()
     const local = await localState(set)
-    const head = heads.get(folderOf(set.key)) ?? null
+    let head = heads.get(folder) ?? null
     let action: Action = force === 'local' ? (local.hash ? 'upload' : 'none') : force === 'cloud' ? (head ? 'download' : 'none') : decide(local.hash, st.base, head?.hash ?? null)
     if (action === 'upload' && !force) {
-      // Пока мы считали, другой ПК мог загрузить своё: перечитываем головы перед записью
+      // Пока мы считали, другой ПК мог загрузить своё: перечитываем головы перед записью и решаем заново
       await refreshHeads(r)
-      const fresh = heads.get(folderOf(set.key))
-      if (fresh && fresh.hash !== st.base && fresh.hash !== local.hash) action = 'conflict'
+      head = heads.get(folder) ?? null
+      action = decide(local.hash, st.base, head?.hash ?? null)
     }
-    if (action === 'upload') await upload(r, set, local)
-    else if (action === 'download' && head) await download(r, set, local, head)
+    // Пока шли сеть и подсчёт хэшей, игру могли запустить: запуск ждёт синхронизацию не дольше 10 с
+    if ((action === 'upload' || action === 'download') && blocked(set)) return playing()
+    let base = local.hash
+    if (action === 'upload') base = await upload(r, set, local)
+    else if (action === 'download' && head) {
+      if (force === 'cloud' && local.hash && local.hash !== head.hash) {
+        await park(r, set, local, head).catch((e) => {
+          if (!(e instanceof Error) || e instanceof OfflineError) throw e
+          log('WARN', `Облако: версия этого ПК не попала в историю ${set.key}:`, e.message)
+        })
+      }
+      if (!(await download(r, set, local, head))) return playing()
+      base = head.hash
+    }
     if (action === 'conflict' && head) {
       const conflict: SaveConflict = {
         gameId: game.id,
@@ -220,20 +295,30 @@ async function syncSet(r: Remote, game: Game, set: SaveSet, force?: 'local' | 'c
       return conflict
     }
     if (action !== 'none') {
-      st.base = action === 'download' && head ? head.hash : local.hash ?? undefined
+      st.base = base ?? undefined
       st.lastSync = Date.now()
     }
     setStatus.set(set.key, { state: action === 'none' ? 'nosaves' : 'synced', size: local.size, dirs: set.patterns })
     return null
   } catch (e) {
-    const offline = e instanceof OfflineError
-    if (!offline) log('WARN', `Облако: ${set.key}:`, (e as Error).message)
-    setStatus.set(set.key, { state: offline ? 'offline' : 'error', error: (e as Error).message, dirs: set.patterns })
-    if (offline) throw e
+    const state = stateOf(e)
+    if (state === 'error') log('WARN', `Облако: ${set.key}:`, (e as Error).message)
+    setStatus.set(set.key, { state, error: (e as Error).message, dirs: set.patterns })
+    // Нет сети или входа — остальные наборы тоже не пройдут. Нет места — скачать чужие сохранения ещё можно
+    if (state === 'offline' || state === 'signin') throw e
     return null
   } finally {
-    deps.onChange()
+    changed()
   }
+}
+
+/** Нет связи: повторяем раньше обычного опроса, но не во время игры */
+function retryLater() {
+  if (retryTimer || retries >= RETRY_MS.length) return
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined
+    if (!deps.runningGame()) void syncAll()
+  }, RETRY_MS[retries++])
 }
 
 /** Синхронизирует игры; возвращает первый конфликт (для запуска игры) */
@@ -241,43 +326,72 @@ function syncGames(games: Game[], force?: 'local' | 'cloud'): Promise<SaveConfli
   return enqueue(async () => {
     const r = account.remote()
     if (!r || !cloudOn()) return null
+    const gen = generation
     busy++
     globalState = 'syncing'
-    deps.onChange()
+    changed()
     let first: SaveConflict | null = null
     try {
       // Новый ПК или переустановка: если в облаке уже есть профиль — сначала спрашиваем, что подтянуть
       if (!file.linked) {
         offer = await cloudOffer(r)
-        if (offer) return null
+        if (offer) {
+          globalState = 'pending'
+          return null
+        }
         file.linked = true
       }
       const cloud = deps.settings().cloud
       const hooks = { ...deps.hooks, deviceName: account.deviceName() }
-      if (cloud?.profile !== false) await syncProfile(r, file.seen, hooks)
-      if (cloud?.library !== false) await syncLibrary(r, file.seen, hooks)
-      if (!enabled()) return null
+      // Испорченный profile.json или library.json (папку синхронизации докачали не до конца) не останавливает сохранения
+      let partError: string | undefined
+      const part = async (what: string, run: () => Promise<void>) => {
+        try {
+          await run()
+        } catch (e) {
+          if (stateOf(e) !== 'error') throw e
+          log('WARN', `Облако: ${what}:`, (e as Error).message)
+          partError ??= (e as Error).message
+        }
+      }
+      if (cloud?.profile !== false) await part('профиль', () => syncProfile(r, file.seen, hooks))
+      if (cloud?.library !== false) await part('библиотека', () => syncLibrary(r, file.seen, hooks))
+      if (!enabled()) {
+        globalState = partError ? 'error' : 'synced'
+        globalError = partError
+        lastRun = Date.now()
+        return null
+      }
       await refreshHeads(r)
       const done = new Set<string>()
       for (const game of games) {
         for (const set of saveSetsFor(game, deps.settings())) {
           if (done.has(set.key)) continue
+          if (gen !== generation) return null
           done.add(set.key)
           const c = await syncSet(r, game, set, force)
           first ??= c
         }
       }
       await writeMyDevice(r)
-      globalError = undefined
-      globalState = [...setStatus.values()].some((s) => s.state === 'conflict') ? 'conflict' : 'synced'
+      globalError = partError
+      const states = [...setStatus.values()].map((s) => s.state)
+      globalState = states.includes('conflict') ? 'conflict' : states.includes('full') ? 'full' : partError ? 'error' : 'synced'
       lastRun = Date.now()
+      retries = 0
+      if (Date.now() - accountAt > ACCOUNT_MS) {
+        accountAt = Date.now()
+        void account.refreshAccount().then(changed, () => undefined)
+      }
     } catch (e) {
-      globalState = e instanceof OfflineError ? 'offline' : 'error'
+      if (gen !== generation) return null
+      globalState = stateOf(e)
       globalError = (e as Error).message
+      if (globalState === 'offline') retryLater()
     } finally {
       busy--
-      saveState()
-      deps.onChange()
+      if (gen === generation) saveState()
+      changed()
     }
     return first
   })
@@ -315,7 +429,7 @@ export function gameStatus(game: Game): GameCloudStatus {
   const sets = saveSetsFor(game, deps.settings())
   if (!sets.length) return { state: 'nosaves' }
   const list = sets.map((s) => setStatus.get(s.key)).filter((s) => !!s)
-  const order: CloudSyncState[] = ['conflict', 'error', 'offline', 'syncing', 'playing', 'pending', 'synced', 'nosaves']
+  const order: CloudSyncState[] = ['conflict', 'signin', 'full', 'error', 'offline', 'syncing', 'playing', 'pending', 'synced', 'nosaves']
   const worst = order.find((o) => list.some((s) => s.state === o)) ?? 'pending'
   const lastSync = Math.max(0, ...sets.map((s) => file.sets[s.key]?.lastSync ?? 0)) || undefined
   return {
@@ -348,14 +462,25 @@ export function restoreChoice(choice: CloudRestoreChoice | null) {
   if (choice) deps.setCloudSettings({ profile: choice.profile, library: choice.library, saves: choice.saves }, choice.profile)
   else deps.setCloudSettings({ profile: false, library: false }, false)
   saveState()
-  deps.onChange()
+  changed()
   void syncAll()
 }
 
-/** Вышли из облака: следующий вход (может, в другой аккаунт) снова спросит про профиль */
+/** Вышли из облака: следующий вход (может, в другой аккаунт) снова спросит про профиль и начнёт с чистого листа */
 export function forget() {
+  generation++
   offer = null
   file = { sets: {}, devices: {}, mine: {}, seen: {} }
+  heads = new Map()
+  setStatus.clear()
+  myDirty = false
+  globalState = 'off'
+  globalError = undefined
+  lastRun = undefined
+  retries = 0
+  accountAt = 0
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = undefined
   saveState()
 }
 
@@ -379,16 +504,17 @@ export function restoreVersion(game: Game, name: string) {
   return enqueue(async () => {
     const r = account.remote()
     const set = saveSetsFor(game, deps.settings())[0]
-    const head = parseSnap(name)
-    if (!r || !set || !head) return
-    if (blocked(set)) throw new Error('Сначала закройте игру')
-    await download(r, set, await localState(set), head)
+    const snap = parseSnap(name)
+    if (!r || !set || !snap) return
+    if (blocked(set)) throw new Error(t('Сначала закройте игру.'))
+    await refreshHeads(r)
+    if (!(await download(r, set, await localState(set), snap))) throw new Error(t('Сначала закройте игру.'))
     const local = await localState(set)
-    if (local.hash) await upload(r, set, local)
-    file.sets[set.key] = { base: local.hash ?? undefined, lastSync: Date.now() }
+    const hash = local.hash ? await upload(r, set, local) : undefined
+    file.sets[set.key] = { base: hash ?? undefined, lastSync: Date.now() }
     await writeMyDevice(r)
     saveState()
-    deps.onChange()
+    changed()
   })
 }
 
@@ -402,10 +528,22 @@ export function initSync(d: Deps) {
   setTimeout(() => {
     void updateManifest().finally(() => void syncAll())
   }, 8000)
-  setInterval(() => void syncAll(), POLL_MS)
+  // Во время игры опрос пропускается: обход папок и хэши ни к чему, а сама игра синхронизируется после выхода
+  setInterval(() => {
+    if (!deps.runningGame()) void syncAll()
+  }, POLL_MS)
 }
 
 /** После входа в облако или смены настроек — сразу полная синхронизация */
 export function kick() {
+  retries = 0
   void updateManifest().finally(() => void syncAll())
+}
+
+/** ПК проснулся: сеть поднимается не сразу — синхронизируемся чуть позже, а не через 10 минут */
+export function wake() {
+  retries = 0
+  setTimeout(() => {
+    if (cloudOn() && !deps.runningGame()) void syncAll()
+  }, 20_000)
 }

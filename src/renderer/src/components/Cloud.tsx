@@ -34,6 +34,10 @@ export function stateLabel(state: CloudSyncState, lastSync?: number) {
       return t('Сохранения разошлись')
     case 'offline':
       return t('Нет связи с облаком')
+    case 'full':
+      return t('В облаке нет места')
+    case 'signin':
+      return t('Нужно войти снова')
     case 'error':
       return t('Ошибка синхронизации')
     case 'steam':
@@ -162,7 +166,8 @@ export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Pa
               <span className={`setting-hint cloud-state is-${status.state}`}>
                 {status.state === 'syncing' && <IconSync className="is-spinning" />}
                 {stateLabel(status.state, status.lastSync)}
-                {status.error && status.state !== 'synced' ? ` · ${status.error}` : ''}
+                {/* Нет места и вход — подпись уже всё говорит, технические детали только в журнале */}
+                {status.error && !['synced', 'full', 'signin'].includes(status.state) ? ` · ${status.error}` : ''}
               </span>
               {account.total ? (
                 <span className="cloud-quota">
@@ -172,6 +177,11 @@ export function CloudPanel({ s, save, compact }: { s: Settings; save: (patch: Pa
               {account.total ? <span className="setting-hint">{t('Занято {used} из {total}', { used: bytes(account.used ?? 0), total: bytes(account.total) })}</span> : null}
             </span>
             <span className="cloud-account-actions">
+              {status.state === 'signin' && account.provider !== 'folder' && (
+                <button data-nav className="btn btn-glass btn-sm" onClick={() => void signIn(account.provider)}>
+                  {t('Войти снова')}
+                </button>
+              )}
               <button data-nav className="btn btn-glass btn-sm" disabled={status.state === 'syncing'} onClick={() => void syncNow()}>
                 <IconSync className={status.state === 'syncing' ? 'is-spinning' : undefined} />
                 {t('Синхронизировать')}

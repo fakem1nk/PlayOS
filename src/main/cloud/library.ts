@@ -45,6 +45,12 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'cloud'
 ])
 export const isPortableSetting = (k: string) => !DEVICE_KEYS.has(k as keyof Settings)
+/**
+ * Время правки для слияния между ПК: не раньше того, что этот ПК уже видел (+1 мс).
+ * Иначе на ПК с отстающими часами свежая правка проиграла бы старой
+ */
+export const stamp = (...seen: (number | undefined)[]) => Math.max(Date.now(), ...seen.map((t) => (t ?? 0) + 1))
+const portableOf = (s: Partial<Settings>) => Object.fromEntries(Object.entries(s).filter(([k]) => isPortableSetting(k))) as Partial<Settings>
 
 export interface CloudGame {
   key: string
@@ -250,20 +256,24 @@ export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: num
   }
 }
 
-/** Профиль: свежие настройки побеждают целиком, трофеи PlayOS объединяются */
+/**
+ * Профиль: свежие настройки побеждают целиком, трофеи PlayOS объединяются.
+ * Настройки этого ПК не берутся из облака, даже если они там есть: их мог записать PlayOS старой версии,
+ * в которой ключа ещё не было в DEVICE_KEYS
+ */
 export function mergeProfile(settings: Settings, settingsAt: number, remote: CloudProfile | null) {
   const trophies = { ...settings.trophies }
   for (const [id, at] of Object.entries(remote?.trophies ?? {})) trophies[id] = trophies[id] ? Math.min(trophies[id], at) : at
   const remoteWins = !!remote && remote.updatedAt > settingsAt
-  const portable = Object.fromEntries(Object.entries(settings).filter(([k]) => isPortableSetting(k))) as Partial<Settings>
+  const remoteSettings = portableOf(remote?.settings ?? {})
   return {
     remoteWins,
-    patch: { ...(remoteWins ? remote!.settings : {}), trophies } as Partial<Settings>,
+    patch: { ...(remoteWins ? remoteSettings : {}), trophies } as Partial<Settings>,
     cloud: {
       version: 1,
       updatedAt: remoteWins ? remote!.updatedAt : settingsAt,
       device: remoteWins ? remote!.device : '',
-      settings: remoteWins ? remote!.settings : portable,
+      settings: remoteWins ? remoteSettings : portableOf(settings),
       trophies,
       avatar: remoteWins ? remote!.avatar : (artSig(settings.avatar) ?? undefined)
     } as CloudProfile
@@ -327,6 +337,18 @@ export async function syncLibrary(r: Remote, seen: Seen, hooks: Hooks) {
   if (m.games.length !== before || m.removed.length) log('INFO', `Облако: библиотека ${before} → ${m.games.length} игр`)
 }
 
+/** Прошлые аватары из облака: каждый новый — новый файл, старые больше не нужны */
+function dropOldAvatars(keep: string) {
+  try {
+    for (const name of fs.readdirSync(dataDir())) {
+      const file = path.join(dataDir(), name)
+      if (name.startsWith('avatar-cloud-') && file !== keep) fs.rmSync(file, { force: true })
+    }
+  } catch {
+    // Не мешает синхронизации
+  }
+}
+
 export async function syncProfile(r: Remote, seen: Seen, hooks: Hooks) {
   const db = getDb()
   const remote = await readJson<CloudProfile>(r, 'profile', 'profile.json', seen.profile)
@@ -341,6 +363,7 @@ export async function syncProfile(r: Remote, seen: Seen, hooks: Hooks) {
         const file = path.join(dataDir(), `avatar-cloud-${m.cloud.avatar}`)
         fs.writeFileSync(file, data)
         m.patch.avatar = file
+        dropOldAvatars(file)
       } catch (e) {
         if (e instanceof OfflineError) throw e
       }
@@ -350,7 +373,7 @@ export async function syncProfile(r: Remote, seen: Seen, hooks: Hooks) {
   if (!m.remoteWins) {
     if (!m.cloud.updatedAt) m.cloud.updatedAt = db.settingsAt = Date.now()
     m.cloud.device = hooks.deviceName
-    if (m.cloud.avatar && m.cloud.avatar !== base?.avatar && db.settings.avatar) {
+    if (m.cloud.avatar && m.cloud.avatar !== base?.avatar && db.settings.avatar && fs.existsSync(db.settings.avatar)) {
       await r.write(`profile/avatar${path.extname(m.cloud.avatar)}`, fs.readFileSync(db.settings.avatar))
     }
   }

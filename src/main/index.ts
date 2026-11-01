@@ -44,7 +44,7 @@ import { exportData, importData, inspectBackup } from './backup'
 import { gameFiles } from './files'
 import * as cloud from './cloud/account'
 import * as sync from './cloud/sync'
-import { isPortableSetting, libraryKey } from './cloud/library'
+import { isPortableSetting, libraryKey, stamp } from './cloud/library'
 import { savePreview } from './cloud/locate'
 import { pruneThumbs, thumbFile } from './thumbs'
 import { getLang, setLang, t } from '@shared/i18n'
@@ -1025,7 +1025,7 @@ async function saveGame(draft: GameDraft, opts: SaveOptions = {}): Promise<Game>
   }
 
   // Время правки — для слияния библиотеки между ПК
-  game.updatedAt = Date.now()
+  game.updatedAt = stamp(existing?.updatedAt)
   // Пока качался арт, игру с этим id могла сохранить другая попытка — тогда обновляем её, а не добавляем вторую
   const target = existing ?? findGame(id)
   if (target) Object.assign(target, game)
@@ -1480,7 +1480,7 @@ function removeGame(id: string) {
   const gone = db.games.find((g) => g.id === id)
   // Надгробие: без него другой ПК вернул бы игру из облака
   const key = gone && (gone.cloudKey ?? libraryKey(gone))
-  if (key) db.deleted = [...(db.deleted ?? []).filter((d) => d.key !== key), { key, at: Date.now() }]
+  if (key) db.deleted = [...(db.deleted ?? []).filter((d) => d.key !== key), { key, at: stamp(gone.updatedAt ?? gone.addedAt, gone.lastPlayed) }]
   db.games = db.games.filter((g) => g.id !== id)
   fs.rmSync(artDir(id), { recursive: true, force: true })
   ach.forget(id)
@@ -1538,7 +1538,7 @@ function registerIpc() {
     const g = findGame(id)
     if (g) {
       g.favorite = value
-      g.updatedAt = Date.now()
+      g.updatedAt = stamp(g.updatedAt)
     }
     saveDb()
     broadcast()
@@ -1550,7 +1550,7 @@ function registerIpc() {
       g.sessions = []
       g.playtimeBase = 0
       g.playtimeBy = {}
-      g.resetAt = g.updatedAt = Date.now()
+      g.resetAt = g.updatedAt = stamp(g.updatedAt, g.resetAt)
     }
     saveDb()
     broadcast()
@@ -1561,7 +1561,7 @@ function registerIpc() {
     db.settings = { ...prev, ...patch }
     if ('avatar' in patch) db.settings.avatar = storeAvatar(patch.avatar, prev.avatar)
     // Профиль в облаке: побеждают более свежие настройки — запоминаем, когда меняли переносимые
-    if (Object.keys(patch).some((k) => isPortableSetting(k) || k === 'avatar')) db.settingsAt = Date.now()
+    if (Object.keys(patch).some((k) => isPortableSetting(k) || k === 'avatar')) db.settingsAt = stamp(db.settingsAt)
     applySettings(prev, db.settings)
     saveDb()
     broadcast()
@@ -1767,8 +1767,12 @@ function registerIpc() {
   const cloudChanged = () => send('cloud-status', sync.status())
   ipcMain.handle('cloud:status', () => sync.status())
   ipcMain.handle('cloud:signIn', async (_e, provider: CloudProviderId, folder?: string) => {
+    const before = cloud.cachedAccount()
     if (provider === 'folder' && folder) await cloud.signInFolder(folder)
     else if (provider !== 'folder') await cloud.signInDevice(provider, () => {
+      const now = cloud.cachedAccount()
+      // «Войти снова» в другой аккаунт: базы и головы прошлого к нему не относятся
+      if (before && now && (now.provider !== before.provider || now.name !== before.name)) sync.forget()
       cloudChanged()
       if (cloud.remote()) sync.kick()
     })
@@ -2046,6 +2050,7 @@ app.whenReady().then(() => {
     sendTo(win, 'power-resume')
     // Компьютер мог спать сутками — проверяем, не вышла ли новая версия (сеть поднимается не сразу)
     setTimeout(() => void checkForUpdates(), 15_000)
+    sync.wake()
   })
   // Выбранный экран подключили позже (включили телевизор) — переезжаем на него
   screen.on('display-added', () => setTimeout(moveToTargetDisplay, 800))
