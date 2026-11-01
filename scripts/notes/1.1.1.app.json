@@ -1,0 +1,27 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Настройки уведомлений прямо в центре уведомлений",
+      "Размер уведомлений: маленький, обычный или крупный",
+      "Видимая полоса, за которую перетаскивают окно"
+    ],
+    "fixed": [
+      "Значок в трее больше не бывает пустым при запуске вместе с Windows",
+      "Рамка окна появляется, если PlayOS запущен сразу в окне",
+      "Без итогов сессии и лишних подтверждений в уведомлениях"
+    ]
+  },
+  "en": {
+    "new": [
+      "Notification settings right in the Notification Center",
+      "Notification size: small, normal or large",
+      "A visible title bar for dragging the window"
+    ],
+    "fixed": [
+      "The tray icon no longer shows up blank when PlayOS starts with Windows",
+      "The window frame appears when PlayOS starts in a window",
+      "No more session summaries or needless confirmations in notifications"
+    ]
+  }
+}
