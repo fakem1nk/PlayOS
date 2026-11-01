@@ -88,6 +88,11 @@
   --frost-blur: blur(2.4rem) saturate(1.6);
 }
 
+/* Окно обложек плотнее: обложки разглядывают, и просвечивающий сквозь стекло редактор им мешал */
+.art-search {
+  --frost-fill: rgba(10, 10, 14, 0.88);
+}
+
 /* Карточки внутри окна — тоньше и без собственной тени */
 .si-card {
   --frost-fill: rgba(255, 255, 255, 0.02);
@@ -588,9 +593,28 @@ html.liquid :is(.dialog, .si, .upd-dialog, .pm, .side-menu, .steam-import, .art-
   backdrop-filter: blur(4rem) saturate(1.4);
 }
 
+/* Окно обложек — почти непрозрачное: за ним открыт редактор, и его текст и картинки мешали выбирать обложку */
+html.liquid .art-search {
+  background: var(--rim-glow), rgba(12, 13, 18, 0.86) !important;
+}
+
 /* Внутри окна карточки — без своего размытия: под ними уже матовое стекло */
 html.liquid .si .si-card {
   background: var(--rim-glow), rgba(255, 255, 255, 0.03) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Строки импорта Steam тоже: их бывают сотни, и размытие каждой (внутри окна оно всё равно ничего не видит)
+   тормозило прокрутку */
+html.liquid .steam-import .steam-row {
+  background: var(--rim-glow), rgba(255, 255, 255, 0.03) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html.liquid .steam-import .steam-row:focus {
+  background: var(--rim-glow), rgba(255, 255, 255, 0.09) !important;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -860,6 +884,62 @@ html.is-windowed .window-drag {
   height: 2.6rem;
   z-index: 9000;
   -webkit-app-region: drag;
+}
+
+/* Кнопки окна — как у Windows 11: тонкие значки, лёгкая подложка при наведении, у крестика красная */
+.win-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.win-btn {
+  display: grid;
+  place-items: center;
+  width: 4.6rem;
+  height: 3.2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mist);
+  cursor: default;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.win-btn svg {
+  width: 1rem;
+  height: 1rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.win-btn svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+.win-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}
+
+.win-btn:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.win-btn.is-close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+.win-btn.is-close:active {
+  background: #b22a1d;
 }
 
 /* Прокручиваемые списки заканчиваются над подсказками кнопок, а не под ними */

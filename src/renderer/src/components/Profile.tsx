@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AchievementSummaryItem, AppState, Game } from '@shared/types'
 import { api } from '../lib/api'
 import { gamesCount, playtime } from '../lib/format'
-import { focusEl, useSpatialNav } from '../lib/nav'
+import { focusEl, nudge, useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { toast } from '../lib/state'
 import { earnedNow, TIER_NAMES, TROPHIES, type Tier } from '../lib/trophies'
@@ -47,7 +47,10 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
           : dir === 'left' && inMain
             ? root?.querySelector<HTMLElement>('.profile-avatar-btn')
             : null
-      if (!target) return play('bump')
+      if (!target) {
+        play('bump')
+        return nudge(document.activeElement, dir)
+      }
       play('move')
       focusEl(target)
     },

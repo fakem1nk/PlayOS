@@ -26,6 +26,8 @@ export interface LayerOptions {
   onResume?: () => void
   /** Кнопки, которые повторяются при удержании, пока слой верхний (стрелки повторяются всегда) */
   repeat?: PadAction[]
+  /** Корень экрана: наведение мыши на его пункт переносит туда фокус, правый стик крутит его содержимое */
+  root?: () => HTMLElement | null
 }
 
 const layers: Layer[] = []
@@ -72,6 +74,8 @@ export function onActivity(cb: () => void) {
 }
 
 export function dispatch(a: PadAction) {
+  pointerTravel = 0
+  clearTimeout(hoverTimer)
   markActivity()
   noteAction(a)
   for (const l of sortedLayers()) if (l.handler.current(a) !== false) return
@@ -197,18 +201,27 @@ const KEYS: Record<string, PadAction> = {
   ' ': 'confirm',
   Escape: 'back',
   Backspace: 'back',
-  q: 'l1',
-  e: 'r1',
   PageUp: 'l1',
   PageDown: 'r1',
-  m: 'menu',
   ContextMenu: 'menu',
-  o: 'options',
-  f: 'search',
-  z: 'l2',
-  c: 'r2',
   Home: 'home'
 }
+
+/** Буквы — по физической клавише: на русской раскладке Q печатает «й», а команда должна остаться той же */
+const LETTERS: Record<string, PadAction> = {
+  KeyQ: 'l1',
+  KeyE: 'r1',
+  KeyM: 'menu',
+  KeyO: 'options',
+  KeyF: 'search',
+  KeyZ: 'l2',
+  KeyC: 'r2',
+  KeyN: 'view'
+}
+
+/** Действие клавиши. С Ctrl/Alt/Win буквы не команды: Ctrl+C не должен листать фильтры */
+const keyAction = (e: KeyboardEvent): PadAction | undefined =>
+  KEYS[e.key] ?? (e.ctrlKey || e.altKey || e.metaKey ? undefined : LETTERS[e.code])
 
 function onKey(e: KeyboardEvent) {
   // Enter, который «нажала» экранная клавиатура, — не навигация
@@ -222,7 +235,7 @@ function onKey(e: KeyboardEvent) {
   const t = e.target as HTMLElement
   // Поле в режиме ввода; не открытое поле ведёт себя как обычная кнопка (Enter его открывает)
   const typing = isTextInput(t) && isEditing(t)
-  let a: PadAction | undefined = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
+  let a = keyAction(e)
   if (typing) {
     // Enter или Esc — сохранить и закрыть поле (Enter сначала получает само поле: поиск, сохранение)
     if (e.key === 'Enter' || e.key === 'Escape') {
@@ -288,6 +301,7 @@ const BUTTONS: [number, PadAction][] = [
   [5, 'r1'],
   [6, 'l2'],
   [7, 'r2'],
+  [8, 'view'],
   [9, 'options'],
   [12, 'up'],
   [13, 'down'],
@@ -377,6 +391,13 @@ function pollCapture(p: Gamepad) {
   })
 }
 
+/**
+ * View / Share срабатывает на отпускании и только как одиночное нажатие: View+Menu — сочетание для оверлея,
+ * и центр уведомлений не должен открываться в начале этого сочетания
+ */
+const VIEW_TAP_MS = 600
+const viewHeld = new Map<number, { at: number; spoiled: boolean }>()
+
 const prev = new Map<string, boolean>()
 const holdStart = new Map<string, number>()
 const lastFire = new Map<string, number>()
@@ -398,6 +419,8 @@ function pollPads() {
   // Без фокуса нажатия только запоминаем: удержанная кнопка не сработает, когда окно вернёт фокус
   const muted = padBlocked || !document.hasFocus()
   const now = performance.now()
+  /** Отклонение правого стика: самое сильное среди геймпадов, крутим один раз за кадр */
+  let scroll = 0
   for (const p of pads) {
     if (!p) continue
     if (p.mapping !== 'standard' && !padMaps[p.id] && !announced.has(p.id)) {
@@ -408,6 +431,7 @@ function pollPads() {
     sticks.set(p.index, stick)
     if (muted) {
       for (const [index, action] of BUTTONS) prev.set(`${p.index}:${index}`, actionDown(p, action, index, stick))
+      viewHeld.delete(p.index)
       if (pendingHold.size) holdRumble('cancel')
       pendingHold.clear()
       syncHolding()
@@ -417,6 +441,8 @@ function pollPads() {
       pollCapture(p)
       continue
     }
+    const v = stickScroll(p)
+    if (Math.abs(v) > Math.abs(scroll)) scroll = v
     for (const [index, action] of BUTTONS) {
       const down = actionDown(p, action, index, stick)
       const key = `${p.index}:${index}`
@@ -432,11 +458,19 @@ function pollPads() {
         setRumblePad(p.index)
         holdStart.set(key, now)
         lastFire.set(key, now)
-        if (action === 'confirm' && holdZones > 0) {
+        const view = viewHeld.get(p.index)
+        // Другая кнопка при зажатом View — это сочетание, а не нажатие View
+        if (view && action !== 'view') view.spoiled = true
+        if (action === 'view') viewHeld.set(p.index, { at: now, spoiled: false })
+        else if (action === 'confirm' && holdZones > 0) {
           pendingHold.set(key, now)
           syncHolding()
           holdRumble('start', HOLD_MS)
         } else dispatch(action)
+      } else if (action === 'view' && !down && was) {
+        const view = viewHeld.get(p.index)
+        viewHeld.delete(p.index)
+        if (view && !view.spoiled && now - view.at < VIEW_TAP_MS) dispatch('view')
       } else if (pendingHold.has(key)) {
         // ✕ ждёт: отпустили быстро — обычное нажатие, держат дольше HOLD_MS — параметры
         if (!down) {
@@ -459,6 +493,110 @@ function pollPads() {
       }
     }
   }
+  scrollByStick(scroll, now)
+}
+
+/**
+ * Вертикаль правого стика (вниз — плюс). У стандартной раскладки это ось 3; у DirectInput оси бывают любыми,
+ * а ось курка в покое стоит на −1 и крутила бы без остановки — поэтому там только ось, назначенная в мастере
+ */
+function stickScroll(p: Gamepad) {
+  const mapped = padMaps[p.id]?.scroll
+  if (mapped && 'a' in mapped) return (p.axes[mapped.a] ?? 0) * mapped.d
+  return p.mapping === 'standard' ? (p.axes[3] ?? 0) : 0
+}
+
+const SCROLL_DEAD = 0.2
+/** rem в секунду при полном отклонении (экран — 108 rem): чуть больше экрана в секунду */
+const SCROLL_SPEED = 130
+/** Что крутим, пока стик отклонён: ищем один раз за отклонение, а не каждый кадр (поиск трогает стили всего экрана) */
+let scrollBox: HTMLElement | null | undefined
+let scrollAt = 0
+
+/** Правый стик: плавная прокрутка длинного содержимого — описание, трофеи, раздел настроек */
+function scrollByStick(v: number, now: number) {
+  if (Math.abs(v) < SCROLL_DEAD) {
+    scrollBox = undefined
+    scrollAt = 0
+    return
+  }
+  if (scrollBox === undefined || (scrollBox && !scrollBox.isConnected)) scrollBox = scrollTarget()
+  // По времени кадра, а не по кадрам: на мониторе 144 Гц скорость та же, что на 60 Гц
+  const dt = scrollAt ? Math.min(50, now - scrollAt) : 16
+  scrollAt = now
+  if (!scrollBox) return
+  const k = (Math.abs(v) - SCROLL_DEAD) / (1 - SCROLL_DEAD)
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+  // instant: плавная прокрутка из CSS начинала бы анимацию заново каждый кадр и отставала
+  scrollBox.scrollBy({ top: (Math.sign(v) * k * k * rem * SCROLL_SPEED * dt) / 1000, behavior: 'instant' })
+}
+
+const scrollable = (el: HTMLElement) => {
+  const { overflowY } = getComputedStyle(el)
+  return (overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1
+}
+
+/** Что крутить: ближайший прокручиваемый блок вокруг фокуса, иначе первый такой в верхнем экране */
+function scrollTarget() {
+  for (let p = document.activeElement as HTMLElement | null; p && p !== document.body; p = p.parentElement) if (scrollable(p)) return p
+  const root = sortedLayers()[0]?.opts.current.root?.()
+  if (!root) return null
+  if (scrollable(root)) return root
+  return [...root.querySelectorAll<HTMLElement>('*')].find(scrollable) ?? null
+}
+
+/**
+ * Мышь и геймпад — один фокус: курсор, остановившийся на пункте верхнего экрана, переносит на него фокус.
+ * С задержкой: пока мышь едет через список разделов к панели, разделы не переключаются на каждом пункте по пути.
+ * И только после заметного движения мышью: случайно задетая мышь не уводит фокус, пока играют геймпадом
+ */
+const HOVER_MS = 90
+const HOVER_TRAVEL = 8
+let pointerTravel = 0
+let hoverTimer: ReturnType<typeof setTimeout> | undefined
+let pointerAt: { x: number; y: number } | null = null
+
+function onPointerMove(e: PointerEvent) {
+  if (e.pointerType !== 'mouse') return
+  // Сдвиг считаем по координатам курсора: при прокрутке под неподвижным курсором они не меняются — это не наведение.
+  // movementX ненадёжен: в удалённом рабочем столе и виртуальных машинах бывает нулевым и при настоящем движении
+  const moved = pointerAt ? Math.abs(e.clientX - pointerAt.x) + Math.abs(e.clientY - pointerAt.y) : 0
+  pointerAt = { x: e.clientX, y: e.clientY }
+  if (!moved) return
+  pointerTravel += moved
+  if (pointerTravel < HOVER_TRAVEL) return
+  clearTimeout(hoverTimer)
+  const target = e.target as HTMLElement
+  hoverTimer = setTimeout(() => focusHovered(target), HOVER_MS)
+}
+
+function focusHovered(target: HTMLElement) {
+  const el = target.closest?.<HTMLElement>('[data-nav]')
+  const cur = document.activeElement as HTMLElement | null
+  // data-no-hover — пункт, у которого фокус что-то переключает (разделы настроек): мышь выбирает его только кликом
+  if (!el || el === cur || !el.isConnected || el.hasAttribute('disabled') || el.hasAttribute('data-no-hover')) return
+  if (cur && isTextInput(cur) && isEditing(cur)) return
+  const root = sortedLayers()[0]?.opts.current.root?.()
+  if (root?.contains(el)) el.focus({ preventScroll: true })
+}
+
+// ───────────── Боковые кнопки мыши ─────────────
+
+/** «Назад» — как ○, «вперёд» — 'forward'. В поле ввода «назад» — как Esc: сохранить и закрыть поле */
+function onMouseSide(e: MouseEvent) {
+  if (e.button !== 3 && e.button !== 4) return
+  // Сам Chromium листал бы по ним историю окна, а в ней бывает пустая страница интерфейса, выгруженного на время игры
+  e.preventDefault()
+  if (e.type !== 'mouseup') return
+  const t = document.activeElement as HTMLElement | null
+  if (t && isTextInput(t) && isEditing(t)) {
+    if (e.button === 3) {
+      t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }))
+      endEdit(t)
+    }
+    return
+  }
+  dispatch(e.button === 3 ? 'back' : 'forward')
 }
 
 let started = false
@@ -485,7 +623,10 @@ export function startInput() {
     const t = e.target as HTMLElement
     if (isTextInput(t) && !t.disabled) beginEdit(t)
   })
+  window.addEventListener('mousedown', onMouseSide)
+  window.addEventListener('mouseup', onMouseSide)
   requestAnimationFrame(pollPads)
+  window.addEventListener('pointermove', onPointerMove, { passive: true })
   for (const ev of ['mousemove', 'mousedown', 'wheel'] as const) window.addEventListener(ev, markActivity, { passive: true })
   api.onPadBlock((b) => {
     padBlocked = b

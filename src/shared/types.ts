@@ -161,7 +161,8 @@ export interface RumbleEffect {
 /** Вход геймпада: кнопка, ось с направлением или крестовина-«шапка» DirectInput */
 export type PadInput = { b: number } | { a: number; d: 1 | -1 } | { h: number; dir: PadDir }
 /** Ручная раскладка: id геймпада из Gamepad API → действие → вход */
-export type PadMaps = Record<string, Partial<Record<PadAction, PadInput>>>
+/** scroll — ось правого стика для прокрутки (вниз — d) */
+export type PadMaps = Record<string, Partial<Record<PadAction | 'scroll', PadInput>>>
 export type SoundVolume = 'low' | 'mid' | 'high'
 
 /** Проверка аккаунтов трофеев: off — не заполнено, ok — подключено, error — ключ или профиль не подошли */
@@ -173,6 +174,14 @@ export interface TrophyAccounts {
   ra: AccountStatus
   steam: AccountStatus
 }
+
+/** Состояние окна PlayOS: вне полного экрана у него своя рамка с кнопками */
+export interface WindowMode {
+  fullscreen: boolean
+  maximized: boolean
+}
+
+export type WindowAction = 'fullscreen' | 'minimize' | 'maximize' | 'close'
 
 export interface Settings {
   userName: string
@@ -192,6 +201,8 @@ export interface Settings {
   musicVolume?: SoundVolume
   glyphs: GlyphStyle
   fullscreen: boolean
+  /** Подсказку «PlayOS работает в трее» уже показали: при первом закрытии окна */
+  trayHintShown?: boolean
   launchOnStartup: boolean
   /** Полученные трофеи PlayOS: id → время получения */
   trophies: Record<string, number>
@@ -424,7 +435,7 @@ export interface OverlayEvent {
   backdrop?: string
 }
 
-export type PickKind = 'exe' | 'ps2' | 'ps3' | 'ps3folder' | 'image' | 'emulator' | 'folder' | 'backup'
+export type PickKind = 'exe' | 'ps2' | 'ps3' | 'ps3folder' | 'image' | 'emulator' | 'folder' | 'gamefolder' | 'backup'
 
 export type PadAction =
   | 'up'
@@ -441,6 +452,10 @@ export type PadAction =
   | 'l2'
   | 'r2'
   | 'home'
+  /** Share / View / Create — центр уведомлений */
+  | 'view'
+  /** Боковая кнопка мыши «вперёд»: обратное к «назад» — следующий шаг мастера, снова открыть закрытую страницу игры */
+  | 'forward'
 
 export interface SaveProgress {
   field: 'cover' | 'coverAnimated' | 'hero' | 'logo' | 'icon'
@@ -464,6 +479,36 @@ export interface GameFiles {
   path: string
   isFile: boolean
   size: number | null
+}
+
+/** Ключ API, который помогает получить инструкция: Steam Web API, RetroAchievements, SteamGridDB */
+export type ApiKeyKind = 'steam' | 'ra' | 'sgdb'
+
+/** Аккаунты, уже известные на этом ПК: последний вход в клиент Steam и логин RetroAchievements из PCSX2 */
+export interface LocalAccounts {
+  steam?: { id: string; name: string }
+  raUser?: string
+}
+
+/** Как PlayOS удалит игру с компьютера */
+export interface UninstallInfo {
+  /** steam — окно удаления Steam, uninstaller — программа удаления игры, files — папка или образ в корзину */
+  method: 'steam' | 'uninstaller' | 'files'
+  path: string
+  isFile: boolean
+  /** Сколько места освободится; null — не посчитать */
+  size: number | null
+  /** Удалить нельзя — причина для пользователя */
+  blocked?: string
+}
+
+export interface UninstallResult {
+  ok: boolean
+  error?: string
+  /** Удаление продолжается в Steam или программе удаления игры */
+  started?: 'steam' | 'uninstaller'
+  /** Корзина не приняла игру (больше корзины или диск без неё) — можно удалить насовсем */
+  noTrash?: boolean
 }
 
 /** Что поправить, чтобы игра запустилась: файл игры в редакторе или путь к эмулятору в настройках */
@@ -577,6 +622,10 @@ export interface PcsApi {
   getState(): Promise<AppState>
   saveGame(draft: GameDraft): Promise<Game>
   deleteGame(id: string): Promise<void>
+  /** Как удалить игру с компьютера: способ, папка и размер */
+  uninstallInfo(id: string): Promise<UninstallInfo | null>
+  /** Удалить игру с компьютера. keep — оставить в библиотеке неустановленной; permanent — мимо корзины */
+  uninstallGame(id: string, opts: { keep: boolean; permanent?: boolean }): Promise<UninstallResult>
   setFavorite(id: string, value: boolean): Promise<void>
   resetPlaytime(id: string): Promise<void>
   saveSettings(patch: Partial<Settings>): Promise<Settings>
@@ -589,6 +638,8 @@ export interface PcsApi {
   hideOverlay(): Promise<void>
   pickFile(kind: PickKind): Promise<string | null>
   inspect(platform: Platform, path: string): Promise<InspectResult>
+  /** EXE игры в папке: самый похожий на игру файл; null — ничего подходящего */
+  findGameExe(dir: string): Promise<string | null>
   searchArt(query: string, platform: Platform, serial?: string, source?: ArtSource): Promise<ArtCandidate[]>
   scanPs2Folder(): Promise<number>
   importRpcs3(): Promise<number>
@@ -604,8 +655,10 @@ export interface PcsApi {
   onPadBlock(cb: (blocked: boolean) => void): () => void
   /** Вибрация DualSense по HID (Gamepad API её не умеет) */
   padRumble(fx: RumbleEffect): void
-  /** Окно перешло в полный экран или вышло из него */
-  onWindowMode(cb: (fullscreen: boolean) => void): () => void
+  /** Окно перешло в полный экран или вышло из него, развернулось или вернулось к прежнему размеру */
+  onWindowMode(cb: (mode: WindowMode) => void): () => void
+  /** Кнопки рамки окна: полный экран, свернуть, развернуть, закрыть (в трей) */
+  windowControl(action: WindowAction): Promise<void>
   getPadStatus(): Promise<PadStatus>
   // ── Оверлей поверх игры ──
   emuState(): Promise<EmuState>
@@ -627,6 +680,14 @@ export interface PcsApi {
   findRaGames(query: string): Promise<RaGame[]>
   linkRaGame(gameId: string, raId: number): Promise<AchievementResult>
   testTrophyAccounts(): Promise<TrophyAccounts>
+  /** Открыть страницу ключа или настроек в браузере; PlayOS свернётся, чтобы браузер был виден */
+  openKeyPage(url: string): Promise<void>
+  /** Следить за буфером обмена: скопировали ключ — придёт onKeyFound, и PlayOS вернётся на экран. null — перестать */
+  watchKeyClipboard(kind: ApiKeyKind | null): Promise<void>
+  /** Ключ из буфера обмена прямо сейчас; null — там не ключ */
+  keyFromClipboard(kind: ApiKeyKind): Promise<string | null>
+  onKeyFound(cb: (e: { kind: ApiKeyKind; key: string }) => void): () => void
+  localAccounts(): Promise<LocalAccounts>
   onAchievements(cb: (n: AchievementNotice) => void): () => void
   onAchievementSummary(cb: () => void): () => void
   onOverlayToast(cb: (n: AchievementNotice) => void): () => void
@@ -635,8 +696,6 @@ export interface PcsApi {
   onSaveProgress(cb: (p: SaveProgress) => void): () => void
   // ── DualSense ──
   // ── Выход и питание ──
-  /** main просит проиграть аутро (окно закрывают, например Alt+F4) */
-  onOutro(cb: (kind: 'quit') => void): () => void
   onPowerResume(cb: () => void): () => void
   // ── О системе ──
   systemInfo(): Promise<SystemInfo>

@@ -10,7 +10,7 @@ import { Hint } from './Glyph'
 import { IconGamepad } from './Icons'
 
 /** Порядок шагов: сначала то, без чего не обойтись в меню */
-const STEPS: { action: PadAction; label: string; hint: string }[] = [
+const STEPS: { action: PadAction | 'scroll'; label: string; hint: string }[] = [
   { action: 'confirm', label: t('Выбрать'), hint: t('Нижняя кнопка справа: ✕ на PlayStation, A на Xbox') },
   { action: 'back', label: t('Назад'), hint: t('Правая кнопка: ○ на PlayStation, B на Xbox') },
   { action: 'up', label: t('Вверх'), hint: t('Крестовина') },
@@ -23,7 +23,9 @@ const STEPS: { action: PadAction; label: string; hint: string }[] = [
   { action: 'r1', label: t('Вкладка вправо'), hint: t('Правый бампер: R1 или RB') },
   { action: 'l2', label: t('Фильтр назад'), hint: t('Левый курок: L2 или LT') },
   { action: 'r2', label: t('Фильтр вперёд'), hint: t('Правый курок: R2 или RT') },
-  { action: 'options', label: t('Меню'), hint: t('Options, Start или Menu') }
+  { action: 'options', label: t('Меню'), hint: t('Options, Start или Menu') },
+  { action: 'view', label: t('Уведомления'), hint: t('Create, Share, Back или View') },
+  { action: 'scroll', label: t('Прокрутка'), hint: t('Отклоните правый стик вниз') }
 ]
 
 const same = (a: PadInput, b: PadInput) => JSON.stringify(a) === JSON.stringify(b)
@@ -39,7 +41,7 @@ export function PadMapper({ maps, onSave, onClose }: { maps: PadMaps; onSave: (m
   const ref = useRef<HTMLDivElement>(null)
   const [padId, setPadId] = useState<string | null>(null)
   const [step, setStep] = useState(0)
-  const [map, setMap] = useState<Partial<Record<PadAction, PadInput>>>({})
+  const [map, setMap] = useState<Partial<Record<PadAction | 'scroll', PadInput>>>({})
   const state = useRef({ padId, step, map })
   state.current = { padId, step, map }
 
@@ -65,7 +67,9 @@ export function PadMapper({ maps, onSave, onClose }: { maps: PadMaps; onSave: (m
         }
         if (id !== cur.padId || cur.step >= STEPS.length) return
         const taken = Object.values(cur.map).some((x) => x && same(x, input))
-        if (!taken) {
+        // Прокрутка — только ось стика: кнопка тут ничего бы не крутила
+        const wrong = STEPS[cur.step].action === 'scroll' && !('a' in input)
+        if (!taken && !wrong) {
           play('move')
           setMap({ ...cur.map, [STEPS[cur.step].action]: input })
         } else play('bump')

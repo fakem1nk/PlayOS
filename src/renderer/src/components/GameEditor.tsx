@@ -17,7 +17,7 @@ import { IconClose, IconDisc, IconDownload, IconFolder, IconImage, IconMonitor, 
 import { t, locale } from '@shared/i18n'
 
 const PLATFORMS: { id: Platform; title: string; text: string; icon: React.ReactNode }[] = [
-  { id: 'pc', title: t('Игра для PC'), text: t('EXE, ярлык .lnk или .bat с компьютера'), icon: <IconMonitor /> },
+  { id: 'pc', title: t('Игра для PC'), text: t('Укажите папку игры — EXE в ней PlayOS найдёт сам'), icon: <IconMonitor /> },
   { id: 'ps2', title: 'PlayStation 2', text: t('Образ ISO, CHD или CSO — запуск через PCSX2'), icon: <IconDisc /> },
   { id: 'ps3', title: 'PlayStation 3', text: t('EBOOT.BIN или папка игры — запуск через RPCS3'), icon: <IconDisc /> }
 ]
@@ -76,6 +76,8 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
   const [slow, setSlow] = useState(false)
   // Номер текущего чтения файла: отменённое чтение просто игнорируется
   const inspectToken = useRef(0)
+  // EXE найден в папке игры сам ('found') или не нашёлся ('none') — подсказка под полем EXE
+  const [exeFound, setExeFound] = useState<'found' | 'none' | null>(null)
   // id новой игры — один на все попытки сохранения (после отмены загрузки арта и повторного «Сохранить»)
   const newId = useRef(crypto.randomUUID())
   const saving = useRef(false)
@@ -138,14 +140,20 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
     pristine.current = JSON.stringify(fresh)
     setDraft(fresh)
     setStep('form')
-    // Сразу предлагаем выбрать файл — самый частый сценарий
-    setTimeout(() => pickGameFile(p), 260)
+    // Сразу предлагаем выбрать папку (PC) или файл — самый частый сценарий
+    setTimeout(() => (p === 'pc' ? pickInstallDir(true) : pickGameFile(p)), 260)
   }
 
   const pickGameFile = async (platform = draft.platform, folder = false) => {
     const kind = platform === 'pc' ? 'exe' : platform === 'ps2' ? 'ps2' : folder ? 'ps3folder' : 'ps3'
     const file = await api.pickFile(kind)
     if (!file) return
+    setExeFound(null)
+    await applyFile(platform, file)
+  }
+
+  /** Файл игры выбран или найден в папке: читаем название, иконку и параметры. installDir — папка, указанная вручную */
+  const applyFile = async (platform: Platform, file: string, installDir?: string) => {
     const token = ++inspectToken.current
     setBusy({ label: t('Читаем файл игры…'), kind: 'inspect' })
     try {
@@ -161,7 +169,8 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
           path: info.path ?? file,
           // Новый EXE внутри уже выбранной папки игры — папку не трогаем
           installDir:
-            d.installDir && (info.path ?? file).toLowerCase().startsWith(d.installDir.toLowerCase()) ? d.installDir : info.installDir ?? d.installDir,
+            installDir ??
+            (d.installDir && (info.path ?? file).toLowerCase().startsWith(d.installDir.toLowerCase()) ? d.installDir : info.installDir ?? d.installDir),
           title: titleWasAuto && info.title ? info.title : d.title,
           serial: info.serial ?? d.serial,
           args: info.args ?? d.args,
@@ -199,7 +208,7 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
   // Игра из облака без файла: окно выбора файла открывается сразу, как при добавлении новой игры
   useEffect(() => {
     if (!pickFile || !game) return
-    const id = setTimeout(() => pickGameFile(game.platform), 300)
+    const id = setTimeout(() => (game.platform === 'pc' ? pickInstallDir(true) : pickGameFile(game.platform)), 300)
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -242,9 +251,23 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
         ? t('Параметры запуска, своя команда, ID в RetroAchievements, оверлей')
         : t('Параметры запуска, своя команда, оверлей')
 
-  const pickInstallDir = async () => {
-    const dir = await api.pickFile('folder')
-    if (dir) set({ installDir: dir })
+  /**
+   * Папка PC-игры. EXE в ней PlayOS ищет сам, если выбранный раньше EXE лежит не в ней.
+   * fresh — новая игра: черновик в замыкании ещё старый, его путь не смотрим
+   */
+  const pickInstallDir = async (fresh = false) => {
+    const dir = await api.pickFile('gamefolder')
+    if (!dir) return
+    set({ installDir: dir })
+    const root = dir.toLowerCase().replace(/\\+$/, '') + '\\'
+    if (!fresh && draft.path && draft.path.toLowerCase().startsWith(root)) return
+    const token = ++inspectToken.current
+    setBusy({ label: t('Ищем игру в папке…'), kind: 'inspect' })
+    const exe = await api.findGameExe(dir).catch(() => null)
+    if (token !== inspectToken.current) return
+    setExeFound(exe ? 'found' : 'none')
+    if (exe) await applyFile('pc', exe, dir)
+    else setBusy(null)
   }
 
   const pickSaveDir = async () => {
@@ -387,11 +410,11 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
                       <div className={`path-display ${draft.installDir ? '' : 'is-empty'}`} title={draft.installDir}>
                         {draft.installDir ? shortPath(draft.installDir) : t('Папка не выбрана')}
                       </div>
-                      <button data-nav className="btn btn-glass btn-sm" onClick={pickInstallDir}>
+                      <button data-nav data-autofocus={(!draft.installDir && !draft.path) || undefined} className="btn btn-glass btn-sm" onClick={() => pickInstallDir()}>
                         <IconFolder /> {t('Выбрать папку')}
                       </button>
                     </div>
-                    <span className="field-hint">{t('По ней считаются размер игры, локальные файлы, сохранения и процессы игры.')}</span>
+                    <span className="field-hint">{t('EXE игры в ней PlayOS найдёт сам. По папке считаются размер игры, локальные файлы, сохранения и процессы игры.')}</span>
                   </div>
                 ) : (
                   <div className="field">
@@ -433,7 +456,13 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
                         <IconFolder /> {t('Выбрать файл')}
                       </button>
                     </div>
-                    <span className="field-hint">{t('Файл, которым запускается игра: EXE, ярлык или лаунчер. Время считается по всем процессам из папки игры.')}</span>
+                    <span className="field-hint">
+                      {exeFound === 'found'
+                        ? t('Найден в папке игры автоматически. Если это не тот файл — выберите другой.')
+                        : exeFound === 'none'
+                          ? t('В папке не нашлось EXE игры — выберите файл вручную.')
+                          : t('Файл, которым запускается игра: EXE, ярлык или лаунчер. Время считается по всем процессам из папки игры.')}
+                    </span>
                   </div>
                 )}
 

@@ -126,6 +126,11 @@ export function NoticeCenter({ onClose }: { onClose: () => void }) {
     onBack: onClose,
     autoFocus: '.notice-item, .notice-clear',
     onAction: (a) => {
+      // Та же кнопка, что открыла центр, его и закрывает
+      if (a === 'view') {
+        play('back')
+        return onClose()
+      }
       if (a !== 'search') return false
       clear()
     }

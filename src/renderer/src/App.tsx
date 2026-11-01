@@ -1,6 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
-import type { AchievementSummaryItem, Game, LaunchFix, PowerAction, SaveConflict } from '@shared/types'
+import type { AchievementSummaryItem, Game, LaunchFix, PowerAction, SaveConflict, WindowMode } from '@shared/types'
 import { Background } from './components/Background'
 import { RestoreDialog, SaveConflictDialog, useCloudStatus } from './components/Cloud'
 import { GamePage } from './components/GamePage'
@@ -15,6 +15,7 @@ import { Screensaver } from './components/Screensaver'
 import { AnimatedCoversContext } from './components/Tile'
 import { UpdateNotice } from './components/UpdateNotice'
 import { TABS, TopBar, type Tab } from './components/TopBar'
+import { WindowFrame } from './components/WindowFrame'
 import { api } from './lib/api'
 import { accentOf, DEFAULT_ACCENT, notInstalled, playtime } from './lib/format'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
@@ -125,6 +126,11 @@ export function App() {
   const launchPending = useRef<string | null>(null)
   const launchCancelled = useRef<string | null>(null)
   const [focusRequest, setFocusRequest] = useState<string | null>(null)
+  // Страница игры, закрытая «назад», — кнопка мыши «вперёд» открывает её снова, пока не ушли на другую вкладку
+  const closedPage = useRef<{ id: string; tab: Tab } | null>(null)
+  useEffect(() => {
+    if (pageGameId) closedPage.current = null
+  }, [pageGameId])
 
   const games = state?.games ?? []
   const running = state?.running ?? null
@@ -158,7 +164,15 @@ export function App() {
     document.addEventListener('focusin', onFocus)
     return () => document.removeEventListener('focusin', onFocus)
   }, [])
-  useEffect(() => api.onWindowMode((full) => document.documentElement.classList.toggle('is-windowed', !full)), [])
+  const [windowMode, setWindowMode] = useState<WindowMode>({ fullscreen: true, maximized: false })
+  useEffect(
+    () =>
+      api.onWindowMode((m) => {
+        setWindowMode(m)
+        document.documentElement.classList.toggle('is-windowed', !m.fullscreen)
+      }),
+    []
+  )
   useEffect(() => setPadMaps(state?.settings.padMaps), [state?.settings.padMaps])
   // Геймпад без стандартной раскладки: подсказываем, где назначить кнопки
   useEffect(
@@ -168,8 +182,6 @@ export function App() {
       ),
     []
   )
-  // Окно закрывают (Alt+F4) — main ждёт, пока доиграет аутро выхода
-  useEffect(() => api.onOutro(() => setOutro((cur) => cur ?? 'quit')), [])
 
   // Трофеи игр: сводка для профиля и главного экрана, уведомления о новых
   useEffect(() => {
@@ -271,6 +283,14 @@ export function App() {
       } else if (a === 'home') {
         goTab('home')
         setTabFocus(null)
+      } else if (a === 'view') {
+        play('select')
+        setNotices(true)
+      } else if (a === 'forward') {
+        const c = closedPage.current
+        if (!c || c.tab !== tab || !games.some((g) => g.id === c.id)) return play('bump')
+        play('select')
+        setPageGameId(c.id)
       } else return false
     },
     -1,
@@ -338,7 +358,9 @@ export function App() {
                 ? t('Выбрать подборку')
                 : libFocus.focus === 'sort'
                   ? t('Сменить сортировку')
-                  : t('Показать')
+                  : libFocus.focus === 'add'
+                    ? t('Добавить игру')
+                    : t('Показать')
           }
         />
         <Hint glyph="back" label={libFocus.searching ? t('Сбросить поиск') : t('Назад')} />
@@ -389,7 +411,7 @@ export function App() {
     <GlyphStyleContext.Provider value={state.settings.glyphs}>
       <AnimatedCoversContext.Provider value={state.settings.animatedCovers}>
       <div className={`app tinted ${tabFocus !== null && !modal ? 'is-tabs-zone' : ''}`} data-tab={tab} style={{ '--game-accent': accent } as React.CSSProperties}>
-        <div className="window-drag" aria-hidden />
+        <WindowFrame mode={windowMode} />
         <Background
           game={bgTarget}
           dim={calm}
@@ -566,7 +588,10 @@ export function App() {
               game={pageGame}
               running={running}
               trophies={trophySummary[pageGame.id]}
-              onClose={() => setPageGameId(null)}
+              onClose={() => {
+                closedPage.current = { id: pageGame.id, tab }
+                setPageGameId(null)
+              }}
               onLaunch={(g) => {
                 setPageGameId(null)
                 void launch(g)

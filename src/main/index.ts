@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, net, nativeTheme, powerMonitor, protocol, screen, shell } from 'electron'
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, net, nativeTheme, powerMonitor, protocol, screen, shell, Tray } from 'electron'
 import { exec } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
@@ -8,6 +8,7 @@ import { Readable } from 'node:stream'
 import { pathToFileURL } from 'node:url'
 import type {
   AchievementNotice,
+  ApiKeyKind,
   AppState,
   ImportProgress,
   SystemNotice,
@@ -28,7 +29,9 @@ import type {
   PowerAction,
   SaveProgress,
   Settings,
-  ArtSource
+  ArtSource,
+  WindowAction,
+  WindowMode
 } from '@shared/types'
 import { startGamepad } from './gamepad'
 import * as ach from './achievements'
@@ -48,7 +51,9 @@ import { getLang, setLang, t } from '@shared/i18n'
 import { dsxStatus, flashLightbar, holdLightbar, pulseLightbar, startDsx } from './dsx'
 import { hidControllers, hidStatus, rescanHid, rumbleDualSense, startHid } from './hid'
 import * as launcher from './launcher'
+import * as keys from './keys'
 import * as media from './media'
+import * as uninstall from './uninstall'
 import * as vr from './vr'
 import { enablePineInIni, listSlots, pcsx2Config, slotTime, type Pcsx2Config } from './pcsx2'
 import { pineGameId, pineLoad, pineSave, pineStatus } from './pine'
@@ -119,6 +124,7 @@ if (!app.requestSingleInstanceLock()) app.quit()
 
 let win: BrowserWindow | null = null
 let overlay: BrowserWindow | null = null
+let tray: Tray | null = null
 let overlayOpen = false
 let gameHwnd: bigint | null = null
 let launchTimer: NodeJS.Timeout | null = null
@@ -133,6 +139,8 @@ let overlayOpenedAt = 0
 let focusRetries = 0
 /** Текущее сохранение из редактора — его можно отменить */
 let editorSave: AbortController | null = null
+/** Ожидание ключа API в буфере обмена, пока открыта инструкция */
+let keyWatch: NodeJS.Timeout | null = null
 /** Последний запуск VR-игры: шёл ли он через OpenComposite — для учёта сбоя на старте */
 let vrLaunch: { gameId: string; viaOc: boolean } | null = null
 
@@ -174,6 +182,72 @@ function bringToFront() {
   if (getDb().settings.fullscreen && !win.isFullScreen()) win.setFullScreen(true)
   forceForeground(hwndOf(win))
   win.focus()
+}
+
+/** F11: окно или весь экран. Выбор запоминается — после игры и при следующем запуске PlayOS откроется так же */
+function toggleFullscreen() {
+  if (!win) return
+  const on = !win.isFullScreen()
+  win.setFullScreen(on)
+  const db = getDb()
+  if (db.settings.fullscreen === on) return
+  db.settings = { ...db.settings, fullscreen: on }
+  saveDb()
+  broadcast()
+}
+
+const windowMode = (): WindowMode => ({ fullscreen: !!win?.isFullScreen(), maximized: !!win?.isMaximized() })
+const sendWindowMode = () => sendTo(win, 'window-mode', windowMode())
+
+/** Кнопки рамки окна (видна вне полного экрана) */
+function windowControl(action: WindowAction) {
+  if (!alive(win)) return
+  if (action === 'fullscreen') toggleFullscreen()
+  else if (action === 'minimize') win.minimize()
+  else if (action === 'maximize') win.isMaximized() ? win.unmaximize() : win.maximize()
+  else hideToTray()
+}
+
+// ───────────────────────── Трей ─────────────────────────
+
+/** Крестик и Alt+F4: окно уходит в трей, PlayOS работает дальше (геймпад, оверлей, трофеи).
+ *  Совсем выключает только питание в самом PlayOS или «Выйти» в меню значка */
+function hideToTray() {
+  if (!alive(win)) return
+  win.hide()
+  const db = getDb()
+  if (db.settings.trayHintShown || !tray) return
+  db.settings = { ...db.settings, trayHintShown: true }
+  saveDb()
+  tray.displayBalloon({
+    title: t('PlayOS работает в трее'),
+    content: t('Открыть — щелчок по значку или кнопка PS на геймпаде. Выключить — кнопка питания в PlayOS.'),
+    noSound: true
+  })
+}
+
+/** «Выйти» в меню значка — сразу, без аутро: окно в это время обычно спрятано */
+function quitFromTray() {
+  allowQuit = true
+  app.quit()
+}
+
+const trayMenu = () =>
+  Menu.buildFromTemplate([
+    { label: t('Открыть PlayOS'), click: bringToFront },
+    { type: 'separator' },
+    { label: t('Выйти из PlayOS'), click: quitFromTray }
+  ])
+
+async function createTray() {
+  // В установленной версии — значок самого PlayOS.exe; в разработке exe — это Electron, берём исходную картинку
+  const icon = app.isPackaged
+    ? await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => nativeImage.createEmpty())
+    : nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png')).resize({ width: 32, height: 32, quality: 'best' })
+  tray = new Tray(icon)
+  tray.setToolTip('PlayOS')
+  tray.setContextMenu(trayMenu())
+  tray.on('click', bringToFront)
 }
 
 /** Прозрачное окно поверх игры. Создаётся заранее и прячется — открывается мгновенно. */
@@ -496,21 +570,11 @@ function onHotkey() {
   }
 }
 
-// ───────────────────────── Выход с аутро ─────────────────────────
+// ───────────────────────── Выход ─────────────────────────
 
-/** Выход разрешён: аутро доиграло (или его пропустили) */
+/** Выход разрешён: питание в PlayOS (после аутро), «Выйти» в трее или установка обновления. Иначе закрытие окна прячет его в трей */
 let allowQuit = false
 let sessionEnding = false
-let quitFallback: NodeJS.Timeout | null = null
-
-function requestQuitOutro() {
-  sendTo(win, 'outro', 'quit')
-  // Интерфейс не ответил (завис) — выходим без анимации
-  quitFallback ??= setTimeout(() => {
-    allowQuit = true
-    app.quit()
-  }, 7000)
-}
 
 // ───────────────────────── Экран для PlayOS ─────────────────────────
 
@@ -693,16 +757,19 @@ function createWindow() {
       if (frozen.length && !overlayOpen && gameInForeground()) unfreezeGame()
     }, 150)
   })
-  win.webContents.on('before-input-event', (_e, input) => {
-    if (input.type === 'keyDown' && input.key === 'F11') win?.setFullScreen(!win.isFullScreen())
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      // Стандартное меню Electron тоже ловит F11 и тут же возвращало окно во весь экран — переключаем только сами
+      e.preventDefault()
+      if (!input.isAutoRepeat) toggleFullscreen()
+    }
     if (input.type === 'keyDown' && input.key === 'F12' && !app.isPackaged) win?.webContents.toggleDevTools()
   })
-  // Закрытие окна (Alt+F4) — сначала аутро в интерфейсе, выход по его окончании
+  // Крестик и Alt+F4 прячут окно в трей. Выход — только питание в PlayOS, «Выйти» в трее, обновление или конец сеанса Windows
   win.on('close', (e) => {
-    // Без загруженного интерфейса аутро показать некому — выходим сразу
-    if (allowQuit || sessionEnding || !win || win.webContents.isLoading() || uiUnloaded) return
+    if (allowQuit || sessionEnding || !win) return
     e.preventDefault()
-    requestQuitOutro()
+    hideToTray()
   })
   // Windows завершает сеанс — не задерживаем выключение анимацией
   win.on('query-session-end', () => {
@@ -1075,6 +1142,7 @@ const pickFilters = (): Record<PickKind, Electron.OpenDialogOptions> => ({
   image: { title: t('Изображение'), filters: [{ name: t('Изображения'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }] },
   emulator: { title: t('Исполняемый файл эмулятора'), filters: [{ name: t('Программы'), extensions: ['exe'] }] },
   folder: { title: t('Папка'), properties: ['openDirectory'] },
+  gamefolder: { title: t('Папка игры'), properties: ['openDirectory'] },
   backup: { title: t('Копия данных PlayOS'), filters: [{ name: t('Копия PlayOS'), extensions: ['playos'] }] }
 })
 
@@ -1110,6 +1178,7 @@ function applySettings(prev: Settings, next: Settings) {
   // Сменили язык — перезагружаем окна: тексты собираются при загрузке интерфейса
   if (prev.language !== next.language) {
     setLang(next.language)
+    tray?.setContextMenu(trayMenu())
     setTimeout(() => {
       win?.webContents.reload()
       overlay?.webContents.reload()
@@ -1400,6 +1469,21 @@ function controllers(): ControllerInfo[] {
 
 // ───────────────────────── IPC ─────────────────────────
 
+/** Убрать игру из библиотеки: арт, кэши, надгробие для облака */
+function removeGame(id: string) {
+  const db = getDb()
+  const gone = db.games.find((g) => g.id === id)
+  // Надгробие: без него другой ПК вернул бы игру из облака
+  const key = gone && (gone.cloudKey ?? libraryKey(gone))
+  if (key) db.deleted = [...(db.deleted ?? []).filter((d) => d.key !== key), { key, at: Date.now() }]
+  db.games = db.games.filter((g) => g.id !== id)
+  fs.rmSync(artDir(id), { recursive: true, force: true })
+  ach.forget(id)
+  forgetDetails(id)
+  saveDb()
+  broadcast()
+}
+
 function registerIpc() {
   ipcMain.handle('state:get', () => state())
   ipcMain.handle('pad:status', () => readPadStatus())
@@ -1417,18 +1501,33 @@ function registerIpc() {
     }
   })
   ipcMain.handle('game:cancelSave', () => editorSave?.abort())
-  ipcMain.handle('game:delete', (_e, id: string) => {
-    const db = getDb()
-    const gone = db.games.find((g) => g.id === id)
-    // Надгробие: без него другой ПК вернул бы игру из облака
-    const key = gone && (gone.cloudKey ?? libraryKey(gone))
-    if (key) db.deleted = [...(db.deleted ?? []).filter((d) => d.key !== key), { key, at: Date.now() }]
-    db.games = db.games.filter((g) => g.id !== id)
-    fs.rmSync(artDir(id), { recursive: true, force: true })
-    ach.forget(id)
-    forgetDetails(id)
-    saveDb()
-    broadcast()
+  ipcMain.handle('game:delete', (_e, id: string) => removeGame(id))
+  ipcMain.handle('game:uninstallInfo', (_e, id: string) => {
+    const game = findGame(id)
+    return game ? uninstall.uninstallInfo(game) : null
+  })
+  ipcMain.handle('game:uninstall', async (_e, id: string, opts: { keep: boolean; permanent?: boolean }) => {
+    const game = findGame(id)
+    if (!game) return { ok: false, error: t('Игра не найдена') }
+    const title = game.title
+    const res = await uninstall.uninstallGame(game, opts, () => {
+      const g = findGame(id)
+      if (!g) return
+      // Игра остаётся в библиотеке неустановленной: время, трофеи и подборки на месте, файл можно указать снова
+      if (opts.keep) {
+        g.path = ''
+        delete g.installDir
+        delete g.workDir
+        saveDb()
+        broadcast()
+      } else removeGame(id)
+      toast(t('Игра удалена с компьютера'), opts.keep ? t('«{title}» осталась в библиотеке — время игры и трофеи сохранены', { title }) : t('«{title}» убрана и из библиотеки', { title }))
+      // Ждали Steam или программу удаления — возвращаем PlayOS на экран
+      if (win?.isMinimized() && !launcher.running()) bringToFront()
+    })
+    // Окно Steam или программы удаления должно быть видно — PlayOS уходит в фон и вернётся, когда игра пропадёт
+    if (res.started) win?.minimize()
+    return res
   })
   ipcMain.handle('game:favorite', (_e, id: string, value: boolean) => {
     const g = findGame(id)
@@ -1604,6 +1703,35 @@ function registerIpc() {
     return res
   })
   ipcMain.handle('ach:test', () => ach.testAccounts())
+  // Ключи API: страница в браузере, а скопированный там ключ PlayOS подхватывает из буфера обмена сам
+  ipcMain.handle('keys:open', (_e, url: string) => {
+    if (!keys.keyPageAllowed(url)) return
+    void shell.openExternal(url)
+    win?.minimize()
+  })
+  ipcMain.handle('keys:watch', (_e, kind: ApiKeyKind | null) => {
+    if (keyWatch) clearInterval(keyWatch)
+    keyWatch = null
+    if (!kind) return
+    // Только новое копирование: то, что лежало в буфере до инструкции, не берём
+    let last: string | null = null
+    const until = Date.now() + 15 * 60_000
+    const timer = setInterval(async () => {
+      const text = await clipboard.readText().catch(() => '')
+      if (keyWatch !== timer) return
+      if (Date.now() > until) return void (clearInterval(timer), (keyWatch = null))
+      if (last === null || text === last) return void (last = text)
+      last = text
+      const key = keys.keyIn(kind, text)
+      if (!key) return
+      // Следим дальше, пока открыта инструкция: если ключ не подошёл, его можно скопировать заново
+      sendTo(win, 'key-found', { kind, key })
+      if (!launcher.running() && (win?.isMinimized() || !win?.isFocused())) bringToFront()
+    }, 700)
+    keyWatch = timer
+  })
+  ipcMain.handle('keys:clipboard', async (_e, kind: ApiKeyKind) => keys.keyIn(kind, await clipboard.readText().catch(() => '')))
+  ipcMain.handle('keys:local', () => keys.localAccounts())
   ipcMain.handle('dialog:pick', async (_e, kind: PickKind) => {
     const opts = pickFilters()[kind]
     const res = await dialog.showOpenDialog(win!, { properties: ['openFile'], ...opts })
@@ -1612,6 +1740,7 @@ function registerIpc() {
   ipcMain.handle('game:inspect', (_e, platform: Platform, file: string) =>
     media.inspect(platform, file, getDb().settings.pcsx2Path, path.join(dataDir(), 'art', '_tmp'))
   )
+  ipcMain.handle('game:findExe', (_e, dir: string) => media.findGameExe(dir))
   ipcMain.handle('art:search', async (_e, query: string, platform: Platform, serial?: string, source: ArtSource = 'steam') => {
     const search =
       source === 'steamgriddb'
@@ -1721,6 +1850,7 @@ function registerIpc() {
     if (fs.existsSync(p) && fs.statSync(p).isFile()) shell.showItemInFolder(p)
     else shell.openPath(p)
   })
+  ipcMain.handle('window:control', (_e, action: WindowAction) => windowControl(action))
   ipcMain.handle('power', (_e, action: PowerAction) => {
     if (action === 'quit') {
       allowQuit = true
@@ -1903,6 +2033,7 @@ app.whenReady().then(() => {
 
   registerIpc()
   createWindow()
+  void createTray()
   startUpdater((st) => send('update-state', st), getDb().settings.betaUpdates)
   // Проснулись после сна — интерфейс убирает затемнение «Спящий режим»
   powerMonitor.on('resume', () => {
@@ -1994,11 +2125,13 @@ app.whenReady().then(() => {
     pollPadStatus()
     // Интерфейс могли загрузить заново посреди игры — он должен знать, что геймпад сейчас у игры
     sendTo(win, 'pad-block', padBlocked)
-    sendTo(win, 'window-mode', !!win?.isFullScreen())
+    sendWindowMode()
   })
-  // Вне полного экрана у окна без рамки появляется полоса для перетаскивания
-  win?.on('enter-full-screen', () => sendTo(win, 'window-mode', true))
-  win?.on('leave-full-screen', () => sendTo(win, 'window-mode', false))
+  // Вне полного экрана у окна без рамки появляется своя рамка: полоса для перетаскивания и кнопки
+  win?.on('enter-full-screen', () => sendTo(win, 'window-mode', { ...windowMode(), fullscreen: true }))
+  win?.on('leave-full-screen', () => sendTo(win, 'window-mode', { ...windowMode(), fullscreen: false }))
+  win?.on('maximize', sendWindowMode)
+  win?.on('unmaximize', sendWindowMode)
   // Прошлый запуск упал — подсказываем, где взять отчёт (после интро, один раз)
   if (lastRunCrashed()) {
     win?.webContents.once('did-finish-load', () =>

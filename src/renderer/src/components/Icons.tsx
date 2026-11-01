@@ -306,3 +306,9 @@ export const IconBell = (p: P) => (
     <path d="M10 20a2.2 2.2 0 0 0 4 0" />
   </svg>
 )
+export const IconKey = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="8" cy="15" r="4" />
+    <path d="m10.9 12.1 8.6-8.6M16.5 6.5l2.5 2.5M14 9l2 2" />
+  </svg>
+)

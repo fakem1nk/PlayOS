@@ -58,6 +58,8 @@ export interface Pcsx2Config {
   /** Папка карт памяти и включённые карты (файл .ps2 или папка — «папочная» карта) */
   memcards: string
   cards: string[]
+  /** Логин RetroAchievements, под которым вошли в PCSX2 */
+  raUser?: string
 }
 
 export function pcsx2Config(exe: string): Pcsx2Config | null {
@@ -87,7 +89,8 @@ export function pcsx2Config(exe: string): Pcsx2Config | null {
     },
     sstates: path.isAbsolute(folder) ? folder : path.join(dataDir, folder),
     memcards,
-    cards
+    cards,
+    raUser: ini?.Achievements?.Username?.[0]?.trim() || undefined
   }
 }
 

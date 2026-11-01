@@ -11,7 +11,7 @@ const CACHE_MS = 10 * 60_000
 const cache = new Map<string, { at: number; src: string; files: GameFiles }>()
 
 /** Папка установки игры: PC — рядом с EXE, PS3 — корень игры над PS3_GAME/USRDIR, образы — сам файл */
-function gameLocation(game: Game): { path: string; isFile: boolean } | null {
+export function gameLocation(game: Game): { path: string; isFile: boolean } | null {
   if (game.platform === 'pc' && game.installDir && fs.existsSync(game.installDir)) return { path: game.installDir, isFile: false }
   const p = game.path
   if (!p || !fs.existsSync(p)) return null

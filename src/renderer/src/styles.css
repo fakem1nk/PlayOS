@@ -1160,11 +1160,28 @@ p {
 .library-meta {
   flex: 0 1 auto;
   min-width: 0;
+  /* Прижата вправо, к кнопке «+» */
+  margin-left: auto;
+  margin-right: -1.2rem;
   color: var(--mist);
   font-size: 1.7rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Круглая «+» справа в шапке библиотеки */
+.library-head .chip.chip-add {
+  display: grid;
+  place-items: center;
+  width: 4.2rem;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.chip-add > svg {
+  font-size: 2rem;
 }
 
 .grid-scroll {
@@ -1971,6 +1988,105 @@ p {
   display: flex;
   gap: 1.4rem;
   justify-content: flex-end;
+}
+
+/* Инструкция по ключу API: шаги с номерами, совет со своей кнопкой и строка ожидания ключа */
+.key-guide {
+  width: 78rem;
+}
+
+.key-guide .dialog-text {
+  margin-bottom: 2.6rem;
+}
+
+.key-steps {
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  gap: 1.6rem;
+  margin: 0 0 2.6rem;
+  padding: 0;
+}
+
+.key-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  gap: 1.6rem;
+  font-size: 1.7rem;
+  line-height: 1.5;
+}
+
+.key-steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  /* Центр кружка — на середине первой строки текста */
+  margin-top: -0.32rem;
+  border-radius: 50%;
+  border: 1px solid var(--stroke);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.key-steps strong,
+.key-extra strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.key-extra {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2.6rem;
+  padding: 1.6rem 1.6rem 1.6rem 2rem;
+  border-radius: 1.8rem;
+  border: 1px solid var(--stroke);
+  font-size: 1.6rem;
+  line-height: 1.45;
+  color: var(--mist);
+}
+
+.key-extra .btn {
+  flex: none;
+}
+
+.key-guide .account-state {
+  margin: 0 0 3rem;
+}
+
+/* Удаление игры с компьютера: что удаляется и сколько места освободится */
+.uninstall-path {
+  display: flex;
+  align-items: baseline;
+  gap: 1.6rem;
+  margin: -2.2rem 0 2.8rem;
+  font-size: 1.5rem;
+  color: var(--faint);
+  overflow-wrap: anywhere;
+}
+
+.uninstall-size {
+  flex: none;
+  margin-left: auto;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.uninstall-keep {
+  margin-bottom: 2.8rem;
+}
+
+.uninstall-error {
+  margin: -1.2rem 0 2.4rem;
+  font-size: 1.6rem;
+  color: #ff8a8a;
+  overflow-wrap: anywhere;
 }
 
 /* ───────────────────────── Боковое меню ───────────────────────── */

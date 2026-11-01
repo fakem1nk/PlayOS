@@ -8,11 +8,11 @@ import { toast } from '../lib/state'
 import { play } from '../lib/sound'
 import { Avatar } from './Avatar'
 import { CloudPanel, stateLabel, useCloudStatus } from './Cloud'
-import { ActionRow, BrowseButton, Cycler, Field, Toggle } from './Controls'
+import { ActionRow, BrowseButton, Cycler, Field } from './Controls'
 import { Glyph, GlyphText, type GlyphName } from './Glyph'
 import { IconCloud, IconDisc, IconDownload, IconFolder, IconImage } from './Icons'
 import { Wordmark } from './Logo'
-import { DisplayPicker } from './Settings'
+import { DisplayPicker, SoundRows } from './Settings'
 import { getLang, t } from '@shared/i18n'
 
 type Step = 'hello' | 'cloud' | 'games' | 'emulators' | 'screen' | 'done'
@@ -50,6 +50,11 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
   const s = state.settings
   const step = STEPS[i]
   const save = (patch: Partial<Settings>) => api.saveSettings(patch)
+  const cloud = useCloudStatus()
+  const emus = useEmusFound(s.pcsx2Path, s.rpcs3Path)
+  // Пока на шаге ничего не сделано, главная кнопка так и говорит — «Пропустить»
+  const skip =
+    (step.id === 'cloud' && !cloud?.account) || (step.id === 'games' && !state.games.length) || (step.id === 'emulators' && !!emus && !emus.ps2 && !emus.ps3)
   // Цвета последних игр — для сияния фона; без игр — фирменные
   const palette = [...new Set(state.games.map((g) => g.accent).filter(Boolean) as string[]), '#3d8bff', '#8a5cff', '#3fd0ff'].slice(0, 3)
 
@@ -70,7 +75,13 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
     // ○ — шаг назад; на первом шаге ничего не делает, чтобы мастер не закрылся случайно
     onBack: () => i > 0 && go(-1),
     autoFocus: '.wiz-next',
-    focusKey: i
+    focusKey: i,
+    // Кнопка мыши «вперёд» — следующий шаг, как «назад» — предыдущий
+    onAction: (a) => {
+      if (a !== 'forward') return false
+      if (step.id === 'done') return play('bump')
+      go(1)
+    }
   })
 
   const run = async (fn: () => Promise<number>, what: string) => {
@@ -121,7 +132,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
             {step.id === 'hello' && <HelloArt name={s.userName} avatar={s.avatar} />}
             {step.id === 'cloud' && <CloudArt />}
             {step.id === 'games' && <GamesArt state={state} />}
-            {step.id === 'emulators' && <EmuArt pcsx2={s.pcsx2Path} rpcs3={s.rpcs3Path} />}
+            {step.id === 'emulators' && <EmuArt found={emus} pcsx2={s.pcsx2Path} rpcs3={s.rpcs3Path} />}
             {step.id === 'screen' && <ScreenArt scale={s.uiScale} />}
             {step.id === 'done' && <ButtonsArt />}
           </div>
@@ -191,8 +202,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
                     ]}
                     onChange={(v) => save({ uiScale: Number(v) })}
                   />
-                  <Toggle label={t('Звуки интерфейса')} value={s.sounds} onChange={(v) => save({ sounds: v })} />
-                  <Toggle label={t('Фоновая музыка')} value={s.music} onChange={(v) => save({ music: v })} />
+                  <SoundRows s={s} save={save} />
                 </>
               )}
               {step.id === 'done' && (
@@ -226,7 +236,7 @@ export function Onboarding({ state, onSteamImport, paused }: Props) {
               </button>
             )}
             <button data-nav className="btn btn-primary wiz-next" onClick={() => (step.id === 'done' ? finish() : go(1))}>
-              {step.id === 'done' ? t('Начать играть') : t('Далее')}
+              {step.id === 'done' ? t('Начать играть') : skip ? t('Пропустить') : t('Далее')}
             </button>
           </span>
         </footer>
@@ -296,8 +306,8 @@ function GamesArt({ state }: { state: AppState }) {
   )
 }
 
-/** Диски PS2 и PS3: крутятся, если эмулятор найден */
-function EmuArt({ pcsx2, rpcs3 }: { pcsx2: string; rpcs3: string }) {
+/** Есть ли эмуляторы по указанным путям; null — ещё проверяем */
+function useEmusFound(pcsx2: string, rpcs3: string) {
   const [found, setFound] = useState<{ ps2: boolean; ps3: boolean } | null>(null)
   useEffect(() => {
     let alive = true
@@ -306,6 +316,11 @@ function EmuArt({ pcsx2, rpcs3 }: { pcsx2: string; rpcs3: string }) {
       alive = false
     }
   }, [pcsx2, rpcs3])
+  return found
+}
+
+/** Диски PS2 и PS3: крутятся, если эмулятор найден */
+function EmuArt({ found, pcsx2, rpcs3 }: { found: { ps2: boolean; ps3: boolean } | null; pcsx2: string; rpcs3: string }) {
   const disc = (label: string, emu: string, ok: boolean | undefined, empty: boolean) => (
     <div className={`wiz-disc ${ok ? 'is-ok' : ''}`}>
       <span className="wiz-disc-icon">

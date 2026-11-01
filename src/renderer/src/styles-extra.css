@@ -406,7 +406,8 @@
   background: var(--danger);
 }
 
-.account-state.is-checking .account-dot {
+.account-state.is-checking .account-dot,
+.account-state.is-wait .account-dot {
   animation: account-blink 1.2s ease-in-out infinite;
 }
 
@@ -417,7 +418,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .account-state.is-checking .account-dot {
+  .account-state.is-checking .account-dot,
+  .account-state.is-wait .account-dot {
     animation: none;
   }
 }

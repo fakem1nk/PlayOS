@@ -6,7 +6,7 @@ import { api } from '../lib/api'
 import { createCollection } from '../lib/collections'
 import { gamesCount, notInstalled, playtime } from '../lib/format'
 import { lastInputDevice, useConfirmHold, useInputLayer } from '../lib/input'
-import { useSpatialNav } from '../lib/nav'
+import { nudge, useSpatialNav } from '../lib/nav'
 import { beginEdit, isEditing, openKeyboard, setKeyboardStatus } from '../lib/osk'
 import { play } from '../lib/sound'
 import { GlyphText, Hint } from './Glyph'
@@ -35,7 +35,7 @@ const SORTS: { id: LibrarySort; label: string }[] = [
 ]
 
 /** Что сейчас в фокусе библиотеки — по нему App подбирает подсказки кнопок внизу */
-export type LibraryFocus = 'grid' | 'search' | 'filter' | 'collections' | 'sort'
+export type LibraryFocus = 'grid' | 'search' | 'filter' | 'collections' | 'sort' | 'add'
 /** Подсказки зависят и от того, идёт ли поиск (○ его сбрасывает) и запущена ли игра в фокусе */
 export interface LibraryHintState {
   focus: LibraryFocus
@@ -47,7 +47,7 @@ export interface LibraryHintState {
 }
 
 /** Фишки шапки: поиск, платформы и избранное одной группой, выпадающий список подборок, сортировка */
-type Chip = { kind: 'search' } | { kind: 'filter'; id: Filter; label: string } | { kind: 'collections' } | { kind: 'sort' }
+type Chip = { kind: 'search' } | { kind: 'filter'; id: Filter; label: string } | { kind: 'collections' } | { kind: 'sort' } | { kind: 'add' }
 
 const norm = (s: string) => s.toLocaleLowerCase().replace(/ё/g, 'е')
 /** Без пробелов и знаков: «halflife» находит «Half-Life» */
@@ -165,7 +165,8 @@ export function Library(props: Props) {
       { kind: 'search' },
       ...BASE_FILTERS.filter((f) => f.id !== 'vr' || hasVr).map((f) => ({ kind: 'filter' as const, ...f })),
       { kind: 'collections' },
-      { kind: 'sort' }
+      { kind: 'sort' },
+      { kind: 'add' }
     ],
     [hasVr]
   )
@@ -305,13 +306,13 @@ export function Library(props: Props) {
     setZone('chips')
   }
 
-  // Клавиатура: «/» или Ctrl+F — сразу в поиск
+  // Клавиатура: «/» или Ctrl+F — сразу в поиск. По физической клавише: на русской раскладке там «.» и «а»
   useEffect(() => {
     if (!active || dialog) return
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (el instanceof HTMLInputElement && isEditing(el)) return
-      if (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f')) {
+      if (e.key === '/' || (e.code === 'Slash' && !e.shiftKey) || ((e.ctrlKey || e.metaKey) && e.code === 'KeyF')) {
         // Раньше общего обработчика клавиш: там F — «Добавить игру»
         e.preventDefault()
         e.stopPropagation()
@@ -335,7 +336,7 @@ export function Library(props: Props) {
       if (zone === 'chips') {
         if (a === 'left' || a === 'right') {
           const next = chipIdx + (a === 'left' ? -1 : 1)
-          if (next < 0 || next >= chips.length) return play('bump')
+          if (next < 0 || next >= chips.length) return bump(a)
           play('move')
           setChip(next)
         } else if (a === 'confirm') {
@@ -344,7 +345,10 @@ export function Library(props: Props) {
             play('select')
             setDialog({ kind: 'pick' })
           } else if (cur.kind === 'sort') cycleSort()
-          else if (cur.id === 'all' && filter === 'all' && !searching && list.length) {
+          else if (cur.kind === 'add') {
+            play('select')
+            onAdd()
+          } else if (cur.id === 'all' && filter === 'all' && !searching && list.length) {
             // ✕ на уже включённых «Всех» — к играм
             play('move')
             setZone('grid')
@@ -361,11 +365,11 @@ export function Library(props: Props) {
         return
       }
       // Влево/вправо — только внутри ряда: у края ряда фокус не перескакивает на соседний ряд
-      if (a === 'left') idx % COLS > 0 ? move(idx - 1) : play('bump')
-      else if (a === 'right') idx % COLS < COLS - 1 && idx + 1 < list.length ? move(idx + 1) : play('bump')
+      if (a === 'left') idx % COLS > 0 ? move(idx - 1) : bump('left')
+      else if (a === 'right') idx % COLS < COLS - 1 && idx + 1 < list.length ? move(idx + 1) : bump('right')
       else if (a === 'down' && idx + COLS < list.length) move(idx + COLS)
       else if (a === 'down' && Math.floor(idx / COLS) < Math.floor((list.length - 1) / COLS)) move(list.length - 1)
-      else if (a === 'down') play('bump')
+      else if (a === 'down') bump('down')
       else if (a === 'up') idx >= COLS ? move(idx - COLS) : toChips()
       else if (a === 'confirm') {
         if (focused) onLaunch(focused)
@@ -382,12 +386,22 @@ export function Library(props: Props) {
         play('select')
         onMenu(focused)
       } else if (a === 'back' && searching) clearSearch()
-      else if (a === 'back') onExitTop()
+      // ○ далеко внизу — сначала к первому ряду (та же колонка), второе ○ — к вкладкам, как на PS5
+      else if (a === 'back' && idx >= COLS) {
+        play('back')
+        setIndex(idx % COLS)
+      } else if (a === 'back') onExitTop()
       else return false
     },
     0,
     active
   )
+
+  /** Упёрлись: звук и толчок пункта в фокусе — плитки или фишки */
+  function bump(dir: 'left' | 'right' | 'down') {
+    play('bump')
+    nudge(document.querySelector('.library .is-focused'), dir)
+  }
 
   function move(i: number) {
     play('move')
@@ -507,6 +521,17 @@ export function Library(props: Props) {
               ? `${focused.title}: ${playtime(focused.playtime).toLowerCase()}`
               : gamesCount(list.length)}
         </div>
+        {/* Добавить игру — для мыши; геймпадом до неё доходят вправо по фишкам, а F/△ работает отовсюду */}
+        <button
+          tabIndex={-1}
+          className={`chip chip-add ${chipsZone && cur.kind === 'add' ? 'is-focused' : ''}`}
+          title={t('Добавить игру')}
+          aria-label={t('Добавить игру')}
+          onMouseDown={noFocus}
+          onClick={() => (pointTo(chips.length - 1), onAdd())}
+        >
+          <IconPlus />
+        </button>
       </div>
 
       {list.length ? (

@@ -18,10 +18,15 @@ function navItems(root: HTMLElement) {
   )
 }
 
-function findNext(cur: HTMLElement, items: HTMLElement[], dir: Dir) {
+/**
+ * anchorX — горизонталь, с которой начали идти вверх-вниз: фокус держится этой колонки, даже если по пути
+ * попалась широкая строка (как на Android TV), и не уезжает в сторону
+ */
+function findNext(cur: HTMLElement, items: HTMLElement[], dir: Dir, anchorX?: number) {
   const r = cur.getBoundingClientRect()
-  let best: HTMLElement | null = null
+  let best: { el: HTMLElement; b: DOMRect } | null = null
   let bestScore = Infinity
+  const near: { el: HTMLElement; b: DOMRect; score: number }[] = []
   for (const el of items) {
     if (el === cur) continue
     const b = el.getBoundingClientRect()
@@ -42,12 +47,29 @@ function findNext(cur: HTMLElement, items: HTMLElement[], dir: Dir) {
     // Иначе «вправо» без кнопки справа уезжало на кнопку ниже
     if (secondary > Math.max(primary, 0)) continue
     const score = Math.max(primary, -20) + secondary * 3
+    near.push({ el, b, score })
     if (score < bestScore) {
       bestScore = score
-      best = el
+      best = { el, b }
     }
   }
-  return best
+  if (!best || anchorX === undefined || (dir !== 'up' && dir !== 'down')) return best?.el ?? null
+  // Ряд, в который ведёт шаг, — как и без колонки, ближайший; колонка выбирает только пункт внутри этого ряда.
+  // Иначе ряд, где нет пункта в «своей» колонке, перескакивался бы целиком и до его пунктов было бы не дойти
+  const row = best.b
+  let pick = best.el
+  let pickSide = Infinity
+  let pickScore = Infinity
+  for (const c of near) {
+    if (c.b.top >= row.bottom || c.b.bottom <= row.top) continue
+    const side = anchorX < c.b.left ? c.b.left - anchorX : anchorX > c.b.right ? anchorX - c.b.right : 0
+    if (side < pickSide || (side === pickSide && c.score < pickScore)) {
+      pick = c.el
+      pickSide = side
+      pickScore = c.score
+    }
+  }
+  return pick
 }
 
 /** Ближайший предок с собственной прокруткой (overflow auto/scroll). */
@@ -126,6 +148,18 @@ export function pressFx(el: Element | null | undefined) {
   )
 }
 
+/** Упёрся в край: пункт чуть «толкается» в сторону нажатия — видно, что ввод принят, но дальше некуда */
+export function nudge(el: Element | null | undefined, dir: Dir) {
+  if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const d = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.35
+  const x = dir === 'left' ? -d : dir === 'right' ? d : 0
+  const y = dir === 'up' ? -d : dir === 'down' ? d : 0
+  el.animate([{ translate: '0 0' }, { translate: `${x}px ${y}px`, offset: 0.35 }, { translate: '0 0' }], {
+    duration: 260,
+    easing: 'cubic-bezier(0.23, 1, 0.32, 1)'
+  })
+}
+
 export function focusEl(el: HTMLElement | null | undefined) {
   if (!el) return
   el.focus({ preventScroll: true })
@@ -154,6 +188,8 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
   // Фокус-память: последний пункт экрана в фокусе. После окна или меню поверх экрана фокус возвращается сюда,
   // а не на первый пункт (элемент, на котором стоял фокус, окно забрало себе — после него фокус «нигде»)
   const last = useRef<HTMLElement | null>(null)
+  /** Колонка движения вверх-вниз: от какого пункта и на какой горизонтали */
+  const column = useRef<{ el: HTMLElement; x: number } | null>(null)
   useEffect(() => {
     const onFocus = (e: FocusEvent) => {
       const el = e.target as HTMLElement
@@ -198,10 +234,16 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
           return
         }
         // Отклонённый remap-ом кандидат (например, пункт соседней колонки) — не тупик: пробуем следующего по близости
+        const vertical = a === 'up' || a === 'down'
+        let x: number | undefined
+        if (vertical) {
+          const r = cur.getBoundingClientRect()
+          x = column.current?.el === cur ? column.current.x : r.left + r.width / 2
+        }
         let pool = items
         let next: HTMLElement | null = null
         for (let tries = 0; tries < 8 && !next; tries++) {
-          const found = findNext(cur, pool, a)
+          const found = findNext(cur, pool, a, x)
           if (!found) break
           next = opts.remap ? opts.remap(found, cur, a) : found
           pool = pool.filter((el) => el !== found)
@@ -209,8 +251,12 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
         if (next) {
           play('move')
           focusEl(next)
+          column.current = vertical ? { el: next, x: x! } : null
         } else if (opts.onEdge) opts.onEdge(a)
-        else play('bump')
+        else {
+          play('bump')
+          nudge(cur, a)
+        }
         return
       }
       if (a === 'confirm') {
@@ -231,7 +277,7 @@ export function useSpatialNav(ref: RefObject<HTMLElement | null>, opts: Options)
     },
     opts.priority,
     active,
-    { onResume: restore }
+    { onResume: restore, root: () => ref.current }
   )
 
   // При активации (и смене focusKey) ставим фокус на нужный элемент. Ждём несколько кадров —

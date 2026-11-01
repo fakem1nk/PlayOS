@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import type { AccountStatus, AppState, BackupInfo, DisplayInfo, Pcsx2Info, Settings as SettingsT, TrophyAccounts, UpdateState } from '@shared/types'
+import type { AccountStatus, AppState, BackupInfo, DisplayInfo, LocalAccounts, Pcsx2Info, Settings as SettingsT, TrophyAccounts, UpdateState } from '@shared/types'
 import { api } from '../lib/api'
-import { focusEl, useSpatialNav } from '../lib/nav'
+import { focusEl, nudge, useSpatialNav } from '../lib/nav'
 import { toast } from '../lib/state'
 import { play, previewVolume } from '../lib/sound'
 import { rumble } from '../lib/haptics'
@@ -11,6 +11,7 @@ import { ActionRow, BrowseButton, Cycler, Disclosure, Field, Toggle } from './Co
 import { SystemInfoDialog } from './SystemInfoDialog'
 import { CloudPanel } from './Cloud'
 import { VrPanel } from './VrPanel'
+import { KeyGuideButton } from './KeyGuide'
 import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
 import { gamesCount } from '../lib/format'
@@ -127,7 +128,10 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           : dir === 'left' && inPanel
             ? ref.current?.querySelector<HTMLElement>('.section-btn.is-active')
             : null
-      if (!target) return play('bump')
+      if (!target) {
+        play('bump')
+        return nudge(document.activeElement, dir)
+      }
       play('move')
       zone.current = inPanel ? 'sections' : 'panel'
       focusEl(target)
@@ -180,6 +184,8 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               <button
                 key={sec.id}
                 data-nav
+                // Фокус переключает раздел — наведение мышью его не трогает, раздел открывается кликом
+                data-no-hover
                 className={`section-btn ${section === sec.id ? 'is-active' : ''}`}
                 onFocus={() => setSection(sec.id)}
                 onClick={() => enterPanel(sec.id)}
@@ -244,9 +250,11 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 value={s.steamGridDbKey}
                 placeholder={t('Не указан')}
                 onCommit={(v) => save({ steamGridDbKey: v.trim() })}
-                hint={t('Бесплатно: зарегистрируйтесь на steamgriddb.com, затем Preferences → API → Generate API Key.')}
+                hint={t('Необязательно, но с ним обложки находятся почти для всех игр. Ключ бесплатный — нажмите «Получить ключ», PlayOS подскажет каждый шаг.')}
                 mono
-              />
+              >
+                <KeyGuideButton kind="sgdb" save={save} />
+              </Field>
             </>
           )}
 
@@ -358,34 +366,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
               <h2 className="panel-title">
                 <IconVolume /> {t('Звук')}
               </h2>
-              <Cycler
-                label={t('Звуки интерфейса')}
-                hint={t('Щелчки навигации, запуск игр, трофеи, интро и выключение')}
-                value={s.sounds ? s.volume : 'off'}
-                options={[
-                  { id: 'off', label: t('Выкл') },
-                  { id: 'low', label: t('Тихо') },
-                  { id: 'mid', label: t('Средне') },
-                  { id: 'high', label: t('Громко') }
-                ]}
-                onChange={(v) => {
-                  if (v === 'off') return void save({ sounds: false })
-                  save({ sounds: true, volume: v as SettingsT['volume'] })
-                  previewVolume(v as SettingsT['volume'])
-                }}
-              />
-              <Cycler
-                label={t('Фоновая музыка')}
-                hint={t('Спокойный эмбиент на главном экране, затихает, когда запущена игра')}
-                value={s.music ? (s.musicVolume ?? 'mid') : 'off'}
-                options={[
-                  { id: 'off', label: t('Выкл') },
-                  { id: 'low', label: t('Тихо') },
-                  { id: 'mid', label: t('Средне') },
-                  { id: 'high', label: t('Громко') }
-                ]}
-                onChange={(v) => save(v === 'off' ? { music: false } : { music: true, musicVolume: v as SettingsT['volume'] })}
-              />
+              <SoundRows s={s} save={save} />
             </>
           )}
 
@@ -870,6 +851,39 @@ export function DisplayPicker({ s, save }: { s: SettingsT; save: (p: Partial<Set
   )
 }
 
+const LEVELS = () => [
+  { id: 'off', label: t('Выкл') },
+  { id: 'low', label: t('Тихо') },
+  { id: 'mid', label: t('Средне') },
+  { id: 'high', label: t('Громко') }
+]
+
+/** Громкость звуков интерфейса и музыки — в настройках и в мастере первого запуска */
+export function SoundRows({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
+  return (
+    <>
+      <Cycler
+        label={t('Звуки интерфейса')}
+        hint={t('Щелчки навигации, запуск игр, трофеи, интро и выключение')}
+        value={s.sounds ? s.volume : 'off'}
+        options={LEVELS()}
+        onChange={(v) => {
+          if (v === 'off') return void save({ sounds: false })
+          void save({ sounds: true, volume: v as SettingsT['volume'] })
+          previewVolume(v as SettingsT['volume'])
+        }}
+      />
+      <Cycler
+        label={t('Фоновая музыка')}
+        hint={t('Спокойный эмбиент на главном экране, затихает, когда запущена игра')}
+        value={s.music ? (s.musicVolume ?? 'mid') : 'off'}
+        options={LEVELS()}
+        onChange={(v) => save(v === 'off' ? { music: false } : { music: true, musicVolume: v as SettingsT['volume'] })}
+      />
+    </>
+  )
+}
+
 /** Экран для игр PCSX2 и RPCS3: PlayOS переносит окно эмулятора после запуска */
 function GameDisplayPicker({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) => Promise<unknown> }) {
   const [list, setList] = useState<DisplayInfo[]>([])
@@ -952,31 +966,57 @@ function TrophySettings({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT
       clearTimeout(timer)
     }
   }, [s.raUser, s.raKey, s.steamKey, s.steamId])
+  // Профиль Steam и логин RetroAchievements берём с этого ПК (Steam и PCSX2), если они ещё не указаны
+  const [local, setLocal] = useState<LocalAccounts>({})
+  useEffect(() => {
+    api
+      .localAccounts()
+      .then((acc) => {
+        setLocal(acc)
+        const patch: Partial<SettingsT> = {}
+        if (!s.steamId.trim() && acc.steam) patch.steamId = acc.steam.id
+        if (!s.raUser.trim() && acc.raUser) patch.raUser = acc.raUser
+        if (Object.keys(patch).length) void save(patch)
+      })
+      .catch(() => {})
+  }, [])
+  const keyHint = t('Ключ бесплатный — нажмите «Получить ключ», PlayOS подскажет каждый шаг.')
   return (
     <>
       <h2 className="panel-title">
         <IconTrophy /> RetroAchievements <span className="panel-sub">PS2</span>
       </h2>
       <div className="note">
-        {t('Те же трофеи, что выдаёт PCSX2 после входа в RetroAchievements. Ключ: retroachievements.org → Settings → Keys → Web API Key. Игра определяется по образу диска; если образ модифицирован — её можно выбрать вручную в списке трофеев.')}
+        {t('Те же трофеи, что выдаёт PCSX2 после входа в RetroAchievements. Игра определяется по образу диска; если образ модифицирован — её можно выбрать вручную в списке трофеев.')}
       </div>
-      <Field label={t('Логин RetroAchievements')} value={s.raUser} placeholder={t('Не указан')} onCommit={(v) => save({ raUser: v.trim() })} />
-      <Field label="Web API Key" value={s.raKey} placeholder={t('Не указан')} onCommit={(v) => save({ raKey: v.trim() })} mono />
+      <Field
+        label={t('Логин RetroAchievements')}
+        value={s.raUser}
+        placeholder={t('Не указан')}
+        onCommit={(v) => save({ raUser: v.trim() })}
+        hint={s.raUser && s.raUser === local.raUser ? t('Взят из PCSX2 на этом ПК') : undefined}
+      />
+      <Field label="Web API Key" value={s.raKey} placeholder={t('Не указан')} onCommit={(v) => save({ raKey: v.trim() })} hint={s.raKey ? undefined : keyHint} mono>
+        <KeyGuideButton kind="ra" save={save} />
+      </Field>
       <AccountState status={status?.ra} checking={checking} />
 
       <h2 className="panel-title">
         <IconTrophy /> Steam <span className="panel-sub">PC</span>
       </h2>
       <div className="note">
-        {t('Ключ: steamcommunity.com/dev/apikey (бесплатно, домен можно указать любой). В настройках приватности Steam откройте «Сведения об играх».')}
+        {t('Трофеи Steam для игр на PC. В настройках приватности Steam «Сведения об играх» должны быть открыты.')}{' '}
         {t('Steam AppID игры подхватывается сам по файлам игры или при выборе арта из Steam.')}
       </div>
-      <Field label={t('Ключ Steam Web API')} value={s.steamKey} placeholder={t('Не указан')} onCommit={(v) => save({ steamKey: v.trim() })} mono />
+      <Field label={t('Ключ Steam Web API')} value={s.steamKey} placeholder={t('Не указан')} onCommit={(v) => save({ steamKey: v.trim() })} hint={s.steamKey ? undefined : keyHint} mono>
+        <KeyGuideButton kind="steam" save={save} />
+      </Field>
       <Field
         label={t('Профиль Steam')}
         value={s.steamId}
         placeholder={t('SteamID64, имя профиля или ссылка')}
         onCommit={(v) => save({ steamId: v.trim() })}
+        hint={local.steam && s.steamId === local.steam.id ? t('Аккаунт Steam на этом ПК: {name}', { name: local.steam.name }) : undefined}
         mono
       />
       <AccountState status={status?.steam} checking={checking} />

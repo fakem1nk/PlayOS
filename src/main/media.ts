@@ -368,7 +368,8 @@ export async function inspectPs3(target: string): Promise<InspectResult> {
 
 // ───────────────────────── PC ─────────────────────────
 
-export const GENERIC_DIRS = /^(bin|bin32|bin64|x64|x86|win64|win32|binaries|game|retail|release|shipping|_retail_)$/i
+/** Служебные папки внутри игры (в том числе с приставкой: x64_dx12, win_x64, bin_win64) — корень игры выше */
+export const GENERIC_DIRS = /^(bin|bin32|bin64|x64|x86|win|win64|win32|binaries|game|retail|release|shipping|_retail_)([_-](x64|x86|win64|win32|dx\d+|vk|vulkan|steam|shipping|release|retail))*$/i
 
 function productName(exe: string): Promise<string | undefined> {
   return new Promise((resolve) => {
@@ -425,6 +426,80 @@ export async function inspectPc(file: string, artTmpDir: string): Promise<Inspec
     /* без иконки */
   }
   return res
+}
+
+// ───────────────────────── Поиск EXE в папке игры ─────────────────────────
+
+/** Не сама игра: установщики, деинсталляторы, библиотеки, античиты, отчёты о сбоях, служебные процессы движков */
+const NOT_GAME_EXE =
+  /^(unins\d*|uninst\w*|setup\w*|install\w*|vc_?redist\w*|dxsetup|dxwebsetup|dotnet\w*|ndp\d\w*|oalinst|physx\w*|ue\d?prereq\w*|prereq\w*|crash(report|handler|pad|sender)\w*|\w*crashreporter|unitycrashhandler\w*|bugsplat\w*|easyanticheat\w*|eac_?(launcher|setup)|battleye\w*|beservice\w*|\w*webhelper|qtwebengineprocess|notification_helper|7za?|python\w*|pythonw|javaw?|node|register\w*|activation\w*|cleanup|repair\w*|redist\w*|update[rs]?|updater\w*|patcher\w*|dxwnd|reshade\w*|steamclient\w*|cefprocess|subprocess|helper)$/i
+/** Папки, в которых игры не бывает: редистрибутивы, античиты, движок Unreal (там только CrashReportClient), плагины и моды */
+const NOT_GAME_DIR =
+  /^(_?commonredist|redist\w*|directx|vcredist|dotnet\w*|__installer|installers?|_?support|easyanticheat|battleye|physx|prerequisites?|tools?|crashreport\w*|monobleedingedge|jre|java|thirdparty|third_party|engine|plugins?|extensions?|addons?|mods|\$\w+|\.\w+)$/i
+const MAX_DEPTH = 4
+const MAX_ENTRIES = 6000
+
+const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+
+/**
+ * Насколько файл похож на EXE игры. Больше файл, ближе к корню и ближе имя к папке — тем вероятнее.
+ * Корневой EXE Unreal (маленький загрузчик с именем игры) обходит настоящий EXE в Binaries\Win64 за счёт глубины:
+ * запускать игру через него надёжнее (он передаёт свои параметры и запускает античит)
+ */
+function exeScore(name: string, size: number, depth: number, folder: string) {
+  const n = squash(name)
+  const f = squash(folder)
+  let s = Math.log2(Math.max(size, 65536) / 65536) * 4 - depth * 12
+  if (n === f) s += 40
+  else if (n.length >= 3 && f.length >= 3 && (f.includes(n) || n.includes(f))) s += 25
+  else if (n.slice(0, 4) === f.slice(0, 4)) s += 8
+  if (/launch|bootstrap|loader|start/i.test(name)) s -= 12
+  if (/shipping$/i.test(name)) s += 10
+  if (/server|dedicated|editor|console|compiler|benchmark|sdk|modkit|config|settings/i.test(name)) s -= 25
+  if (/(^|[^a-z])(debug|test)([^a-z]|$)/i.test(name)) s -= 10
+  return s
+}
+
+/**
+ * EXE игры в указанной папке: обходит её на несколько уровней вглубь, отбрасывает установщики и служебное,
+ * из остального выбирает самый похожий на игру. null — ничего подходящего (или папка слишком общая)
+ */
+export async function findGameExe(dir: string): Promise<string | null> {
+  if (!trackableDir(dir)) return null
+  const folder = path.basename(dir)
+  let best: { file: string; score: number } | null = null
+  let seen = 0
+  // В ширину: сначала все файлы уровня, потом вложенные папки — огромная папка с данными не съест лимит раньше корня
+  const queue = [{ dir, depth: 0 }]
+  while (queue.length && seen < MAX_ENTRIES) {
+    const cur = queue.shift()!
+    let entries: fs.Dirent[]
+    try {
+      entries = await fs.promises.readdir(cur.dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    seen += entries.length
+    for (const e of entries) {
+      const full = path.join(cur.dir, e.name)
+      if (e.isDirectory()) {
+        if (cur.depth < MAX_DEPTH && !NOT_GAME_DIR.test(e.name)) queue.push({ dir: full, depth: cur.depth + 1 })
+        continue
+      }
+      if (!e.isFile() || path.extname(e.name).toLowerCase() !== '.exe') continue
+      const name = path.basename(e.name, path.extname(e.name))
+      if (NOT_GAME_EXE.test(name)) continue
+      let size = 0
+      try {
+        size = (await fs.promises.stat(full)).size
+      } catch {
+        continue
+      }
+      const score = exeScore(name, size, cur.depth, folder)
+      if (!best || score > best.score) best = { file: full, score }
+    }
+  }
+  return best?.file ?? null
 }
 
 export async function inspect(platform: Platform, file: string, pcsx2Path: string, artTmpDir: string) {

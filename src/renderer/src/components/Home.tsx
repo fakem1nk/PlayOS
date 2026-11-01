@@ -4,6 +4,7 @@ import { platformName, type AchievementSummaryItem, type Game, type RunningGame 
 import { gamesCount, lastPlayed, media, notInstalled, playtime, timer } from '../lib/format'
 import { useConfirmHold, useInputLayer } from '../lib/input'
 import { useNow } from '../lib/state'
+import { nudge } from '../lib/nav'
 import { play } from '../lib/sound'
 import { IconDice, IconDots, IconFolder, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
 import { Tile } from './Tile'
@@ -182,7 +183,10 @@ export function Home(props: Props) {
       play('move')
       setIndex(next)
       setAction(0)
-    } else play('bump')
+    } else {
+      play('bump')
+      nudge(document.querySelector('.home .tile.is-focused'), d < 0 ? 'left' : 'right')
+    }
   }
 
   // Колесо мыши (и тачпад) листает ряд: шаг на каждые WHEEL_STEP пикселей прокрутки, не чаще раза в 70 мс

@@ -31,6 +31,7 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'rpcs3Args',
   'rpcs3SaveKey',
   'fullscreen',
+  'trayHintShown',
   'launchOnStartup',
   'uiScale',
   'displayId',

@@ -1,14 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { platformName, type Game, type GameCollection, type PowerAction, type RunningGame } from '@shared/types'
+import { platformName, type Game, type GameCollection, type PowerAction, type RunningGame, type UninstallInfo } from '@shared/types'
 import { api } from '../lib/api'
 import { createCollection, deleteCollection, renameCollection, toggleInCollection } from '../lib/collections'
 import { lastInputDevice } from '../lib/input'
 import { beginEdit, openKeyboard } from '../lib/osk'
-import { notInstalled, playtime } from '../lib/format'
+import { bytes, notInstalled, playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { rumble } from '../lib/haptics'
+import { toast } from '../lib/state'
+import { Toggle } from './Controls'
 import { Hint } from './Glyph'
 import { IconCheck, IconClose, IconDownload, IconEdit, IconExit, IconFolder, IconGrid, IconInfo, IconMonitor, IconMoon, IconPlay, IconPlus, IconPower, IconReset, IconRestart, IconStar, IconSun, IconTrash, IconTrophy } from './Icons'
 import { Cover } from './Tile'
@@ -293,6 +295,7 @@ interface GameMenuProps {
 
 export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit, onTrophies, onInfo, collections }: GameMenuProps) {
   const [picking, setPicking] = useState(false)
+  const [uninstalling, setUninstalling] = useState(false)
   const isRunning = running?.gameId === game.id
   const inCount = collections.filter((c) => c.games.includes(game.id)).length
   const items: Item[] = [
@@ -325,6 +328,9 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
       confirm: { title: t('Сбросить время игры?'), text: t('Наигранные {v} в «{title}» обнулятся.', { v: playtime(game.playtime), title: game.title }), button: t('Сбросить') },
       run: () => api.resetPlaytime(game.id)
     },
+    ...(notInstalled(game) || isRunning
+      ? []
+      : [{ id: 'uninstall', label: t('Удалить с компьютера'), icon: <IconTrash />, danger: true, run: () => setUninstalling(true) }]),
     {
       id: 'delete',
       label: t('Удалить из библиотеки'),
@@ -337,25 +343,144 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
   // Выбор подборок — та же шторка; «Назад» возвращает к параметрам игры
   if (picking) return <CollectionPicker key="pick" game={game} collections={collections} onClose={() => setPicking(false)} />
   return (
-    <SideMenu
-      key="menu"
-      title={t('Параметры')}
-      onClose={onClose}
-      items={items}
-      header={
-        <div className="side-game">
-          <div className="side-cover">
-            <Cover game={game} />
-          </div>
-          <div>
-            <div className="side-game-title">{game.title}</div>
-            <div className="side-game-sub">
-              {platformName(game)}, {playtime(game.playtime).toLowerCase()}
+    <>
+      <SideMenu
+        key="menu"
+        title={t('Параметры')}
+        onClose={onClose}
+        items={items}
+        header={
+          <div className="side-game">
+            <div className="side-cover">
+              <Cover game={game} />
+            </div>
+            <div>
+              <div className="side-game-title">{game.title}</div>
+              <div className="side-game-sub">
+                {platformName(game)}, {playtime(game.playtime).toLowerCase()}
+              </div>
             </div>
           </div>
+        }
+      />
+      <AnimatePresence>
+        {uninstalling && <UninstallDialog game={game} onClose={(done) => (setUninstalling(false), done && onClose())} />}
+      </AnimatePresence>
+    </>
+  )
+}
+
+const errorText = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+
+/**
+ * Удаление игры с компьютера. Способ PlayOS выбирает сам: игры Steam удаляет Steam, установленные — их программа
+ * удаления, остальные (папка, образ) уходят в корзину. По умолчанию игра остаётся в библиотеке неустановленной.
+ */
+function UninstallDialog({ game, onClose }: { game: Game; onClose: (done?: boolean) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [info, setInfo] = useState<UninstallInfo | null>(null)
+  const [keep, setKeep] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [noTrash, setNoTrash] = useState(false)
+  useSpatialNav(ref, { priority: 40, onBack: () => !busy && onClose(), autoFocus: '.dialog-actions .btn-glass' })
+  useEffect(() => {
+    api
+      .uninstallInfo(game.id)
+      .then((i) => (i ? setInfo(i) : onClose()))
+      .catch((e) => setError(errorText(e)))
+  }, [game.id])
+
+  const run = async (permanent = false) => {
+    if (busy) return
+    play('select')
+    setBusy(true)
+    setError('')
+    const res = await api.uninstallGame(game.id, { keep, permanent }).catch((e) => ({ ok: false, error: errorText(e), noTrash: false, started: undefined }))
+    setBusy(false)
+    if (res.noTrash) {
+      setNoTrash(true)
+      // Удаление насовсем — фокус на «Отмене», как у любого опасного вопроса
+      ref.current?.querySelector<HTMLElement>('.dialog-actions .btn-glass')?.focus()
+      return
+    }
+    if (!res.ok) {
+      play('error')
+      return setError(res.error ?? t('Не удалось удалить игру'))
+    }
+    if (res.started)
+      toast({
+        title: res.started === 'steam' ? t('Подтвердите удаление в Steam') : t('Следуйте шагам программы удаления'),
+        message: t('Когда игра пропадёт с диска, PlayOS отметит это сам'),
+        history: false
+      })
+    onClose(true)
+  }
+
+  const size = info?.size ? bytes(info.size) : ''
+  const blocked = info?.blocked
+  const title = blocked ? t('Не получится удалить автоматически') : noTrash ? t('Корзина не вместит игру') : t('Удалить «{title}» с компьютера?', { title: game.title })
+  const text = !info
+    ? error || t('Проверяем, как удалить игру…')
+    : blocked
+      ? blocked
+      : noTrash
+        ? t('{size} не помещаются в корзину. Удалить файлы насовсем? Вернуть их будет нельзя.', { size: size || t('Игра') })
+        : info.method === 'steam'
+          ? t('Steam удалит игру сам — подтвердите удаление в его окне. PlayOS свернётся и вернётся, когда игра пропадёт с диска.')
+          : info.method === 'uninstaller'
+            ? t('Запустится программа удаления игры — пройдите её шаги, Windows может спросить права администратора. PlayOS свернётся и вернётся, когда игра пропадёт с диска.')
+            : info.isFile
+              ? t('Образ игры отправится в корзину — передумаете, его можно будет восстановить.')
+              : t('Папка игры отправится в корзину — передумаете, её можно будет восстановить.')
+  return (
+    <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15 } }}>
+      <motion.div
+        className="dialog uninstall"
+        ref={ref}
+        initial={{ opacity: 0, transform: 'scale(0.96)' }}
+        animate={{ opacity: 1, transform: 'scale(1)' }}
+        exit={{ opacity: 0, transform: 'scale(0.98)', transition: { duration: 0.12 } }}
+        transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+      >
+        <h2 className="dialog-title">{title}</h2>
+        <p className="dialog-text">{text}</p>
+        {info && (
+          <div className="uninstall-path">
+            <span>{info.path}</span>
+            {size && !blocked && <span className="uninstall-size">{size}</span>}
+          </div>
+        )}
+        {info && !blocked && !noTrash && (
+          <div className="uninstall-keep">
+            <Toggle label={t('Оставить в библиотеке')} hint={t('Время игры, трофеи и подборки сохранятся, а файл игры можно будет указать снова')} value={keep} onChange={setKeep} />
+          </div>
+        )}
+        {info && error && <p className="uninstall-error">{error}</p>}
+        <div className="dialog-actions">
+          {blocked ? (
+            <>
+              <button data-nav className="btn btn-glass" onClick={() => onClose()}>
+                {t('Понятно')}
+              </button>
+              <button data-nav className="btn btn-primary" onClick={() => (play('select'), api.openFolder(info.path))}>
+                {t('Открыть папку')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button data-nav className="btn btn-glass" onClick={() => !busy && onClose()}>
+                {t('Отмена')}
+              </button>
+              {/* Не disabled на время удаления: выключенная кнопка теряет фокус геймпада */}
+              <button data-nav className="btn btn-danger" disabled={!info} onClick={() => void run(noTrash)}>
+                {busy ? t('Удаляем…') : noTrash ? t('Удалить насовсем') : t('Удалить')}
+              </button>
+            </>
+          )}
         </div>
-      }
-    />
+      </motion.div>
+    </motion.div>
   )
 }
 

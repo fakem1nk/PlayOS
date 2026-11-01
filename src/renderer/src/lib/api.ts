@@ -1,4 +1,4 @@
-import type { AchievementSet, AppState, ArtCandidate, CloudStatus, Game, ImportProgress, PcsApi, SaveProgress, SteamLibraryGame, SystemState } from '@shared/types'
+import type { AchievementSet, ApiKeyKind, AppState, ArtCandidate, CloudStatus, Game, ImportProgress, PcsApi, SaveProgress, SteamLibraryGame, SystemState, WindowMode } from '@shared/types'
 import { getLang } from '@shared/i18n'
 
 declare global {
@@ -15,6 +15,11 @@ function createMockApi(): PcsApi {
   let saveCancelled = false
   const progressSubs = new Set<(p: SaveProgress) => void>()
   const importSubs = new Set<(p: ImportProgress) => void>()
+  const keySubs = new Set<(e: { kind: ApiKeyKind; key: string }) => void>()
+  let keyTimer: ReturnType<typeof setTimeout> | undefined
+  let keyPageOpened = false
+  let demoWindow: WindowMode = { fullscreen: false, maximized: false }
+  let windowModeCb: ((m: WindowMode) => void) | null = null
   let sys: SystemState = {
     volume: 0.65,
     muted: false,
@@ -145,6 +150,26 @@ function createMockApi(): PcsApi {
       return game
     },
     deleteGame: async (id) => set({ games: state.games.filter((g) => g.id !== id) }),
+    uninstallInfo: async (id) => {
+      await new Promise((r) => setTimeout(r, 500))
+      const g = state.games.find((x) => x.id === id)
+      if (!g) return null
+      const files = await api.gameFiles(id)
+      // Демо: игры Steam удаляет Steam, PC — программа удаления, образы — в корзину
+      const method = g.launcher === 'steam' ? 'steam' : g.platform === 'pc' ? 'uninstaller' : 'files'
+      return { method, path: g.platform === 'pc' ? g.path.replace(/\\[^\\]+$/, '') : g.path, isFile: g.platform !== 'pc', size: files?.size ?? null }
+    },
+    uninstallGame: async (id, opts) => {
+      await new Promise((r) => setTimeout(r, 900))
+      const g = state.games.find((x) => x.id === id)
+      if (!g) return { ok: false }
+      if (g.platform === 'pc' && g.launcher !== 'steam') return { ok: true, started: 'uninstaller' }
+      if (g.launcher === 'steam') return { ok: true, started: 'steam' }
+      // Демо: образ PS3 «не влезает» в корзину — видно второй вопрос
+      if (g.platform === 'ps3' && !opts.permanent) return { ok: false, noTrash: true }
+      set({ games: opts.keep ? state.games.map((x) => (x.id === id ? { ...x, path: '' } : x)) : state.games.filter((x) => x.id !== id) })
+      return { ok: true }
+    },
     setFavorite: async (id, value) => set({ games: state.games.map((g) => (g.id === id ? { ...g, favorite: value } : g)) }),
     resetPlaytime: async (id) => set({ games: state.games.map((g) => (g.id === id ? { ...g, playtime: 0 } : g)) }),
     saveSettings: async (patch) => {
@@ -169,8 +194,19 @@ function createMockApi(): PcsApi {
     },
     resumeGame: async () => {},
     hideOverlay: async () => {},
-    pickFile: async (kind) => (kind === 'image' ? null : kind === 'backup' ? 'C:\\Users\\demo\\Desktop\\PlayOS-копия.playos' : 'C:\\Games\\Demo Game\\DemoGame.exe'),
+    pickFile: async (kind) =>
+      kind === 'image'
+        ? null
+        : kind === 'backup'
+          ? 'C:\\Users\\demo\\Desktop\\PlayOS-копия.playos'
+          : kind === 'gamefolder' || kind === 'folder'
+            ? 'C:\\Games\\Demo Game'
+            : 'C:\\Games\\Demo Game\\DemoGame.exe',
     inspect: async () => ({ title: 'Demo Game' }),
+    findGameExe: async (dir) => {
+      await new Promise((r) => setTimeout(r, 600))
+      return `${dir}\\bin\\x64\\DemoGame.exe`
+    },
     searchArt: async (query) => {
       await new Promise((r) => setTimeout(r, 700))
       const ids: [number, string][] = [
@@ -214,7 +250,19 @@ function createMockApi(): PcsApi {
     onPadStatus: () => () => {},
     onPadBlock: () => () => {},
     padRumble: noop,
-    onWindowMode: () => () => {},
+    // ?windowed — показать окно вне полного экрана с рамкой и кнопками
+    onWindowMode: (cb) => {
+      if (!/[?&]windowed/.test(location.search)) return () => {}
+      windowModeCb = cb
+      setTimeout(() => cb(demoWindow))
+      return () => (windowModeCb = null)
+    },
+    windowControl: async (action) => {
+      if (action === 'maximize') demoWindow = { ...demoWindow, maximized: !demoWindow.maximized }
+      else if (action === 'fullscreen') demoWindow = { ...demoWindow, fullscreen: true }
+      else return
+      windowModeCb?.(demoWindow)
+    },
     getPadStatus: async () => ({ connected: 1, battery: 'medium' }),
     emuState: async () => ({
       mode: 'pine',
@@ -250,7 +298,33 @@ function createMockApi(): PcsApi {
     achievementSummary: async () => ({ '1': { source: 'steam', earned: 18, total: 59 }, '2': { source: 'ra', earned: 7, total: 50 } }),
     findRaGames: async () => [{ id: 2768, title: 'Bully', achievements: 50 }, { id: 2770, title: 'Canis Canem Edit', achievements: 50 }],
     linkRaGame: async () => ({ set: demoTrophies() }),
-    testTrophyAccounts: async () => ({ ra: { state: 'off', text: 'Не настроено' }, steam: { state: 'off', text: 'Не настроено' } }),
+    testTrophyAccounts: async () => {
+      await new Promise((r) => setTimeout(r, 600))
+      const s = state.settings
+      return {
+        ra: s.raUser && s.raKey ? { state: 'ok', text: `Подключено: ${s.raUser}, 1250 очков` } : { state: 'off', text: 'Не настроено' },
+        steam: s.steamKey && s.steamId ? { state: 'ok', text: 'Подключено: Player' } : { state: 'off', text: 'Не настроено' }
+      }
+    },
+    // Демо: «открыли страницу» — через 3 секунды будто скопировали ключ
+    openKeyPage: async () => {
+      keyPageOpened = true
+    },
+    watchKeyClipboard: async (kind) => {
+      clearTimeout(keyTimer)
+      if (!kind) return
+      keyTimer = setTimeout(function tick() {
+        if (!keyPageOpened) return void (keyTimer = setTimeout(tick, 500))
+        keyPageOpened = false
+        keySubs.forEach((cb) => cb({ kind, key: kind === 'ra' ? 'aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY' : '0F1E2D3C4B5A69788796A5B4C3D2E1F0' }))
+      }, 3000)
+    },
+    keyFromClipboard: async () => null,
+    onKeyFound: (cb) => {
+      keySubs.add(cb)
+      return () => keySubs.delete(cb)
+    },
+    localAccounts: async () => ({ steam: { id: '76561198012345678', name: 'Player' }, raUser: 'Player' }),
     onAchievements: noop,
     onAchievementSummary: noop,
     onOverlayToast: (cb) => {
@@ -263,11 +337,6 @@ function createMockApi(): PcsApi {
     onSaveProgress: (cb) => {
       progressSubs.add(cb)
       return () => progressSubs.delete(cb)
-    },
-    onOutro: (cb) => {
-      // Для превью в браузере: window.__pcsOutro('quit')
-      ;(window as unknown as { __pcsOutro: typeof cb }).__pcsOutro = cb
-      return () => {}
     },
     onPowerResume: noop,
     systemInfo: async () => ({

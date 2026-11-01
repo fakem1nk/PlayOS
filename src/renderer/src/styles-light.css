@@ -31,3 +31,8 @@ html[data-theme='light'] .app[data-tab='home'] .bg-shade {
     linear-gradient(0deg, rgba(245, 246, 249, 0.8) 0%, rgba(245, 246, 249, 0.2) 22%, rgba(245, 246, 249, 0) 40%),
     linear-gradient(180deg, rgba(245, 246, 249, 0.62) 0%, rgba(245, 246, 249, 0.3) 12%, rgba(245, 246, 249, 0) 20%);
 }
+
+/* Крестик окна при наведении — белый на красном в любой теме, как у Windows */
+html[data-theme='light'] .win-btn.is-close:hover {
+  color: #fff;
+}

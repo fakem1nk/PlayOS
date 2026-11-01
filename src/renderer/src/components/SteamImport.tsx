@@ -44,6 +44,11 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
     autoFocus: '.steam-row:not([disabled]), .dialog-actions .btn',
     focusKey: list?.length ?? -1,
     onAction: (a) => {
+      // ☰ — добавить сразу, не спускаясь через весь список к кнопке
+      if (a === 'options') {
+        if (busy || !picked.size) return play('bump')
+        return void run()
+      }
       // △ — выбрать всё / снять выбор
       if (a !== 'menu' || busy || !fresh.length) return false
       play('select')
@@ -145,6 +150,7 @@ export function SteamImport({ onClose }: { onClose: () => void }) {
         <footer className="sheet-hints">
           <Hint glyph="confirm" label={t('Отметить')} />
           {!!fresh.length && <Hint glyph="menu" label={picked.size === fresh.length ? t('Снять все') : t('Выбрать все')} />}
+          {!!picked.size && <Hint glyph="options" label={t('Добавить')} />}
           <Hint glyph="back" label={t('Назад')} />
         </footer>
       </motion.div>
