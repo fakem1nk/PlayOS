@@ -1,0 +1,41 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "VR-игры для Meta Quest по Link и Air Link",
+      "Центр уведомлений с историей последних 50 уведомлений",
+      "Поиск и подборки в библиотеке",
+      "Удаление игр с компьютера прямо в PlayOS",
+      "PlayOS сам находит EXE игры в выбранной папке",
+      "Пошаговые инструкции для ключей Steam, RetroAchievements и SteamGridDB",
+      "Рамка окна, а крестик прячет PlayOS в трей",
+      "Вибрация в меню и прокрутка правым стиком"
+    ],
+    "fixed": [
+      "F11 переключает PlayOS в окно",
+      "Горячие клавиши работают на русской раскладке",
+      "Импорт Steam больше не тормозит при сотнях игр",
+      "Стик по диагонали больше не делает два шага",
+      "После закрытия окна фокус возвращается на прежний пункт"
+    ]
+  },
+  "en": {
+    "new": [
+      "VR games for Meta Quest over Link and Air Link",
+      "Notification Center with your last 50 notifications",
+      "Search and collections in the library",
+      "Uninstall games from your PC right in PlayOS",
+      "PlayOS finds the game’s EXE in the folder you choose",
+      "Step-by-step guides for Steam, RetroAchievements and SteamGridDB keys",
+      "Window frame, and closing the window keeps PlayOS in the tray",
+      "Vibration in menus and right stick scrolling"
+    ],
+    "fixed": [
+      "F11 switches PlayOS to a window",
+      "Keyboard shortcuts work on any keyboard layout",
+      "Steam import no longer lags with hundreds of games",
+      "The stick no longer makes two steps on diagonals",
+      "Focus returns to the same item after closing a window"
+    ]
+  }
+}
