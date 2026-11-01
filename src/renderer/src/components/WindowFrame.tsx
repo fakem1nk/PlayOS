@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import type { WindowAction, WindowMode } from '@shared/types'
 import { api } from '../lib/api'
+import { Wordmark } from './Logo'
 import { t } from '@shared/i18n'
 
-/** Рамка окна вне полного экрана: полоса, за которую окно тянут, и кнопки как у Windows.
+/** Рамка окна вне полного экрана: видимая полоса с названием, за которую окно тянут, и кнопки как у Windows.
  *  Только для мыши — геймпад до них не доходит, у него своё меню питания */
 export function WindowFrame({ mode }: { mode: WindowMode }) {
   if (mode.fullscreen) return null
@@ -23,6 +24,7 @@ export function WindowFrame({ mode }: { mode: WindowMode }) {
   )
   return (
     <div className="window-drag">
+      <Wordmark className="win-title" />
       <div className="win-controls">
         {button('fullscreen', t('Во весь экран (F11)'), <path d="M.5 3.5v-3h3M6.5.5h3v3M9.5 6.5v3h-3M3.5 9.5h-3v-3" />)}
         {button('minimize', t('Свернуть'), <path d="M0 5h10" />)}

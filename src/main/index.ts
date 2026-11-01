@@ -239,11 +239,15 @@ const trayMenu = () =>
     { label: t('Выйти из PlayOS'), click: quitFromTray }
   ])
 
+/**
+ * Свой .ico с кадрами 16–64 px: Windows берёт кадр под масштаб экрана. Значок самого exe (getFileIcon) не годится —
+ * при автозапуске с Windows оболочка его ещё не отдаёт, и в трее оставалось пустое место
+ */
 async function createTray() {
-  // В установленной версии — значок самого PlayOS.exe; в разработке exe — это Electron, берём исходную картинку
-  const icon = app.isPackaged
-    ? await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => nativeImage.createEmpty())
-    : nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png')).resize({ width: 32, height: 32, quality: 'best' })
+  let icon = nativeImage.createFromPath(
+    app.isPackaged ? path.join(process.resourcesPath, 'tray.ico') : path.join(app.getAppPath(), 'resources', 'tray.ico')
+  )
+  if (icon.isEmpty()) icon = await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => icon)
   tray = new Tray(icon)
   tray.setToolTip('PlayOS')
   tray.setContextMenu(trayMenu())
@@ -705,15 +709,15 @@ function unloadUi() {
   void win.loadURL(`data:text/html,<body style="background:${lightTheme() ? '%23f5f6f9' : '%2304060c'}"></body>`)
 }
 
-/** Загрузить интерфейс обратно. ended — игра только что закрылась: итог сессии покажет сам интерфейс */
-function restoreUi(ended?: { gameId: string; duration: number }) {
+/** Загрузить интерфейс обратно. endedId — игра только что закрылась: интерфейс откроется на её странице */
+function restoreUi(endedId?: string) {
   if (unloadTimer) clearTimeout(unloadTimer)
   unloadTimer = null
   if (!uiUnloaded || !alive(win)) return false
   uiUnloaded = false
-  log('INFO', ended ? 'Интерфейс загружен снова: игра закрылась' : 'Интерфейс загружен снова')
-  const gameId = ended?.gameId ?? launcher.running()?.gameId
-  loadRenderer(win, ['resume', gameId, ended?.duration].filter((v) => v !== undefined).join('/'))
+  log('INFO', endedId ? 'Интерфейс загружен снова: игра закрылась' : 'Интерфейс загружен снова')
+  const gameId = endedId ?? launcher.running()?.gameId
+  loadRenderer(win, gameId ? `resume/${gameId}` : 'resume')
   return true
 }
 
@@ -1254,7 +1258,8 @@ function checkBattery(st: PadStatus) {
   const left = st.percent !== undefined ? t('Осталось {percent}%.', { percent: st.percent }) : t('Заряд почти закончился.')
   const notice: SystemNotice = { kind: 'battery', title: t('Геймпад разряжается'), message: t('{left} Подключите зарядку, чтобы не прерывать игру.', { left }) }
   if (launcher.running()) showOverlayNotice(notice)
-  else toast(notice.title, notice.message)
+  // Предупреждение живёт, пока геймпад не на зарядке, — в центр уведомлений его не пишем
+  else toast(notice.title, notice.message, false)
   // Красная пульсация световой панели DualSense (через DSX)
   void pulseLightbar([255, 0, 0])
 }
@@ -1574,7 +1579,7 @@ function registerIpc() {
     // VR-игра: сначала нужный рантайм (PlayOS VR или SteamVR) и opencomposite.ini
     let viaOc = false
     if (game.vr && !launcher.running()) {
-      const prep = await vr.prepareLaunch(game, (text) => toast(game.title, text))
+      const prep = await vr.prepareLaunch(game, (text) => toast(game.title, text, false))
       if (!prep.ok) return { ok: false, error: prep.error }
       viaOc = !!prep.viaOc
     }
@@ -1850,6 +1855,7 @@ function registerIpc() {
     if (fs.existsSync(p) && fs.statSync(p).isFile()) shell.showItemInFolder(p)
     else shell.openPath(p)
   })
+  ipcMain.handle('window:mode', () => windowMode())
   ipcMain.handle('window:control', (_e, action: WindowAction) => windowControl(action))
   ipcMain.handle('power', (_e, action: PowerAction) => {
     if (action === 'quit') {
@@ -2095,7 +2101,7 @@ app.whenReady().then(() => {
     // Обновляем трофеи сыгранной игры для профиля и главного экрана
     void ach.getAchievements(e.gameId, true).then(() => send('ach-summary'))
     if (overlayOpen) void closeOverlay('none')
-    const reloaded = restoreUi(e)
+    const reloaded = restoreUi(e.gameId)
     bringToFront()
     if (reloaded) sendTo(overlay, 'session-end', e)
     else send('session-end', e)
@@ -2125,15 +2131,15 @@ app.whenReady().then(() => {
     pollPadStatus()
     // Интерфейс могли загрузить заново посреди игры — он должен знать, что геймпад сейчас у игры
     sendTo(win, 'pad-block', padBlocked)
-    sendWindowMode()
   })
   // Вне полного экрана у окна без рамки появляется своя рамка: полоса для перетаскивания и кнопки
   win?.on('enter-full-screen', () => sendTo(win, 'window-mode', { ...windowMode(), fullscreen: true }))
   win?.on('leave-full-screen', () => sendTo(win, 'window-mode', { ...windowMode(), fullscreen: false }))
   win?.on('maximize', sendWindowMode)
   win?.on('unmaximize', sendWindowMode)
-  // Прошлый запуск упал — подсказываем, где взять отчёт (после интро, один раз)
-  if (lastRunCrashed()) {
+  // Прошлый запуск упал — подсказываем, где взять отчёт (после интро, один раз).
+  // Из исходников не подсказываем: electron-vite перезапускает приложение, просто завершая процесс
+  if (lastRunCrashed() && app.isPackaged) {
     win?.webContents.once('did-finish-load', () =>
       setTimeout(() => toast(t('PlayOS в прошлый раз закрылся с ошибкой'), t('Если это повторяется, сохраните отчёт: Настройки → Система → «Сохранить отчёт об ошибках».')), 6000)
     )

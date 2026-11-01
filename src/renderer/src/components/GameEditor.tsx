@@ -307,12 +307,12 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
     if (saving.current) return
     if (!draft.path.trim()) {
       play('error')
-      toast({ title: t('Не выбран файл игры'), message: t('Нажмите «Выбрать файл» и укажите игру.'), tone: 'error' })
+      toast({ title: t('Не выбран файл игры'), message: t('Нажмите «Выбрать файл» и укажите игру.'), tone: 'error', history: false })
       return
     }
     if (!draft.title.trim()) {
       play('error')
-      toast({ title: t('Введите название игры'), tone: 'error' })
+      toast({ title: t('Введите название игры'), tone: 'error', history: false })
       return
     }
     const downloading = [draft.cover, draft.hero, draft.logo].some((v) => v?.startsWith('http'))
@@ -330,7 +330,7 @@ export function GameEditor({ game, settings, onClose, onSaved, onSteamImport, pi
     } catch (e) {
       const msg = (e as Error).message
       if (/cancelled/.test(msg)) {
-        toast({ title: t('Загрузка арта отменена'), message: t('Игра не сохранена. Можно выбрать другой арт или попробовать ещё раз.') })
+        toast({ title: t('Загрузка арта отменена'), message: t('Игра не сохранена. Можно выбрать другой арт или попробовать ещё раз.'), history: false })
       } else {
         play('error')
         toast({ title: t('Не удалось сохранить'), message: msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), tone: 'error' })

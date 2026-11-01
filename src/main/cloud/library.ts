@@ -34,6 +34,7 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'trayHintShown',
   'launchOnStartup',
   'uiScale',
+  'noticeSize',
   'displayId',
   'displayLabel',
   'gameDisplay',

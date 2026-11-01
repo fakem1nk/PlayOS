@@ -4,7 +4,6 @@ import { api } from '../lib/api'
 import { gamesCount, playtime } from '../lib/format'
 import { focusEl, nudge, useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
-import { toast } from '../lib/state'
 import { earnedNow, TIER_NAMES, TROPHIES, type Tier } from '../lib/trophies'
 import { Avatar } from './Avatar'
 import { IconImage, IconTrophy } from './Icons'
@@ -95,7 +94,6 @@ export function Profile({ state, active, onExitTop, onOpenGame, trophies, onOpen
     const p = await api.pickFile('image')
     if (!p) return
     await api.saveSettings({ avatar: p })
-    toast({ title: t('Аватар обновлён'), image: p, tone: 'success', history: false })
   }
 
   return (
@@ -256,10 +254,7 @@ function NameField({ name }: { name: string }) {
   const commit = () => {
     const v = draft.trim() || t('Игрок')
     setDraft(v)
-    if (v !== name) {
-      void api.saveSettings({ userName: v })
-      toast({ title: t('Имя изменено'), message: v, tone: 'success', history: false })
-    }
+    if (v !== name) void api.saveSettings({ userName: v })
   }
   return (
     <h1 className="profile-title">

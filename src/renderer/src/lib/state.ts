@@ -1,9 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import type { AppState, PadStatus, QuestStatus } from '@shared/types'
+import type { AppState, PadStatus, QuestStatus, Settings } from '@shared/types'
 import { api } from './api'
 import { setSoundEnabled, setVolume } from './sound'
 import { setHaptics } from './haptics'
 import { setTheme } from './theme'
+import { t } from '@shared/i18n'
 
 export function useAppState() {
   const [state, setState] = useState<AppState | null>(null)
@@ -29,6 +30,14 @@ export function useAppState() {
   useEffect(() => {
     if (state) setTheme(state.settings.theme)
   }, [state?.settings.theme])
+  const s = state?.settings
+  useEffect(
+    () => setNoticePrefs({ noticePopups: s?.noticePopups, noticeTime: s?.noticeTime, noticeTrophies: s?.noticeTrophies }),
+    [s?.noticePopups, s?.noticeTime, s?.noticeTrophies]
+  )
+  useEffect(() => {
+    if (state?.version) tidyNotices(state.version)
+  }, [state?.version])
   return state
 }
 
@@ -74,21 +83,44 @@ export interface Toast {
   /** Для kind 'update': какая версия скачана — в центре уведомлений у неё кнопка «Обновить» */
   version?: string
   tier?: 'bronze' | 'silver' | 'gold' | 'platinum'
-  /** false — только всплывающее окошко, без записи в центр уведомлений (мелкие подтверждения, итоги импорта) */
+  /**
+   * false — ответ на действие (подтверждения, проверки, итоги импорта): только всплывающее окошко, в центр уведомлений
+   * не попадает и видно даже с выключенными всплывающими уведомлениями
+   */
   history?: false
+}
+
+type NoticePrefs = Pick<Settings, 'noticePopups' | 'noticeTime' | 'noticeTrophies'>
+
+/** Настройки уведомлений — сюда их передаёт useAppState, как звук и тему */
+let prefs: NoticePrefs = {}
+function setNoticePrefs(p: NoticePrefs) {
+  prefs = p
+}
+
+const SHOWN_MS = { short: 3000, normal: 4800, long: 8000 }
+
+/** Всплывать ли окошку. Трофеи — по своему переключателю; ошибки и ответы на действия видны всегда */
+function popsUp(n: Omit<Toast, 'id'>) {
+  const on = prefs.noticePopups !== false
+  if (n.kind === 'trophy') return on && prefs.noticeTrophies !== false
+  return on || n.tone === 'error' || n.history === false
 }
 
 let toasts: Toast[] = []
 let toastId = 1
 const toastSubs = new Set<() => void>()
 
+/** Возвращает id окошка — его можно убрать раньше времени (dismissToast) */
 export function toast(t: Omit<Toast, 'id'>) {
   const item = { ...t, id: toastId++ }
-  toasts = [item, ...toasts].slice(0, 4)
-  toastSubs.forEach((s) => s())
-  setTimeout(() => dismissToast(item.id), t.tone === 'error' ? 7000 : 4800)
-  if (t.history === false) return
-  remember(item)
+  if (popsUp(t)) {
+    toasts = [item, ...toasts].slice(0, 4)
+    toastSubs.forEach((s) => s())
+    setTimeout(() => dismissToast(item.id), SHOWN_MS[prefs.noticeTime ?? 'normal'] + (t.tone === 'error' ? 2200 : 0))
+  }
+  if (t.history !== false) remember(item)
+  return item.id
 }
 
 export function dismissToast(id: number) {
@@ -117,7 +149,7 @@ const HISTORY_KEY = 'playos-notifications'
 const HISTORY_MAX = 50
 
 /**
- * Всплывающие уведомления исчезают через 5–7 секунд — история хранит последние 50, чтобы к ошибке или трофею
+ * Всплывающие уведомления исчезают через несколько секунд — история хранит последние 50, чтобы к ошибке или трофею
  * можно было вернуться. Живёт в localStorage: переживает перезагрузку окна (смена языка, выгрузка интерфейса в игре)
  */
 let history: { items: Notice[]; unread: number } = loadHistory()
@@ -143,9 +175,34 @@ function setHistory(next: typeof history) {
   historySubs.forEach((s) => s())
 }
 
+/** Повторы не копятся: из одинаковых уведомлений остаётся самое свежее, из записей об обновлениях — последняя */
+function dedupe(items: Notice[]) {
+  const seen = new Set<string>()
+  return items.filter((n) => {
+    const key = n.kind === 'update' ? 'update' : `${n.kind}|${n.title}|${n.message}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function remember(item: Toast) {
   const at = Date.now()
-  setHistory({ items: [{ ...item, id: at * 100 + (item.id % 100), at }, ...history.items].slice(0, HISTORY_MAX), unread: history.unread + 1 })
+  const items = dedupe([{ ...item, id: at * 100 + (item.id % 100), at }, ...history.items]).slice(0, HISTORY_MAX)
+  setHistory({ items, unread: Math.min(history.unread + 1, items.length) })
+}
+
+/**
+ * Уборка при запуске: запись об обновлении уходит, когда оно установлено, повторы склеиваются,
+ * а мусор, который копили прошлые версии (итоги сессий, ответы на действия), удаляется
+ */
+function tidyNotices(current: string) {
+  const session = t('Сессия: {v}', { v: '' })
+  const junk = (n: Notice) =>
+    (n.tone === 'success' && !n.kind && (n.message?.startsWith(session) || n.message === t('Игра закрыта'))) ||
+    n.message === t('В версии из исходников обновления не проверяются')
+  const items = dedupe(history.items).filter((n) => !(n.kind === 'update' && n.version === current) && !junk(n))
+  if (items.length !== history.items.length) setHistory({ items, unread: Math.min(history.unread, items.length) })
 }
 
 /** Только в историю, без всплывающего окошка: о скачанном обновлении и так говорит своё окно */

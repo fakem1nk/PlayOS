@@ -57,7 +57,7 @@ export function VrPanel() {
     setProgress(null)
     play(r.ok ? 'select' : 'error')
     if (r.ok) setUpdate(false)
-    toast(r.ok ? { title: t('VR готов'), tone: 'success' } : { title: t('Не удалось скачать VR-компонент'), message: r.error, tone: 'error' })
+    toast(r.ok ? { title: t('VR готов'), tone: 'success', history: false } : { title: t('Не удалось скачать VR-компонент'), message: r.error, tone: 'error' })
     setS(await api.vrStatus())
   }
 

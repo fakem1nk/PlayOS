@@ -17,7 +17,7 @@ import { UpdateNotice } from './components/UpdateNotice'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { WindowFrame } from './components/WindowFrame'
 import { api } from './lib/api'
-import { accentOf, DEFAULT_ACCENT, notInstalled, playtime } from './lib/format'
+import { accentOf, DEFAULT_ACCENT, notInstalled } from './lib/format'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
@@ -51,15 +51,12 @@ function introColors(games: Game[]) {
   return [...new Set(recent.map((g) => g.accent!))].slice(0, 3)
 }
 
-/**
- * Интерфейс выгружали на время игры и загрузили снова (#resume/<id игры>/<длительность сессии>):
- * без интро, сразу на странице игры; длительность есть, если игра уже закрылась
- */
+/** Интерфейс выгружали на время игры и загрузили снова (#resume/<id игры>): без интро, сразу на странице игры */
 const RESUME = (() => {
-  const m = location.hash.match(/^#resume(?:\/([^/]+))?(?:\/(\d+))?$/)
+  const m = location.hash.match(/^#resume(?:\/([^/]+))?/)
   if (!m) return null
   history.replaceState(null, '', location.pathname + location.search)
-  return { gameId: m[1], duration: m[2] ? Number(m[2]) : undefined }
+  return { gameId: m[1] }
 })()
 
 /** После смены языка окно перезагружается — возвращаемся в настройки, в раздел, где язык меняли */
@@ -72,13 +69,6 @@ const REOPEN_SETTINGS = (() => {
     return null // хранилище недоступно
   }
 })()
-
-/** Итог сессии после закрытия игры */
-function sessionToast(games: Game[], gameId: string, duration: number) {
-  const g = games.find((x) => x.id === gameId)
-  play('select')
-  toast({ title: g?.title ?? t('Игра закрыта'), message: duration ? t('Сессия: {v}', { v: playtime(duration).toLowerCase() }) : t('Игра закрыта'), image: g?.cover, tone: 'success' })
-}
 
 export function App() {
   const state = useAppState()
@@ -142,21 +132,8 @@ export function App() {
   const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices
   const contentActive = !modal && tabFocus === null
 
-  useEffect(
-    () =>
-      api.onSessionEnd(({ gameId, duration, aborted }) => {
-        setLaunching(null)
-        if (!aborted) sessionToast(state?.games ?? [], gameId, duration)
-      }),
-    [state?.games]
-  )
-  // Игра закрылась, пока интерфейс был выгружен: итог показываем, как только загрузилась библиотека
-  const resumeToast = useRef(RESUME?.duration !== undefined)
-  useEffect(() => {
-    if (!state || !resumeToast.current || !RESUME?.gameId) return
-    resumeToast.current = false
-    sessionToast(state.games, RESUME.gameId, RESUME.duration ?? 0)
-  }, [state])
+  // Итог сессии не показываем: время игры и так видно на странице игры и в профиле
+  useEffect(() => api.onSessionEnd(() => setLaunching(null)), [])
 
   useEffect(() => api.onToast((n) => toast({ ...n })), [])
   useEffect(() => {
@@ -178,7 +155,7 @@ export function App() {
   useEffect(
     () =>
       setUnknownPadHandler((p) =>
-        toast({ title: padName(p.id), message: t('Если кнопки перепутаны: Настройки → Геймпад → «Настроить кнопки геймпада»'), tone: 'info' })
+        toast({ title: padName(p.id), message: t('Если кнопки перепутаны: Настройки → Геймпад → «Настроить кнопки геймпада»'), tone: 'info', history: false })
       ),
     []
   )
@@ -225,7 +202,7 @@ export function App() {
     if (running) {
       if (running.gameId === g.id) return api.resumeGame()
       play('error')
-      return toast({ title: t('Уже запущена другая игра'), message: t('Сначала закройте «{title}».', { title: runningGame?.title }), tone: 'error' })
+      return toast({ title: t('Уже запущена другая игра'), message: t('Сначала закройте «{title}».', { title: runningGame?.title }), tone: 'error', history: false })
     }
     play('launch')
     setLaunching(g.id)
@@ -547,7 +524,8 @@ export function App() {
                 setEditor(null)
               }}
               onSaved={(g) => {
-                toast({ title: editor.game ? t('Изменения сохранены') : t('Игра добавлена'), message: g.title, image: g.cover, tone: 'success', history: false })
+                // Правка видна сразу на плитке, а новая игра может оказаться не там, куда смотрели
+                if (!editor.game) toast({ title: t('Игра добавлена'), message: g.title, image: g.cover, tone: 'success', history: false })
                 setEditor(null)
                 focusGame(g)
               }}
@@ -577,7 +555,7 @@ export function App() {
               collections={state.settings.collections ?? []}
             />
           )}
-          {notices && <NoticeCenter key="notices" onClose={() => setNotices(false)} />}
+          {notices && <NoticeCenter key="notices" settings={state.settings} onClose={() => setNotices(false)} />}
           {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
         </AnimatePresence>
 
@@ -699,7 +677,7 @@ export function App() {
         {/* Окно об обновлении — только когда вы не в игре и ничего другого не открыто */}
         <UpdateNotice blocked={modal || !!running || !!launching || saver} booting={booting || !!outro} />
         <OnScreenKeyboard />
-        <Toasts />
+        <Toasts size={state.settings.noticeSize} />
         <Screensaver games={games} minutes={state.settings.screensaver} allowed={!booting && !outro} onChange={setSaver} />
         <AnimatePresence>
           {outro && (

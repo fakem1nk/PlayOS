@@ -2193,6 +2193,11 @@ p {
 }
 
 /* ───────────── Центр уведомлений ───────────── */
+.notice-tools {
+  display: flex;
+  gap: 1.2rem;
+}
+
 .notice-btn {
   margin-right: -0.8rem;
 }
@@ -2579,18 +2584,29 @@ p {
 
 /* ───────────────────────── Уведомления ───────────────────────── */
 .toasts {
+  --toast-k: 1;
   position: absolute;
   top: 4.4rem;
   right: var(--pad-x);
   z-index: 90;
-  width: 46rem;
+  width: calc(46rem * var(--toast-k));
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: calc(1.2rem * var(--toast-k));
   pointer-events: none;
 }
 
+/* Размер уведомлений (настройка в центре уведомлений): окошко масштабируется целиком — текст, отступы, обложка */
+.toasts.is-small {
+  --toast-k: 0.82;
+}
+
+.toasts.is-large {
+  --toast-k: 1.25;
+}
+
 .toast {
+  zoom: var(--toast-k);
   pointer-events: auto;
   display: flex;
   gap: 1.6rem;

@@ -350,7 +350,7 @@ export function SaveVersionsDialog({ game, onClose }: { game: Game; onClose: () 
     try {
       await api.cloudRestore(game.id, v.name)
       play('select')
-      toast({ title: t('Сохранения возвращены'), message: t('Версия от {v} теперь на этом ПК и в облаке.', { v: when(v.at) }), tone: 'success' })
+      toast({ title: t('Сохранения возвращены'), message: t('Версия от {v} теперь на этом ПК и в облаке.', { v: when(v.at) }), tone: 'success', history: false })
       onClose()
     } catch (e) {
       play('error')
@@ -414,7 +414,7 @@ export function RestoreDialog({ offer }: { offer: CloudRestoreOffer }) {
     setBusy(true)
     play(c ? 'select' : 'back')
     await api.cloudRestoreChoice(c).catch((e) => toast({ title: t('Не удалось синхронизировать'), message: clean(e), tone: 'error' }))
-    if (c) toast({ title: offer.merge ? t('Данные объединяются') : t('Профиль восстанавливается'), message: t('Игры, время и сохранения появятся через минуту.'), tone: 'success' })
+    if (c) toast({ title: offer.merge ? t('Данные объединяются') : t('Профиль восстанавливается'), message: t('Игры, время и сохранения появятся через минуту.'), tone: 'success', history: false })
   }
   useSpatialNav(ref, { priority: 50, onBack: () => void answer(null), autoFocus: '.btn-primary' })
   const set = (patch: Partial<CloudRestoreChoice>) => setChoice((c) => ({ ...c, ...patch }))

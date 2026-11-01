@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { PcsApi } from '@shared/types'
+import type { PcsApi, WindowMode } from '@shared/types'
 
 const listen =
   <T>(channel: string) =>
@@ -41,7 +41,17 @@ const api: PcsApi = {
   onPadStatus: listen('pad-status'),
   onPadBlock: listen('pad-block'),
   padRumble: (fx) => ipcRenderer.send('pad:rumble', fx),
-  onWindowMode: listen('window-mode'),
+  // Текущее состояние спрашиваем при подписке: интерфейс — отдельный чанк и подписывается позже, чем окно загрузилось.
+  // Без этого PlayOS, запущенный сразу в окне, оставался без рамки — событий о смене режима больше не было
+  onWindowMode: (cb) => {
+    let changed = false
+    const off = listen<WindowMode>('window-mode')((m) => {
+      changed = true
+      cb(m)
+    })
+    void ipcRenderer.invoke('window:mode').then((m: WindowMode) => changed || cb(m))
+    return off
+  },
   windowControl: (action) => ipcRenderer.invoke('window:control', action),
   getPadStatus: () => ipcRenderer.invoke('pad:status'),
   emuState: () => ipcRenderer.invoke('emu:state'),

@@ -873,17 +873,42 @@ html.liquid .steam-import .steam-row:focus {
   font-size: 2rem;
 }
 
-/* Окно без рамки вне полного экрана: тянуть за верхний край */
+/* Окно без рамки вне полного экрана: видимая полоса с названием — сразу понятно, за что тянуть окно */
 .window-drag {
   display: none;
 }
 html.is-windowed .window-drag {
-  display: block;
+  display: flex;
+  align-items: center;
   position: fixed;
   inset: 0 0 auto;
-  height: 2.6rem;
+  height: 3.2rem;
+  padding-left: 1.6rem;
   z-index: 9000;
+  background: rgba(12, 13, 18, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
   -webkit-app-region: drag;
+}
+html.liquid.is-windowed .window-drag {
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(1.4rem) saturate(1.2);
+  backdrop-filter: blur(1.4rem) saturate(1.2);
+}
+
+/* Под полосой окна — больше воздуха: верхняя панель, шторки и уведомления не жмутся к ней */
+html.is-windowed .shell,
+html.is-windowed .side-menu {
+  padding-top: 6rem;
+}
+
+html.is-windowed .toasts {
+  top: 6rem;
+}
+
+.win-title {
+  height: 1.3rem;
+  color: var(--mist);
+  opacity: 0.85;
 }
 
 /* Кнопки окна — как у Windows 11: тонкие значки, лёгкая подложка при наведении, у крестика красная */

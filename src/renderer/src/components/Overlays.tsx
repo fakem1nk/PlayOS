@@ -1,14 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef } from 'react'
-import type { Game } from '@shared/types'
+import { useEffect, useRef, useState } from 'react'
+import type { Game, Settings } from '@shared/types'
+import { api } from '../lib/api'
 import { media } from '../lib/format'
 import { useInputLayer } from '../lib/input'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { rumble } from '../lib/haptics'
-import { clearNotices, dismissToast, markNoticesRead, useNoticeHistory, useToasts, type Notice } from '../lib/state'
+import { clearNotices, dismissToast, markNoticesRead, toast, useNoticeHistory, useToasts, type Notice } from '../lib/state'
+import { Cycler, Toggle } from './Controls'
 import { Hint } from './Glyph'
-import { IconBell, IconDownload, IconTrash, IconTrophy } from './Icons'
+import { IconBell, IconDownload, IconSettings, IconTrash, IconTrophy } from './Icons'
 import { installNow } from './UpdateNotice'
 import { useUpdate } from '../lib/update'
 import { Cover } from './Tile'
@@ -57,11 +59,11 @@ export function LaunchScreen({ game, onCancel }: { game: Game; onCancel: () => v
   )
 }
 
-/** Уведомления в правом верхнем углу, как на PS5. */
-export function Toasts() {
+/** Уведомления в правом верхнем углу, как на PS5. Размер — из настроек в центре уведомлений */
+export function Toasts({ size = 'normal' }: { size?: Settings['noticeSize'] }) {
   const toasts = useToasts()
   return (
-    <div className="toasts" role="status" aria-live="polite">
+    <div className={`toasts is-${size}`} role="status" aria-live="polite">
       <AnimatePresence initial={false}>
         {toasts.map((item) => (
           <motion.div
@@ -108,12 +110,19 @@ function noticeTime(ts: number) {
 }
 
 /**
- * Центр уведомлений: шторка справа со всем, что всплывало, — ошибки, итоги сессий, трофеи.
- * Открыли — всё прочитано; ▢ или кнопка с корзиной очищает историю.
+ * Центр уведомлений: шторка справа со всем, что всплывало, — ошибки, трофеи, обновления.
+ * Открыли — всё прочитано; ▢ или кнопка с корзиной очищает историю, △ или шестерёнка — настройки уведомлений
  */
-export function NoticeCenter({ onClose }: { onClose: () => void }) {
+export function NoticeCenter({ settings, onClose }: { settings: Settings; onClose: () => void }) {
   const { items } = useNoticeHistory()
   const ref = useRef<HTMLDivElement>(null)
+  // Настройки открываются в той же шторке вместо списка; ○ возвращает к списку, фокус — обратно на шестерёнку
+  const [tuning, setTuning] = useState(false)
+  const fromTuning = useRef(false)
+  const tune = (on: boolean) => {
+    fromTuning.current = !on
+    setTuning(on)
+  }
   useEffect(() => markNoticesRead(), [items.length])
   useEffect(() => rumble('open'), [])
   const clear = () => {
@@ -121,17 +130,23 @@ export function NoticeCenter({ onClose }: { onClose: () => void }) {
     play('back')
     clearNotices()
   }
+  const toggleTuning = () => {
+    play(tuning ? 'back' : 'select')
+    tune(!tuning)
+  }
   useSpatialNav(ref, {
     priority: 30,
-    onBack: onClose,
-    autoFocus: '.notice-item, .notice-clear',
+    onBack: tuning ? () => tune(false) : onClose,
+    autoFocus: tuning ? '.notice-prefs [data-nav]' : items.length && !fromTuning.current ? '.notice-item' : '.notice-tune',
+    focusKey: tuning,
     onAction: (a) => {
       // Та же кнопка, что открыла центр, его и закрывает
       if (a === 'view') {
         play('back')
         return onClose()
       }
-      if (a !== 'search') return false
+      if (a === 'menu') return toggleTuning()
+      if (a !== 'search' || tuning) return false
       clear()
     }
   })
@@ -147,14 +162,28 @@ export function NoticeCenter({ onClose }: { onClose: () => void }) {
         transition={{ duration: 0.36, ease: [0.32, 0.72, 0, 1] }}
       >
         <div className="side-title-row">
-          <h2 className="side-title">{t('Уведомления')}</h2>
-          {items.length > 0 && (
-            <button data-nav className="btn btn-round notice-clear" onClick={clear} aria-label={t('Очистить')} title={t('Очистить')}>
-              <IconTrash />
+          <h2 className="side-title">{tuning ? t('Настройки уведомлений') : t('Уведомления')}</h2>
+          <span className="notice-tools">
+            {!tuning && items.length > 0 && (
+              <button data-nav className="btn btn-round notice-clear" onClick={clear} aria-label={t('Очистить')} title={t('Очистить')}>
+                <IconTrash />
+              </button>
+            )}
+            <button
+              data-nav
+              className="btn btn-round notice-tune"
+              onClick={toggleTuning}
+              aria-pressed={tuning}
+              aria-label={t('Настройки уведомлений')}
+              title={t('Настройки уведомлений')}
+            >
+              <IconSettings />
             </button>
-          )}
+          </span>
         </div>
-        {items.length ? (
+        {tuning ? (
+          <NoticePrefs s={settings} />
+        ) : items.length ? (
           <div className="menu-list notice-list">
             {items.map((n) => (
               <NoticeRow key={n.id} n={n} />
@@ -167,11 +196,69 @@ export function NoticeCenter({ onClose }: { onClose: () => void }) {
           </div>
         )}
         <footer className="sheet-hints">
-          {items.length > 0 && <Hint glyph="search" label={t('Очистить')} />}
-          <Hint glyph="back" label={t('Закрыть')} />
+          {!tuning && items.length > 0 && <Hint glyph="search" label={t('Очистить')} />}
+          {!tuning && <Hint glyph="menu" label={t('Настройки')} />}
+          <Hint glyph="back" label={tuning ? t('Назад') : t('Закрыть')} />
         </footer>
       </motion.aside>
     </>
+  )
+}
+
+/**
+ * Настройки уведомлений — прямо в шторке. Новый размер сразу показываем на примере: окошко всплывает слева от шторки.
+ * Ошибки и ответы на действия всплывают всегда — иначе нажатие выглядело бы так, будто ничего не произошло
+ */
+function NoticePrefs({ s }: { s: Settings }) {
+  const sample = useRef(0)
+  useEffect(() => () => dismissToast(sample.current), [])
+  const save = (patch: Partial<Settings>) => void api.saveSettings(patch)
+  const showSample = () => {
+    dismissToast(sample.current)
+    sample.current = toast({ title: t('Пример уведомления'), message: t('Так уведомления выглядят на экране'), history: false })
+  }
+  const popups = s.noticePopups !== false
+  return (
+    <div className="menu-list notice-prefs">
+      <Toggle
+        label={t('Показывать на экране')}
+        hint={t('Выключено — уведомления не всплывают, а тихо собираются здесь. Ошибки и ответы на ваши действия видны всегда.')}
+        value={popups}
+        onChange={(v) => save({ noticePopups: v })}
+      />
+      {popups && (
+        <Toggle
+          label={t('Трофеи')}
+          hint={t('Новые трофеи, пока открыт PlayOS. Поверх игры — в разделе «Трофеи».')}
+          value={s.noticeTrophies !== false}
+          onChange={(v) => save({ noticeTrophies: v })}
+        />
+      )}
+      <Cycler
+        label={t('Размер')}
+        value={s.noticeSize ?? 'normal'}
+        options={[
+          { id: 'small', label: t('Маленький') },
+          { id: 'normal', label: t('Обычный') },
+          { id: 'large', label: t('Крупный') }
+        ]}
+        onChange={(v) => {
+          save({ noticeSize: v })
+          showSample()
+        }}
+      />
+      <Cycler
+        label={t('Время на экране')}
+        hint={t('Ошибки держатся на пару секунд дольше')}
+        value={s.noticeTime ?? 'normal'}
+        options={[
+          { id: 'short', label: t('Коротко') },
+          { id: 'normal', label: t('Обычно') },
+          { id: 'long', label: t('Долго') }
+        ]}
+        onChange={(v) => save({ noticeTime: v })}
+      />
+    </div>
   )
 }
 

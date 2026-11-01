@@ -46,6 +46,10 @@
       {
         "from": "resources/PlayOSHelper.exe",
         "to": "PlayOSHelper.exe"
+      },
+      {
+        "from": "resources/tray.ico",
+        "to": "tray.ico"
       }
     ],
     "nsis": {

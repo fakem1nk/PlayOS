@@ -242,6 +242,13 @@ export interface Settings {
   screensaver: number
   /** Предупреждать о разряде геймпада (10%) поверх игры */
   lowBatteryWarning: boolean
+  /** Всплывающие уведомления; false — тихо копятся в центре уведомлений (ошибки и ответы на действия видны всегда) */
+  noticePopups?: boolean
+  /** Сколько уведомление держится на экране и какого оно размера; нет — обычно */
+  noticeTime?: 'short' | 'normal' | 'long'
+  noticeSize?: 'small' | 'normal' | 'large'
+  /** Всплывающие трофеи в PlayOS; нет — показываются */
+  noticeTrophies?: boolean
   /** Акценты и свечение интерфейса в цвет обложки выбранной игры */
   gameTint: boolean
   /** Экран, на котором открывается PlayOS: id дисплея (0 — основной) и его имя на случай смены id */

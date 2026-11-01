@@ -546,7 +546,7 @@ function UpdateRow({ version }: { version: string }) {
     }
     if (phase === 'checking' || phase === 'downloading') return
     if (phase === 'dev') {
-      toast({ title: t('Обновления'), message: t('В версии из исходников обновления не проверяются'), tone: 'info' })
+      toast({ title: t('Обновления'), message: t('В версии из исходников обновления не проверяются'), tone: 'info', history: false })
       return
     }
     play('select')
@@ -570,7 +570,7 @@ function BetaRows({ s, save, version }: { s: SettingsT; save: (p: Partial<Settin
     setAsk(false)
     play('select')
     save({ betaUpdates: false })
-    toast({ title: t('Возврат на стабильную версию'), message: t('PlayOS скачает её и предложит установить. Игры и настройки сохранятся.'), tone: 'info' })
+    toast({ title: t('Возврат на стабильную версию'), message: t('PlayOS скачает её и предложит установить. Игры и настройки сохранятся.'), tone: 'info', history: false })
   }
   return (
     <>
@@ -614,7 +614,7 @@ function ReportRow({ dataDir }: { dataDir: string }) {
     try {
       const file = await api.saveReport()
       setHint(t('Сохранено: {file}', { file }))
-      toast({ title: t('Отчёт сохранён'), message: file, tone: 'success' })
+      toast({ title: t('Отчёт сохранён'), message: file, tone: 'success', history: false })
     } catch (e) {
       toast({ title: t('Не удалось сохранить отчёт'), message: (e as Error).message, tone: 'error' })
     } finally {
@@ -655,7 +655,7 @@ function BackupRows() {
       const file = await api.exportData()
       setSaved(file)
       play('select')
-      toast({ title: t('Копия сохранена'), message: file, tone: 'success' })
+      toast({ title: t('Копия сохранена'), message: file, tone: 'success', history: false })
     } catch (e) {
       toast({ title: t('Не удалось сохранить копию'), message: (e as Error).message, tone: 'error' })
     } finally {
@@ -799,7 +799,6 @@ function PadMapRow({ s, save }: { s: SettingsT; save: (p: Partial<SettingsT>) =>
                 setResetting(false)
                 play('back')
                 void save({ padMaps: {} })
-                toast({ title: t('Раскладка сброшена'), tone: 'info', history: false })
               }}
             />
           )}
