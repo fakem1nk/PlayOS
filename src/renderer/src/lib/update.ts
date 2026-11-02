@@ -8,6 +8,8 @@ import { locale, t } from '@shared/i18n'
 let state: UpdateState = { phase: 'idle', current: '' }
 const subs = new Set<() => void>()
 let started = false
+/** Демо: «установка» перезагружает страницу, а после неё — экран «готово» */
+export const DEMO_UPDATED_KEY = 'playos-demo-updated'
 
 function set(s: UpdateState) {
   state = s
@@ -50,6 +52,56 @@ export function useUpdate() {
       return () => subs.delete(cb)
     },
     () => state
+  )
+}
+
+/** Идёт установка: поверх всего экран установки (UpdateInstall), он сам просит главный процесс закрыться и обновиться */
+let installing = false
+
+export function setInstalling(on: boolean) {
+  installing = on
+  subs.forEach((f) => f())
+}
+
+export function useInstalling() {
+  return useSyncExternalStore(
+    (cb) => {
+      subs.add(cb)
+      return () => subs.delete(cb)
+    },
+    () => installing
+  )
+}
+
+/**
+ * PlayOS только что запустился из установщика — версия, до которой обновились. Пока её экран «готово» (UpdateDone)
+ * не доиграет, интро ждёт. В демо: ?updated или перезагрузка после «установки»
+ */
+let finished: string | null = (() => {
+  const real = (window as { pcsUpdated?: string | null }).pcsUpdated
+  if (real !== undefined) return real
+  try {
+    const v = sessionStorage.getItem(DEMO_UPDATED_KEY)
+    sessionStorage.removeItem(DEMO_UPDATED_KEY)
+    if (v) return v
+  } catch {
+    /* без хранилища — только по ?updated */
+  }
+  return new URLSearchParams(location.search).has('updated') ? '1.0.2' : null
+})()
+
+export function endFinished() {
+  finished = null
+  subs.forEach((f) => f())
+}
+
+export function useFinished() {
+  return useSyncExternalStore(
+    (cb) => {
+      subs.add(cb)
+      return () => subs.delete(cb)
+    },
+    () => finished
   )
 }
 

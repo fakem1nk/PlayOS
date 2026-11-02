@@ -366,7 +366,19 @@ function createMockApi(): PcsApi {
       await new Promise((r) => setTimeout(r, 1200))
       return { phase: 'ready', current: '1.0.1', version: '1.0.2', percent: 100, notes: 'Быстрее запуск\nИсправлена прокрутка профиля' }
     },
-    installUpdate: async () => true,
+    // Демо: «установка» идёт несколько секунд, потом страница перезапускается, как PlayOS после обновления
+    installUpdate: async () => {
+      setTimeout(() => {
+        try {
+          sessionStorage.setItem('playos-demo-updated', '1.0.2')
+        } catch {
+          /* без хранилища перезапуск пройдёт без экрана «готово» */
+        }
+        location.reload()
+      }, 6000)
+      return true
+    },
+    updateShown: () => {},
     // ?update в адресе — показать скачивание и окно «готово» на демо-данных;
     // ?update=minor | critical — обновление только с исправлениями, ?update=old — релиз без сводки,
     // ?update=rollback — возврат с беты на стабильную

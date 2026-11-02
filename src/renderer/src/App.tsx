@@ -13,6 +13,7 @@ import { padName } from './components/PadMapper'
 import { LaunchScreen, NoticeCenter, Toasts } from './components/Overlays'
 import { Screensaver } from './components/Screensaver'
 import { AnimatedCoversContext } from './components/Tile'
+import { UpdateInstall } from './components/UpdateInstall'
 import { UpdateNotice } from './components/UpdateNotice'
 import { Tivi } from './components/Tivi'
 import { TABS, TopBar, type Tab } from './components/TopBar'
@@ -24,7 +25,7 @@ import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
 import { holdMusic, play, setMusic, setMusicVolume } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
-import { useUpdate } from './lib/update'
+import { setInstalling, useFinished, useInstalling, useUpdate } from './lib/update'
 import { t } from '@shared/i18n'
 
 /** Редко нужные части грузятся отдельным файлом при первом показе: старт быстрее, памяти меньше */
@@ -74,6 +75,9 @@ const REOPEN_SETTINGS = (() => {
 export function App() {
   const state = useAppState()
   const update = useUpdate()
+  const installing = useInstalling()
+  // Только что обновились — интро ждёт, пока доиграет экран «готово»
+  const finished = useFinished()
   // После смены языка окно перезагружается — интро второй раз не показываем
   const [booting, setBooting] = useState(() => {
     if (RESUME) return false
@@ -130,7 +134,7 @@ export function App() {
   const trophyGame = trophyGameId ? games.find((g) => g.id === trophyGameId) : undefined
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
-  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices
+  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || installing
   const contentActive = !modal && tabFocus === null
 
   // Итог сессии не показываем: время игры и так видно на странице игры и в профиле
@@ -180,7 +184,7 @@ export function App() {
   useEffect(() => setMusic(!!state?.settings.music), [state?.settings.music])
   useEffect(() => setMusicVolume(state?.settings.musicVolume ?? 'mid'), [state?.settings.musicVolume])
   // Музыка молчит во время интро и пока запущена игра
-  useEffect(() => holdMusic(booting || !!running || !!outro), [booting, running, outro])
+  useEffect(() => holdMusic(booting || !!running || !!outro || installing), [booting, running, outro, installing])
 
   // Экран запуска убираем, когда игра забрала фокус
   useEffect(() => {
@@ -695,7 +699,19 @@ export function App() {
           )}
         </AnimatePresence>
         <AnimatePresence>
-          {booting && (
+          {installing && (
+            <UpdateInstall
+              key="install"
+              version={update.version}
+              onFail={() => {
+                setInstalling(false)
+                toast({ title: t('Не удалось установить обновление'), message: t('PlayOS попробует ещё раз при выходе'), tone: 'error' })
+              }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {booting && !finished && (
             <Intro
               key="intro"
               userName={state.settings.userName}

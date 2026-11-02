@@ -14,7 +14,7 @@
     "dist:portable": "electron-vite build && electron-builder --win portable",
     "install:e": "npm run dist && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1 -Target E:\\PlayOS",
     "web": "vite --config vite.web.config.ts",
-    "build:helper": "powershell -NoProfile -Command \"& \\\"$env:WINDIR\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe\\\" -nologo -optimize -target:exe -out:resources\\PlayOSHelper.exe -r:System.Management.dll native\\SystemHelper.cs\"",
+    "build:helper": "powershell -NoProfile -Command \"& \\\"$env:WINDIR\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe\\\" -nologo -optimize -target:exe -out:resources\\PlayOSHelper.exe -r:System.Management.dll -r:System.Windows.Forms.dll -r:System.Drawing.dll native\\SystemHelper.cs native\\UpdateSplash.cs\"",
     "dist:setup": "electron-vite build && electron-builder --win nsis --publish never",
     "release": "node scripts/release-draft.mjs && node scripts/release-summary.mjs && electron-vite build && electron-builder --win nsis --publish always"
   },

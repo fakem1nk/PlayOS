@@ -1,6 +1,7 @@
 /**
  * Кадры Тиви: лица на светодиодной матрице 15×8 и пиксельные значки вокруг корпуса (zZ, «?», сердечки, искры).
- * Символы: # белый, h притушенный (сон), d тусклый, p розовый, b голубой, r красный, y жёлтый, v фиолетовый (как искра логотипа).
+ * Символы: # белый, h притушенный (сон), d тусклый, p розовый, b голубой, r красный, y жёлтый, v фиолетовый (как искра логотипа), w он же тусклый,
+ * g серый металл (как антенны).
  * Строки 0–3 — глаза, 5–7 — рот. Движений-переходов нет: экран просто сменяет кадры.
  */
 
@@ -16,6 +17,16 @@ export interface Fx {
   x: number
   y: number
 }
+/**
+ * Положение тела прямо в кадре — для экрана установки, который потом рисуется в картинки (CSS-движения туда не попадут):
+ * сдвиг корпуса в единицах образца, шаг вспышки искры (как в tivi-twinkle) и наклон левой антенны в градусах
+ */
+export interface Pose {
+  x?: number
+  y?: number
+  spark?: number
+  ant?: number
+}
 export interface Frame {
   face: Grid
   ms: number
@@ -24,6 +35,7 @@ export interface Frame {
   /** Куда смотреть в этом кадре (только у простых лиц) */
   gaze?: Gaze
   move?: TiviMove
+  pose?: Pose
 }
 /** Сценка: вступление, петля (повторяется до срока) и концовка */
 export interface Script {
@@ -34,7 +46,9 @@ export interface Script {
 
 export const COLORS: Record<string, [string, number]> = {
   '#': ['#ffffff', 1],
+  g: ['#c3cad8', 1],
   d: ['#ffffff', 0.32],
+  w: ['#a891ff', 0.45],
   h: ['#ffffff', 0.55],
   p: ['#ff8ac6', 1],
   b: ['#5aa9ff', 1],
@@ -215,15 +229,29 @@ const DIZZY = Array.from({ length: 8 }, (_, k) => {
   const wave = k % 4 < 2 ? { 5: '......#.#......', 6: '.....#.#.#.....' } : { 5: '.....#.#.#.....', 6: '......#.#......' }
   return dots(rows(BLANK, wave), [...ring(2, k), ...ring(10, (8 - k) % 8)])
 })
-// Загрузка: по кругу бежит яркая точка с тусклым хвостом
-const SPIN_AT: [number, number][] = [[7, 1], [9, 2], [10, 4], [9, 6], [7, 7], [5, 6], [4, 4], [5, 2]]
-const SPIN = SPIN_AT.map((_, k) =>
-  dots(BLANK, [
-    [...SPIN_AT[(k + 6) % 8], 'd'],
-    [...SPIN_AT[(k + 7) % 8], 'd'],
-    [...SPIN_AT[k], '#']
-  ])
+/**
+ * Загрузка (перезагрузка после нокаута и экран установки обновления): толстый бублик 8×8 на весь экран, по нему
+ * бежит дуга — белая голова, фиолетовый хвост гаснет; внутренний ряд чуть обгоняет внешний, и дуга закручивается.
+ * Круг за 16 кадров. Под конец весь бублик дважды мигает (SPIN_END)
+ */
+const DONUT: [number, number][] = ['..####..', '.######.', '###..###', '##....##', '##....##', '###..###', '.######.', '..####..'].flatMap((r, y) =>
+  [...r].flatMap((c, x): [number, number][] => (c === '#' ? [[3 + x, y]] : []))
 )
+export const SPIN = Array.from({ length: 16 }, (_, k) =>
+  dots(
+    BLANK,
+    DONUT.map(([x, y]): [number, number, string] => {
+      const turn = Math.atan2(x - 6.5, 3.5 - y) / (2 * Math.PI)
+      const inner = Math.hypot(x - 6.5, y - 3.5) < 2.9
+      // На сколько шестнадцатых круга клетка отстала от головы дуги
+      const back = Math.floor((((k + (inner ? 2 : 0)) / 16 - turn) % 1 + 2) % 1 * 16)
+      return [x, y, '#vvww'[back] ?? 'd']
+    })
+  )
+)
+const SPIN_MS = 55
+const DONUT_ON = dots(BLANK, DONUT.map(([x, y]) => [x, y, '#']))
+const DONUT_V = dots(BLANK, DONUT.map(([x, y]) => [x, y, 'v']))
 
 /**
  * Понг сам с собой: ракетки по краям ходят за мячом, посередине пунктир сетки. Пара отбоев, потом правая
@@ -303,6 +331,10 @@ export const SPRITES = {
   spark: ['..y..', '.yyy.', 'yyyyy', '.yyy.', '..y..'],
   sparkS: ['.y.', 'yyy', '.y.'],
   note: ['..v.', '..vv', '..v.', 'vvv.', 'vv..'],
+  // Установка: кусочек обновления ползёт по антенне, шестерёнки крутятся — зубцы то прямо, то наискось
+  bit: ['vv', 'vv'],
+  gearA: ['..g..', '.ggg.', 'gg.gg', '.ggg.', '..g..'],
+  gearB: ['g...g', '.ggg.', '.g.g.', '.ggg.', 'g...g'],
   // Ночной колпак между антеннами: кончик с помпоном свисает вправо
   cap: ['......##', '.....v##', '....vv..', '...vvv..', '..vvvv..', '..vvvv..', '.######.']
 } satisfies Record<string, string[]>
@@ -310,6 +342,8 @@ export type Sprite = keyof typeof SPRITES
 
 const f = (face: Grid, ms: number, more?: Omit<Frame, 'face' | 'ms'>): Frame => ({ face, ms, ...more })
 const fx = (s: Sprite, x: number, y: number): Fx => ({ s, x, y })
+/** Конец загрузки: весь бублик дважды мигает — белый, фиолетовый, погас */
+const SPIN_END: Frame[] = [1, 2].flatMap(() => [f(DONUT_ON, 90), f(DONUT_V, 90), f(BLANK, 110)])
 const LEFT_UP: Gaze = { x: -2, y: -1 }
 const AHEAD: Gaze = { x: 0, y: 0 }
 
@@ -357,8 +391,8 @@ export const SCRIPTS = {
   frustrated: { intro: [f(frustrated, 80, { move: 'shake' })], loop: [f(frustrated, 230, { fx: [fx('anger', 226, 48)] }), f(frustrated, 230, { fx: [fx('angerS', 229, 51)] })] },
   ko: {
     intro: [f(STATIC[0], 50), f(STATIC[1], 50), f(xx, 1100, { move: 'shake' }), f(STATIC[2], 50), f(BLANK, 260)],
-    loop: SPIN.map((s) => f(s, 85)),
-    outro: [f(wow, 380)]
+    loop: SPIN.map((s) => f(s, SPIN_MS)),
+    outro: [...SPIN_END, f(wow, 380)]
   },
   // Система
   happy: { intro: [f(happy, 900, { move: 'hop' })] },
@@ -443,3 +477,121 @@ export const DROWSY_ACTS: [ScriptName, number][] = [
 ]
 /** На клик: каждый раз другое, без повторов подряд */
 export const CLICK_ACTS: ScriptName[] = ['wink', 'laugh', 'tongue', 'blush', 'heart', 'cool', 'wow', 'sparkle']
+
+// Экран прорисовывается заново: сверху вниз бежит тусклая строка развёртки, за ней — спокойное лицо
+const SCAN_IN = Array.from({ length: ROWS }, (_, k) => f(idle.map((r, y) => (y < k ? r : y === k ? 'd'.repeat(COLS) : BLANK[0])), 45))
+const BLINK_IDLE = [f(rows(idle, { 1: BLANK[0] }), 40), f(rows(idle, { 1: BLANK[0], 2: BLANK[0] }), 90), f(rows(idle, { 1: BLANK[0] }), 40)]
+
+/** Удивился и подпрыгнул: прыжок как в tivi-hop, левая антенна машет как в tivi-wave (для экранов обновления) */
+const HOORAY: Frame[] = [
+  f(wow, 80, { pose: { y: -2.2, ant: -24 } }),
+  f(wow, 120, { pose: { y: -4.4, ant: 10 } }),
+  f(wow, 80, { pose: { y: -2.2, ant: -24 } }),
+  f(wow, 80, { pose: { y: 0.65, ant: 10 } }),
+  f(wow, 160)
+]
+
+/**
+ * Экран установки обновления — сценка по кругу (~8 с), всё движение задано в кадрах:
+ * искра на антенне вспыхивает, по антенне в корпус сползают фиолетовые кусочки, и полоска во рту заполняется;
+ * потом Тиви, зажмурившись и дрожа, втягивает её, крутятся шестерёнки, капает пот — хлоп! — подпрыгивает от радости;
+ * перезагружается спиннером, экран прорисовывается строка за строкой, моргает — и ловит следующий кусок
+ */
+export const INSTALL: Frame[] = (() => {
+  const EYE = '...##.....##...'
+  /** Глаза-столбики, сдвинутые на dx, dy (вверх — минус), и рот — полоска из 11 клеток в строках 5–6 */
+  const face = (dx: number, dy: number, n: number, lit = 0): Grid => {
+    const bar = '..' + Array.from({ length: 11 }, (_, i) => (i < n - lit ? 'v' : i < n ? '#' : 'd')).join('') + '..'
+    const top = shift(BLANK.slice(0, 5).map((r, y) => (y >= 1 + dy && y <= 3 + dy ? EYE : r)), dx)
+    return [...top, bar, bar, BLANK[0]]
+  }
+  // Кусочек сползает по правой антенне от искры к корпусу
+  const DROP: [number, number][] = [
+    [165, 47],
+    [156, 58],
+    [147, 68]
+  ]
+  const part = (from: number, to: number): Frame[] => [
+    f(face(1, -1, from), 90, { pose: { spark: 1 } }),
+    f(face(1, -1, from), 90, { pose: { spark: 2 }, fx: [fx('bit', ...DROP[0])] }),
+    f(face(1, -1, from), 90, { pose: { spark: 3 }, fx: [fx('bit', ...DROP[1])] }),
+    f(face(1, 0, from), 90, { fx: [fx('bit', ...DROP[2])] }),
+    f(face(0, 0, to, to - from), 110),
+    f(face(0, 0, to), 300)
+  ]
+  // Втягивает полоску к середине; пот стекает по краю экрана, корпус дрожит, шестерёнки крутятся навстречу
+  const squeeze = (w: number, sweat: number): Grid => {
+    const pad = '.'.repeat((COLS - w) / 2)
+    const row = pad + 'v'.repeat(w) + pad
+    return dots([...SQUINT_EYES, BLANK[0], row, row, BLANK[0]], sweat < 4 ? [[14, sweat, 'b']] : [])
+  }
+  const work = [11, 9, 7, 5, 3, 1].flatMap((w, i) =>
+    [0, 1].map((j) =>
+      f(squeeze(w, i), 80, {
+        pose: { x: j ? 1.5 : -1.5 },
+        fx: [fx(j ? 'gearB' : 'gearA', 40, 48), fx(j ? 'gearA' : 'gearB', 230, 54)]
+      })
+    )
+  )
+  const flare = dots([...SQUINT_EYES, ...BLANK.slice(4)], [[7, 5, '#'], [7, 6, '#']])
+  // Хлоп: от рта расходится кольцо
+  const burst = (r: number): Grid =>
+    BLANK.map((row, y) =>
+      [...row]
+        .map((_, x) => {
+          const d = Math.round(Math.hypot(x - 7, (y - 5.5) * 1.4))
+          return d === r ? '#' : d === r - 1 ? 'v' : '.'
+        })
+        .join('')
+    )
+  // Экран прорисовывается заново: сверху вниз бежит тусклая строка развёртки
+  return [
+    ...part(0, 4),
+    ...part(4, 8),
+    ...part(8, 11).slice(0, -1),
+    f(face(0, 0, 11, 11), 120),
+    f(face(0, 0, 11), 220),
+    ...work,
+    f(flare, 120),
+    ...[1, 2, 3, 4].map((r) => f(burst(r), 50)),
+    ...HOORAY,
+    ...SPARKLE,
+    f(happy, 300),
+    f(STATIC[0], 50),
+    f(STATIC[2], 50),
+    f(BLANK, 160),
+    ...[1, 2].flatMap(() => SPIN.map((s) => f(s, SPIN_MS))),
+    ...SPIN_END,
+    ...SCAN_IN,
+    f(idle, 350),
+    ...BLINK_IDLE,
+    f(idle, 600)
+  ]
+})()
+
+/**
+ * Первый запуск после обновления, до интро: тот же экран, что держала заставка установки. Помеха — бублик доделывает
+ * круг и мигает, экран спокойно прорисовывает лицо, Тиви моргает, улыбается (тут надпись сменяется на «установлен»),
+ * радостно подпрыгивает, жмурится и гаснет, как кинескоп, — дальше интро. INSTALLED_AT — с какого кадра «готово»
+ */
+const happyHop: Frame[] = HOORAY.map((h) => ({ ...h, face: happyOpen }))
+const happyShut = rows(happy, { 1: BLANK[0], 2: BLANK[0] })
+export const INSTALLED: Frame[] = [
+  f(STATIC[0], 50),
+  f(STATIC[2], 50),
+  ...SPIN.map((s) => f(s, SPIN_MS)),
+  ...SPIN_END,
+  ...SCAN_IN,
+  f(idle, 450),
+  ...BLINK_IDLE,
+  f(idle, 250),
+  f(happy, 500),
+  ...happyHop,
+  ...SPARKLE,
+  ...SPARKLE,
+  f(happy, 600),
+  f(happyShut, 400),
+  ...CRT.map((c, i) => f(c, i ? 70 : 60)),
+  f(BLANK, 350)
+]
+export const INSTALLED_AT = INSTALLED.findIndex((fr) => fr.face === happy)

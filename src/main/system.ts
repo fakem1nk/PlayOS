@@ -9,7 +9,7 @@ import type { SystemState } from '@shared/types'
  * Помощник живёт постоянно и отвечает на команды по одной JSON-строке — без задержки на запуск.
  */
 
-const helperPath = () =>
+export const helperPath = () =>
   app.isPackaged ? path.join(process.resourcesPath, 'PlayOSHelper.exe') : path.join(app.getAppPath(), 'resources', 'PlayOSHelper.exe')
 
 let proc: ChildProcessWithoutNullStreams | null = null

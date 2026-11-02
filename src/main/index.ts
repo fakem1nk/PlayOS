@@ -27,6 +27,7 @@ import type {
   PickKind,
   Platform,
   PowerAction,
+  UpdateSplash,
   SaveProgress,
   Settings,
   ArtSource,
@@ -40,6 +41,7 @@ import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam } from './steam'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
+import { endUpdateSplash, showUpdateSplash, updateFinished } from './splash'
 import { exportData, importData, inspectBackup } from './backup'
 import { gameFiles } from './files'
 import * as cloud from './cloud/account'
@@ -123,6 +125,19 @@ function migrateLegacyData() {
 if (!app.requestSingleInstanceLock()) app.quit()
 
 let win: BrowserWindow | null = null
+/** Запустились из установщика — до какой версии: сначала экран «готово» (он же продолжение заставки), потом интро */
+const justUpdated = updateFinished()
+let updatedShown = false
+let afterShown: (() => void) | null = null
+let revealed = false
+function revealUpdated() {
+  if (revealed) return
+  revealed = true
+  afterShown = null
+  if (alive(win)) win.show()
+  // Окно уже под заставкой — убираем её, когда оно точно на экране
+  setTimeout(endUpdateSplash, 150)
+}
 let overlay: BrowserWindow | null = null
 let tray: Tray | null = null
 let overlayOpen = false
@@ -746,7 +761,21 @@ function createWindow() {
   watchWindow(win, 'main')
   // Подключили или отключили устройство — ищем DualSense/DS4 (вместо постоянного перебора HID)
   win.hookWindowMessage(WM_DEVICECHANGE, rescanHid)
-  win.once('ready-to-show', () => win?.show())
+  win.once('ready-to-show', () => {
+    if (!justUpdated) {
+      win?.show()
+      endUpdateSplash()
+      return
+    }
+    // Запустились из установщика: экран «готово» повторяет заставку — показываемся, когда он нарисован, и тогда
+    // заставка уходит без мелькания. Не дождались — всё равно показываемся
+    const timer = setTimeout(revealUpdated, 4000)
+    afterShown = () => {
+      clearTimeout(timer)
+      revealUpdated()
+    }
+    if (updatedShown) afterShown()
+  })
   win.on('minimize', scheduleUnload)
   // Вернулись в PlayOS (Alt+Tab, «На главную» в оверлее, конец игры) — интерфейс снова нужен. Только по
   // разворачиванию: свёрнутое окно Windows может на миг сделать активным, когда прячется оверлей, — это не возврат
@@ -1661,7 +1690,11 @@ function registerIpc() {
   })
   ipcMain.handle('update:state', () => updateState())
   ipcMain.handle('update:check', () => checkForUpdates())
-  ipcMain.handle('update:install', () => {
+  ipcMain.handle('update:install', async (_e, splash?: UpdateSplash) => {
+    if (updateState().phase !== 'ready') return false
+    // Пока установщик работает молча, экран держит заставка — иначе PlayOS будто просто выключился
+    if (splash && alive(win))
+      await showUpdateSplash(win, splash, updateState().version).catch((e) => log('WARN', '[обновления] без заставки:', (e as Error)?.message ?? e))
     // Выход ради установки — без аутро и без перехвата закрытия окна
     allowQuit = true
     return installUpdate()
@@ -2023,6 +2056,11 @@ app.on('second-instance', () => bringToFront())
 ipcMain.on('lang:get', (e) => (e.returnValue = getLang()))
 ipcMain.on('pad:rumble', (_e, fx) => rumbleDualSense(fx))
 ipcMain.on('theme:get', (e) => (e.returnValue = getDb().settings.theme ?? 'dark'))
+ipcMain.on('update:finished', (e) => (e.returnValue = justUpdated))
+ipcMain.on('update:shown', () => {
+  updatedShown = true
+  afterShown?.()
+})
 
 app.whenReady().then(() => {
   loadDb()

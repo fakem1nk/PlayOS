@@ -1,10 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import type { UpdateSummary } from '@shared/types'
-import { api } from '../lib/api'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
-import { downloadText, isMinor, splitVersion, summaryText, updateHighlights, useUpdate } from '../lib/update'
+import { downloadText, isMinor, setInstalling, splitVersion, summaryText, updateHighlights, useUpdate } from '../lib/update'
 import { Hint } from './Glyph'
 import { IconCheck, IconDownload } from './Icons'
 import { LogoMark } from './Logo'
@@ -15,7 +14,7 @@ let postponed = ''
 
 export function installNow() {
   play('launch')
-  void api.installUpdate()
+  setInstalling(true)
 }
 
 /**

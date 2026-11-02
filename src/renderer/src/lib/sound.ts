@@ -29,6 +29,7 @@ export type SoundKind =
   | 'shuffle'
   | 'farewell'
   | 'shutdown'
+  | 'installed'
 
 const VOLUME: Record<SoundVolume, number> = { low: 0.45, mid: 0.8, high: 1.25 }
 
@@ -386,6 +387,13 @@ export function play(kind: SoundKind) {
         air(1.55, 0.35, 0.03, 4200, 300, 0.5)
         bell(n(-38), 1.75, { gain: 0.08, dur: 1.6, space: 0.4, ratio: 1, index: 0.15 })
         bell(E7, 1.78, { gain: 0.012, dur: 0.5, space: 0.6, ratio: 1, index: 0.1 })
+        break
+      case 'installed':
+        // Обновление установилось (Тиви улыбнулся): тёплый аккорд, колокольчики вверх и высокий блик на прыжке
+        pad([n(-21), n(-14), n(-9), n(-5)], 0, 1.9, 0.03, 1600, 0.75, 0.25)
+        arp([G5, C6, E6, G6], 0.02, 0.075, { gain: 0.045, dur: 1.4, space: 0.6, ratio: 2, index: 0.55 }, 0.6)
+        bell(C7, 0.36, { gain: 0.04, dur: 1.7, space: 0.8, ratio: 3, index: 0.6, pan: 0.15 })
+        air(0.3, 0.7, 0.01, 4000, 8000, 0.8, 0.2)
         break
       case 'boot':
         // Синхронизировано с интро: искра (0,12 с) → кольцо рисуется на подъёме пэда и шумового «вдоха»

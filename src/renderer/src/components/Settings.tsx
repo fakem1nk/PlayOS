@@ -14,6 +14,7 @@ import { VrPanel } from './VrPanel'
 import { KeyGuideButton } from './KeyGuide'
 import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
+import { installNow } from './UpdateNotice'
 import { gamesCount } from '../lib/format'
 import { THEMES, themeName } from '../lib/theme'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconGrid, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
@@ -545,11 +546,7 @@ function UpdateRow({ version }: { version: string }) {
                 : t('Установлена версия {version}. PlayOS проверяет обновления сам после запуска', { version })
 
   const act = async () => {
-    if (phase === 'ready') {
-      play('launch')
-      await api.installUpdate()
-      return
-    }
+    if (phase === 'ready') return installNow()
     if (phase === 'checking' || phase === 'downloading') return
     if (phase === 'dev') {
       toast({ title: t('Обновления'), message: t('В версии из исходников обновления не проверяются'), tone: 'info', history: false })

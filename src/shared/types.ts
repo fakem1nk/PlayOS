@@ -324,6 +324,19 @@ export interface UpdateSummary {
   en?: UpdateSummaryText
 }
 
+/**
+ * Заставка на время установки: PlayOS закрывается, а помощник держит снимок окна и крутит поверх него
+ * сценку Тиви, пока новая версия не откроется. Кадры — PNG куска вокруг Тиви вместе с фоном, rect — где он в окне
+ * (CSS-пиксели), steps — номер кадра и сколько он держится (мс), по кругу
+ */
+export interface UpdateSplash {
+  frames: Uint8Array[]
+  steps: [number, number][]
+  rect: { x: number; y: number; width: number; height: number }
+  /** От какого момента (Date.now()) идёт счёт — заставка продолжит с того же кадра */
+  t0: number
+}
+
 /** Сведения для окна «О системе» */
 export interface SystemInfo {
   app: { version: string; electron: string; chrome: string; installDir: string; dataDir: string; packaged: boolean }
@@ -714,7 +727,9 @@ export interface PcsApi {
   // ── Обновления ──
   updateState(): Promise<UpdateState>
   checkUpdates(): Promise<UpdateState>
-  installUpdate(): Promise<boolean>
+  installUpdate(splash?: UpdateSplash): Promise<boolean>
+  /** Экран «готово» после обновления нарисован — можно показать окно и убрать заставку установки */
+  updateShown(): void
   onUpdateState(cb: (s: UpdateState) => void): () => void
   /** Есть ли файл (проверка путей к эмуляторам в мастере) */
   pathExists(p: string): Promise<boolean>

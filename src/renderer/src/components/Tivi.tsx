@@ -17,8 +17,10 @@ import {
   SPRITES,
   loadFace,
   type Frame,
+  type Fx,
   type Gaze,
   type Grid,
+  type Pose,
   type Script,
   type ScriptName,
   type Sprite,
@@ -96,11 +98,14 @@ function sprite(s: Sprite, x: number, y: number, key: string) {
   const rows = SPRITES[s]
   const x0 = x - (rows[0].length * PX) / 2
   const y0 = y - (rows.length * PX) / 2
-  return rows.flatMap((row, j) =>
-    [...row].flatMap((ch, i) =>
-      ch === '.' ? [] : [<rect key={`${key}.${i}.${j}`} x={x0 + i * PX} y={y0 + j * PX} width={PX} height={PX} fill={COLORS[ch][0]} />]
-    )
+  // Клетки одного цвета — одним контуром: отдельные квадраты на дробных пикселях расходятся щёлками (видно на картинках заставки)
+  const paths = new Map<string, string>()
+  rows.forEach((row, j) =>
+    [...row].forEach((ch, i) => {
+      if (ch !== '.') paths.set(ch, `${paths.get(ch) ?? ''}M${x0 + i * PX} ${y0 + j * PX}h${PX}v${PX}h${-PX}z`)
+    })
   )
+  return [...paths].map(([ch, d]) => <path key={`${key}.${ch}`} d={d} fill={COLORS[ch][0]} />)
 }
 
 /**
@@ -590,25 +595,6 @@ export const Tivi = memo(function Tivi({ playing, greet }: Props) {
   // Полоска загрузки заменяет покой; сценки (клик, ошибка) показываются поверх неё
   const face = loading !== null && !act ? loadFace(loading, tick) : frame.face
   const free = FREE.has(face)
-  const lit = paint(face, free ? gaze : AHEAD, free || face !== frame.face ? blink : 0)
-
-  const dots: React.ReactNode[] = []
-  for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++) {
-      const ch = lit.get(y * COLS + x)
-      const [fill, alpha] = ch ? COLORS[ch] : ['#ffffff', 0.045]
-      dots.push(
-        <circle
-          key={y * COLS + x}
-          cx={CX + (x - (COLS - 1) / 2) * PITCH}
-          cy={CY + (y - (ROWS - 1) / 2) * PITCH}
-          r={DOT}
-          fill={fill}
-          opacity={alpha}
-        />
-      )
-    }
-  const fx = face === frame.face ? frame.fx?.flatMap(({ s, x, y }, k) => sprite(s, x, y, String(k))) : undefined
 
   return (
     <button
@@ -630,56 +616,115 @@ export const Tivi = memo(function Tivi({ playing, greet }: Props) {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <svg key={move.n} viewBox="8 0 240 236" className={move.kind ? `is-${move.kind}` : ''} aria-hidden>
-        <defs>
-          <linearGradient id="tivi-body" gradientUnits="userSpaceOnUse" x1="0" y1="70" x2="0" y2="230">
-            <stop offset="0" stopColor="#2b3448" />
-            <stop offset="1" stopColor="#0a0d15" />
-          </linearGradient>
-          <linearGradient id="tivi-rim" gradientUnits="userSpaceOnUse" x1="16" y1="70" x2="240" y2="230">
-            <stop offset="0" stopColor="#fff" stopOpacity=".75" />
-            <stop offset=".35" stopColor="#fff" stopOpacity=".14" />
-            <stop offset=".65" stopColor="#fff" stopOpacity=".07" />
-            <stop offset="1" stopColor="#fff" stopOpacity=".45" />
-          </linearGradient>
-          <linearGradient id="tivi-ant" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="70">
-            <stop offset="0" stopColor="#c3cad8" />
-            <stop offset="1" stopColor="#7f889c" />
-          </linearGradient>
-          <linearGradient id="tivi-lip" gradientUnits="userSpaceOnUse" x1="0" y1="88" x2="0" y2="212">
-            <stop offset="0" stopColor="#fff" stopOpacity="0" />
-            <stop offset=".6" stopColor="#fff" stopOpacity="0" />
-            <stop offset="1" stopColor="#fff" stopOpacity=".16" />
-          </linearGradient>
-          <linearGradient id="tivi-spark" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#c2b4ff" />
-            <stop offset="1" stopColor="#8f78ff" />
-          </linearGradient>
-          <radialGradient id="tivi-ball" cx=".35" cy=".3" r=".8">
-            <stop offset="0" stopColor="#fff" />
-            <stop offset=".55" stopColor="#eef1f7" />
-            <stop offset="1" stopColor="#a3abbd" />
-          </radialGradient>
-          <clipPath id="tivi-clip">
-            <rect x="16" y="70" width="224" height="160" rx="40" />
-          </clipPath>
-          <filter id="tivi-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="3.2" result="b" />
-            <feComponentTransfer in="b" result="b2">
-              <feFuncA type="linear" slope=".55" />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode in="b2" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+      <TiviArt
+        key={move.n}
+        face={face}
+        gaze={free ? gaze : AHEAD}
+        blink={free || face !== frame.face ? blink : 0}
+        fx={face === frame.face ? frame.fx : undefined}
+        cap={cap}
+        className={move.kind ? `is-${move.kind}` : ''}
+      />
+    </button>
+  )
+})
+
+/** Шаги вспышки искры — те же, что в tivi-twinkle */
+const SPARK_STEPS = ['', ' rotate(22.5) scale(1.25)', ' rotate(45) scale(1.55)', ' rotate(67.5) scale(1.25)']
+
+/**
+ * Рисунок Тиви без поведения: корпус, антенны, экран с лицом, значки вокруг и колпак.
+ * pose двигает тело атрибутами, а не CSS — так рисунок можно сохранить картинкой (экран установки); значки вокруг остаются на месте
+ */
+export function TiviArt({
+  face,
+  gaze = AHEAD,
+  blink = 0,
+  fx,
+  cap = 'off',
+  pose,
+  className
+}: {
+  face: Grid
+  gaze?: Gaze
+  blink?: number
+  fx?: Fx[]
+  cap?: 'off' | 'drop' | 'on'
+  pose?: Pose
+  className?: string
+}) {
+  const lit = paint(face, gaze, blink)
+  const dots: React.ReactNode[] = []
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const ch = lit.get(y * COLS + x)
+      const [fill, alpha] = ch ? COLORS[ch] : ['#ffffff', 0.045]
+      dots.push(
+        <circle
+          key={y * COLS + x}
+          cx={CX + (x - (COLS - 1) / 2) * PITCH}
+          cy={CY + (y - (ROWS - 1) / 2) * PITCH}
+          r={DOT}
+          fill={fill}
+          opacity={alpha}
+        />
+      )
+    }
+  return (
+    <svg viewBox="8 0 240 236" className={className} aria-hidden>
+      <defs>
+        <linearGradient id="tivi-body" gradientUnits="userSpaceOnUse" x1="0" y1="70" x2="0" y2="230">
+          <stop offset="0" stopColor="#2b3448" />
+          <stop offset="1" stopColor="#0a0d15" />
+        </linearGradient>
+        <linearGradient id="tivi-rim" gradientUnits="userSpaceOnUse" x1="16" y1="70" x2="240" y2="230">
+          <stop offset="0" stopColor="#fff" stopOpacity=".75" />
+          <stop offset=".35" stopColor="#fff" stopOpacity=".14" />
+          <stop offset=".65" stopColor="#fff" stopOpacity=".07" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".45" />
+        </linearGradient>
+        <linearGradient id="tivi-ant" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="70">
+          <stop offset="0" stopColor="#c3cad8" />
+          <stop offset="1" stopColor="#7f889c" />
+        </linearGradient>
+        <linearGradient id="tivi-lip" gradientUnits="userSpaceOnUse" x1="0" y1="88" x2="0" y2="212">
+          <stop offset="0" stopColor="#fff" stopOpacity="0" />
+          <stop offset=".6" stopColor="#fff" stopOpacity="0" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".16" />
+        </linearGradient>
+        <linearGradient id="tivi-spark" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#c2b4ff" />
+          <stop offset="1" stopColor="#8f78ff" />
+        </linearGradient>
+        <radialGradient id="tivi-ball" cx=".35" cy=".3" r=".8">
+          <stop offset="0" stopColor="#fff" />
+          <stop offset=".55" stopColor="#eef1f7" />
+          <stop offset="1" stopColor="#a3abbd" />
+        </radialGradient>
+        <clipPath id="tivi-clip">
+          <rect x="16" y="70" width="224" height="160" rx="40" />
+        </clipPath>
+        <filter id="tivi-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="3.2" result="b" />
+          <feComponentTransfer in="b" result="b2">
+            <feFuncA type="linear" slope=".55" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode in="b2" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g transform={pose?.x || pose?.y ? `translate(${pose.x ?? 0} ${pose.y ?? 0})` : undefined}>
         <path d="M144 72L186 22" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
-        <g className="tivi-ant-l">
-          <path d="M112 72L80 24" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
-          <circle cx="80" cy="24" r="9" fill="url(#tivi-ball)" stroke="#6f7990" strokeOpacity=".4" strokeWidth="1.4" />
+        {/* Наклон — на обёртке: у самой антенны CSS задаёт свою точку поворота */}
+        <g transform={pose?.ant ? `rotate(${pose.ant} 112 72)` : undefined}>
+          <g className="tivi-ant-l">
+            <path d="M112 72L80 24" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
+            <circle cx="80" cy="24" r="9" fill="url(#tivi-ball)" stroke="#6f7990" strokeOpacity=".4" strokeWidth="1.4" />
+          </g>
         </g>
-        <g transform="translate(188 22)">
+        <g transform={`translate(188 22)${SPARK_STEPS[pose?.spark ?? 0]}`}>
           <path className="tivi-spark" d={SPARK} fill="url(#tivi-spark)" />
         </g>
         <rect x="16" y="70" width="224" height="160" rx="40" fill="url(#tivi-body)" />
@@ -694,10 +739,10 @@ export const Tivi = memo(function Tivi({ playing, greet }: Props) {
         <rect x="34" y="88" width="188" height="124" rx="26" fill="#05070c" />
         <rect x="34.75" y="88.75" width="186.5" height="122.5" rx="25.25" fill="none" stroke="url(#tivi-lip)" strokeWidth="1.5" />
         <g filter="url(#tivi-glow)">{dots}</g>
-        <g className="tivi-fx" shapeRendering="crispEdges">
-          {fx}
-        </g>
-      </svg>
-    </button>
+      </g>
+      <g className="tivi-fx" shapeRendering="crispEdges">
+        {fx?.flatMap(({ s, x, y }, k) => sprite(s, x, y, String(k)))}
+      </g>
+    </svg>
   )
-})
+}

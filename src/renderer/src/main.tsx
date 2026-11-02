@@ -31,5 +31,14 @@ startInput()
 // Окна грузят только свой код: оверлею не нужны библиотека, настройки и интро
 const root = createRoot(document.getElementById('root')!)
 if (isOverlay) void import('./OverlayApp').then(({ OverlayApp }) => root.render(<OverlayApp />))
-else void import('./App').then(({ App }) => root.render(<App />))
+// После обновления поверх всего сначала экран «готово» — он рисуется сразу, ещё до данных библиотеки
+else
+  void Promise.all([import('./App'), import('./components/UpdateInstall')]).then(([{ App }, { AfterUpdate }]) =>
+    root.render(
+      <>
+        <App />
+        <AfterUpdate />
+      </>
+    )
+  )
 startLiquidGlass()

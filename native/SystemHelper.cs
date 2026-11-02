@@ -1,6 +1,7 @@
 // Системный помощник PCStation: громкость, звуковые выходы и яркость экрана.
 // Работает как постоянный процесс: читает команды из stdin, отвечает JSON-строкой в stdout.
 // Команды: state | volume <0..1> | mute <0|1> | device <id> | brightness <0..100>
+// С аргументом splash — заставка установки обновления (UpdateSplash.cs), без stdin
 // Сборка (встроенный компилятор .NET Framework): npm run build:helper
 using System;
 using System.Collections.Generic;
@@ -349,8 +350,13 @@ namespace PCStation
         }
 
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "splash")
+            {
+                UpdateSplash.Run(args);
+                return;
+            }
             Console.OutputEncoding = Encoding.UTF8;
             string line;
             while ((line = Console.ReadLine()) != null)

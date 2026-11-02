@@ -90,7 +90,8 @@ const api: PcsApi = {
   pathExists: (p) => ipcRenderer.invoke('fs:exists', p),
   updateState: () => ipcRenderer.invoke('update:state'),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
-  installUpdate: () => ipcRenderer.invoke('update:install'),
+  installUpdate: (splash) => ipcRenderer.invoke('update:install', splash),
+  updateShown: () => ipcRenderer.send('update:shown'),
   onUpdateState: listen('update-state'),
   onPowerResume: listen('power-resume'),
   onOverlayNotice: listen('overlay-notice'),
@@ -125,3 +126,5 @@ contextBridge.exposeInMainWorld('pcs', api)
 contextBridge.exposeInMainWorld('pcsLang', ipcRenderer.sendSync('lang:get'))
 // Тема — тоже до первой отрисовки, чтобы светлая не мигала тёмной
 contextBridge.exposeInMainWorld('pcsTheme', ipcRenderer.sendSync('theme:get'))
+// Запустились из установщика обновления — версия (до интро играет экран «готово»), иначе null
+contextBridge.exposeInMainWorld('pcsUpdated', ipcRenderer.sendSync('update:finished'))
