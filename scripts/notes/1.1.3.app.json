@@ -1,0 +1,23 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Тиви показывает на лице, сколько обновления уже скачано",
+      "Утром Тиви потягивается, а после полуночи надевает колпак",
+      "Тиви машет в первый запуск за день и радуется, если вы не заходили 3 дня",
+      "Тиви можно погладить: зажмите на нём кнопку мыши и водите туда-сюда",
+      "Тиви можно выключить в «Настройки → Экран»"
+    ],
+    "fixed": []
+  },
+  "en": {
+    "new": [
+      "Tivi shows the update download progress on his face",
+      "Tivi stretches in the morning and puts on a nightcap after midnight",
+      "Tivi waves on the first launch of the day and cheers when you’re back after 3 days",
+      "Pet Tivi: hold the mouse button on him and move it back and forth",
+      "Turn Tivi off in Settings → Display"
+    ],
+    "fixed": []
+  }
+}
