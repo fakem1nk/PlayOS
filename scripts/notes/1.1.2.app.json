@@ -1,0 +1,29 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Тиви — маскот PlayOS в углу экрана: следит за фокусом и радуется играм и трофеям",
+      "Новый значок приложения с Тиви",
+      "Облако сообщает, когда в нём нет места или нужно войти снова"
+    ],
+    "fixed": [
+      "Синхронизация больше не зависает при медленной или пропавшей сети",
+      "Повреждённая копия из облака не попадает в сохранения",
+      "При конфликте версия с этого ПК остаётся в истории сохранений",
+      "Изменения не теряются, если часы на ПК расходятся"
+    ]
+  },
+  "en": {
+    "new": [
+      "Tivi, the PlayOS mascot in the corner: follows the focus and cheers for games and trophies",
+      "A new app icon featuring Tivi",
+      "The cloud tells you when it’s full or when you need to sign in again"
+    ],
+    "fixed": [
+      "Cloud sync no longer hangs on a slow or dropped connection",
+      "A damaged copy in the cloud never ends up in your saves",
+      "In a save conflict, the version from this PC stays in the save history",
+      "Changes are no longer lost when PC clocks differ"
+    ]
+  }
+}
