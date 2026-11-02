@@ -1,0 +1,21 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Экран установки обновления: Тиви собирает обновление, пока идёт установка",
+      "После обновления Тиви радуется и показывает, какая версия установлена",
+      "Короткий звук, когда обновление установилось",
+      "Новый спиннер загрузки у Тиви"
+    ],
+    "fixed": []
+  },
+  "en": {
+    "new": [
+      "Update install screen: Tivi assembles the update while it installs",
+      "After an update, Tivi celebrates and shows the installed version",
+      "A short chime when the update is installed",
+      "A new loading spinner for Tivi"
+    ],
+    "fixed": []
+  }
+}
