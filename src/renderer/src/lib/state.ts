@@ -4,6 +4,7 @@ import { api } from './api'
 import { setSoundEnabled, setVolume } from './sound'
 import { setHaptics } from './haptics'
 import { setTheme } from './theme'
+import { tiviToast } from './tivi'
 import { t } from '@shared/i18n'
 
 export function useAppState() {
@@ -114,6 +115,7 @@ const toastSubs = new Set<() => void>()
 /** Возвращает id окошка — его можно убрать раньше времени (dismissToast) */
 export function toast(t: Omit<Toast, 'id'>) {
   const item = { ...t, id: toastId++ }
+  tiviToast(t)
   if (popsUp(t)) {
     toasts = [item, ...toasts].slice(0, 4)
     toastSubs.forEach((s) => s())

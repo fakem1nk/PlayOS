@@ -692,6 +692,7 @@ export const EN: Record<string, string> = {
   'Обновление PlayOS {v}': 'PlayOS {v} update',
   'Скачано и установится при выходе из PlayOS. Можно обновиться сразу.': 'Downloaded and installs when you quit PlayOS. You can update right now.',
   'Уведомления': 'Notifications',
+  'Тиви': 'Tivi',
   'Уведомления: новых {n}': 'Notifications: {n} new',
   'Очистить': 'Clear',
   'Вчера, {time}': 'Yesterday, {time}',

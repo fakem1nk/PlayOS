@@ -14,6 +14,7 @@ import { LaunchScreen, NoticeCenter, Toasts } from './components/Overlays'
 import { Screensaver } from './components/Screensaver'
 import { AnimatedCoversContext } from './components/Tile'
 import { UpdateNotice } from './components/UpdateNotice'
+import { Tivi } from './components/Tivi'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { WindowFrame } from './components/WindowFrame'
 import { api } from './lib/api'
@@ -506,6 +507,7 @@ export function App() {
           </main>
 
           <footer className="hints">{hints}</footer>
+          <Tivi playing={!!runningGame} />
         </motion.div>
 
         <AnimatePresence>
