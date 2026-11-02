@@ -27,6 +27,7 @@ import {
   type TiviMove
 } from '../lib/tivi-faces'
 import { useUpdate } from '../lib/update'
+import type { Settings } from '@shared/types'
 import { t } from '@shared/i18n'
 import '../styles-tivi.css'
 
@@ -240,9 +241,11 @@ interface Props {
   playing: boolean
   /** Интро закончилось — можно здороваться (после перезагрузки окна его видели только что, и он промолчит) */
   greet: boolean
+  /** Крупнее только во вкладке «Недавние» (настройка «Размер Тиви») */
+  size?: Settings['tiviSize']
 }
 
-export const Tivi = memo(function Tivi({ playing, greet }: Props) {
+export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props) {
   const update = useUpdate()
   const loading = update.phase === 'downloading' ? (update.percent ?? 0) : null
   const loadingRef = useRef(loading)
@@ -572,8 +575,16 @@ export const Tivi = memo(function Tivi({ playing, greet }: Props) {
     petted.current = false
   }
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    // Гладят только по нему, а кнопку можно зажать и не на нём: курсор ушёл с Тиви — не считается,
+    // вернётся с зажатой кнопкой — счёт начнётся заново
+    const r = e.currentTarget.getBoundingClientRect()
+    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+    if (!(e.buttons & 1) || !over) {
+      pet.current = null
+      return
+    }
+    if (!pet.current) pet.current = { x: e.clientX, y: e.clientY, dir: 0, turns: 0, path: 0, on: false }
     const p = pet.current
-    if (!p) return
     const dx = e.clientX - p.x
     const dy = e.clientY - p.y
     if (Math.abs(dx) + Math.abs(dy) < 2) return
@@ -599,7 +610,7 @@ export const Tivi = memo(function Tivi({ playing, greet }: Props) {
   return (
     <button
       ref={ref}
-      className={`tivi is-${stage}`}
+      className={`tivi is-${stage} is-${size}`}
       data-act={act ?? undefined}
       tabIndex={-1}
       aria-label={t('Тиви')}
@@ -610,7 +621,10 @@ export const Tivi = memo(function Tivi({ playing, greet }: Props) {
         clearTimeout(hover.current)
         hover.current = window.setTimeout(() => tivi({ act: 'blush', ms: 1200, priority: 1 }), 1200)
       }}
-      onPointerLeave={() => clearTimeout(hover.current)}
+      onPointerLeave={() => {
+        clearTimeout(hover.current)
+        pet.current = null
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

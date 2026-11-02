@@ -13,6 +13,17 @@
   cursor: pointer;
 }
 
+/* Размер во вкладке «Недавние» — растёт вверх и влево от того же угла */
+.tivi.is-medium {
+  width: 10rem;
+  height: 9.85rem;
+}
+
+.tivi.is-large {
+  width: 16rem;
+  height: 15.75rem;
+}
+
 .tivi svg {
   display: block;
   width: 100%;

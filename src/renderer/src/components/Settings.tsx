@@ -339,6 +339,19 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 value={s.tivi !== false}
                 onChange={(v) => save({ tivi: v })}
               />
+              {s.tivi !== false && (
+                <Cycler
+                  label={t('Размер Тиви')}
+                  hint={t('Во вкладке «Недавние». В остальных он остаётся маленьким, чтобы не мешать')}
+                  value={s.tiviSize ?? 'small'}
+                  options={[
+                    { id: 'small', label: t('Маленький') },
+                    { id: 'medium', label: t('Средний') },
+                    { id: 'large', label: t('Большой') }
+                  ]}
+                  onChange={(v) => save({ tiviSize: v as SettingsT['tiviSize'] })}
+                />
+              )}
               <div className="note">{t('F11 — переключить окно и весь экран.')}</div>
             </>
           )}

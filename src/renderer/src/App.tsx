@@ -511,7 +511,7 @@ export function App() {
           </main>
 
           <footer className="hints">{hints}</footer>
-          {state.settings.tivi !== false && <Tivi playing={!!runningGame} greet={!booting} />}
+          {state.settings.tivi !== false && <Tivi playing={!!runningGame} greet={!booting} size={tab === 'home' ? state.settings.tiviSize : 'small'} />}
         </motion.div>
 
         <AnimatePresence>

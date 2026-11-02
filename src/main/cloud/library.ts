@@ -35,6 +35,7 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'launchOnStartup',
   'uiScale',
   'noticeSize',
+  'tiviSize',
   'displayId',
   'displayLabel',
   'gameDisplay',
