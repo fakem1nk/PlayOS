@@ -31,29 +31,17 @@
 
 <a name="обзор"></a>
 <p align="center">
-  <img src="docs/assets/readme/ru/stats.webp" width="100%" alt="Коротко о главном. 5 видов игр в библиотеке: PC, Steam, PS2, PS3 и VR. 1 кнопка ставит игру на паузу: PS, Guide или Select + Start. 30 версий каждого сохранения хранятся в облаке. 3 способа синхронизации: Яндекс Диск, Google Drive или папка.">
+  <img src="docs/assets/readme/ru/stats.webp" width="100%" alt="Коротко о главном. 5 видов игр в библиотеке: PC, Steam, PS2, PS3 и VR. Собственный оверлей с удобными функциями поверх любой игры. До 30 версий каждого сохранения хранятся в вашем облаке. 3 возможности синхронизации: Яндекс Диск, Google Drive или папка.">
 </p>
 
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/ru/library.webp" width="100%" alt="Библиотека. Все ваши игры. В одном месте. Библиотека PlayOS с играми PC, PlayStation 2 и PlayStation 3.">
+  <img src="docs/assets/readme/ru/controls.webp" width="100%" alt="Геймпады. Любой геймпад. Без Big Picture. DualSense, DualShock 4, Xbox, 8BitDo, Nintendo, DirectInput, клавиатура и мышь.">
 </p>
 
 <p align="center">
-  Игры PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR рядом друг с другом. <b>Игры Steam, образы дисков и список RPCS3 импортируются разом</b>, а для любой другой игры достаточно выбрать папку — PlayOS сам найдёт EXE. Обложки, фоны и логотипы загружаются сами, а <b>поиск, подборки и сортировка</b> — в одном движении стика. Даже удалить игру можно, не вставая с дивана.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#игры">Подробнее об играх&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/controls.webp" width="100%" alt="Управление. Создан для дивана. Не для стола. DualSense, DualShock 4, Xbox, 8BitDo, Nintendo, DirectInput, клавиатура и мышь.">
-</p>
-
-<p align="center">
-  DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo и старые геймпады DirectInput — для необычных есть настройка кнопок. <b>Подсказки подстраиваются под геймпад в руках</b> и под то, что выбрано. Экранная клавиатура, вибрация в меню и прокрутка правым стиком уже на месте, а <b>мышь и клавиатура делят один фокус</b> с геймпадом.
+  <b>Любой геймпад работает во всём PlayOS и в оверлее — без Steam Big Picture.</b> DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo и старые геймпады DirectInput — для необычных есть настройка кнопок. Подсказки подстраиваются под геймпад в руках, а экранная клавиатура, вибрация в меню и прокрутка правым стиком уже на месте. Мышь и клавиатура делят один фокус с геймпадом.
 </p>
 
 <p align="center"><a href="docs/FAQ.md#управление">Всё управление&nbsp;›</a></p>
@@ -61,33 +49,11 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/ru/overlay.webp" width="100%" alt="Меню поверх игры. Нажмите PS. Игра подождёт. Оверлей PlayOS поверх игры PlayStation 2 на паузе с быстрыми сохранениями и пунктом управления.">
+  <img src="docs/assets/readme/ru/cloud.webp" width="100%" alt="Облачные сохранения. Ваши сохранения. Только в вашем облаке. Этот ПК и другой ПК синхронизируются через ваше собственное облако: Яндекс Диск, Google Drive или папку синхронизации. Без серверов PlayOS.">
 </p>
 
 <p align="center">
-  <b>Кнопка PS или Guide</b>, Select&nbsp;+&nbsp;Start или Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H ставят игру на паузу и открывают <b>быстрые сохранения со скриншотами</b>, время сессии, громкость, вывод звука, яркость и заряд геймпада. В PCSX2 сохранения попадают точно в нужный слот через PINE. Мешает в какой-то игре? Выключите меню только для неё.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#геймпад-и-оверлей">Подробнее об оверлее&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/vr.webp" width="100%" alt="VR. Наденьте шлем. И играйте. Meta Quest по Link и Air Link, заряд шлема и контроллеров в верхней панели.">
-</p>
-
-<p align="center">
-  Отметьте любую игру для PC как VR-игру и играйте на <b>Meta&nbsp;Quest по Link или Air&nbsp;Link</b>. PlayOS сам скачает OpenComposite и подготовит его перед каждым запуском, запомнит <b>чёткость, руки, вибрацию и режим совместимости</b> для каждой игры, а заряд шлема и контроллеров покажет прямо в верхней панели.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/cloud.webp" width="100%" alt="Облачные сохранения. Ваши сохранения. На любом ПК. Яндекс Диск, Google Drive и папка синхронизации в настройках PlayOS.">
-</p>
-
-<p align="center">
-  Сохранения, библиотека, время в играх и профиль на <b>Яндекс Диске, Google Drive или в папке синхронизации</b>. Сохранения игр PC находятся по базе Ludusavi, хранится <b>до 30 версий</b> каждого, а если два ПК не согласны — выбираете вы. На новом компьютере всё возвращается, а можно перенести всё одним файлом <code>.playos</code>.
+  Сохранения игр PS2, PS3 и PC, а вместе с ними библиотека, время в играх и профиль хранятся <b>на вашем собственном Яндекс Диске, Google Drive или в папке синхронизации</b>. У PlayOS нет своих серверов, а на Яндекс Диске и Google Drive он видит только свою папку. Сохранения игр PC находятся по базе Ludusavi, хранится <b>до 30 версий</b> каждого, а если два ПК не согласны — выбираете вы. Игры Steam остаются в Steam Cloud.
 </p>
 
 <p align="center"><a href="docs/FAQ.md#облачные-сохранения">Подробнее об облаке&nbsp;›</a></p>
@@ -95,14 +61,60 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/ru/profile.webp" width="100%" alt="Трофеи и время. Каждый час. Каждый трофей. Профиль PlayOS и страница игры с HowLongToBeat и историей сессий.">
+  <img src="docs/assets/readme/ru/library.webp" width="100%" alt="Библиотека. Все игры с компьютера. В одном месте. Библиотека PlayOS с играми PC, PlayStation 2 и PlayStation 3.">
 </p>
 
 <p align="center">
-  Каждая сессия на счету, даже через сторонние лаунчеры. На странице игры — <b>HowLongToBeat</b>, история сессий и активность за две недели. <b>RetroAchievements для PS2 и достижения Steam для PC</b>, в том числе в играх через эмуляторы Steam, появляются в момент получения, а в списке трофеев остаётся скриншот этого момента.
+  Игры PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR рядом друг с другом в одном лаунчере. <b>Игры Steam, образы дисков и список RPCS3 импортируются разом</b>, а для любой другой игры достаточно выбрать папку — PlayOS сам найдёт EXE. Обложки, фоны и логотипы загружаются сами, а <b>поиск, подборки и сортировка</b> — в одном движении стика. Даже удалить игру можно, не вставая с дивана.
+</p>
+
+<p align="center"><a href="docs/FAQ.md#игры">Подробнее об играх&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/ru/overlay.webp" width="100%" alt="Собственный оверлей. Нажмите PS. Игра подождёт. Оверлей PlayOS поверх игры PlayStation 2 на паузе с быстрыми сохранениями и пунктом управления.">
+</p>
+
+<p align="center">
+  <b>Кнопка PS или Guide</b>, Select&nbsp;+&nbsp;Start или Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H ставят игру на паузу и открывают <b>быстрые сохранения со скриншотами</b>, время сессии, громкость, вывод звука, яркость и заряд геймпада. В PCSX2 сохранения попадают точно в нужный слот через PINE. Мешает в какой-то игре? Выключите оверлей только для неё.
+</p>
+
+<p align="center"><a href="docs/FAQ.md#геймпад-и-оверлей">Подробнее об оверлее&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/ru/vr.webp" width="100%" alt="Встроенный VR. Наденьте шлем. И играйте. Meta Quest по Link и Air Link, заряд шлема и контроллеров в верхней панели.">
+</p>
+
+<p align="center">
+  VR встроен прямо в PlayOS: отметьте любую игру для PC как VR-игру и играйте на <b>Meta&nbsp;Quest по Link или Air&nbsp;Link</b>. PlayOS сам скачает открытый рантайм OpenComposite и подготовит его перед каждым запуском, запомнит <b>чёткость, руки, вибрацию и режим совместимости</b> для каждой игры, а заряд шлема и контроллеров покажет прямо в верхней панели.
+</p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/ru/profile.webp" width="100%" alt="Трофеи. Выбейте платину. От ретро до AAA. Профиль PlayOS и страница игры с HowLongToBeat и историей сессий.">
+</p>
+
+<p align="center">
+  Охотитесь за платиной? <b>RetroAchievements приносят трофеи в классику PlayStation&nbsp;2</b>, а <b>достижения Steam — в игры для PC</b>, в том числе через эмуляторы Steam. Соберите все трофеи игры — и платина ваша. Трофеи появляются в момент получения, в списке остаётся скриншот этого момента, а каждая сессия идёт в общее время игры — с HowLongToBeat на странице игры.
 </p>
 
 <p align="center"><a href="docs/FAQ.md#трофеи">Подробнее о трофеях&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/ru/community.webp" width="100%" alt="Сообщество. PlayOS строите вы. Предложите идею. Ваша идея, обсуждаем, выходит в обновлении.">
+</p>
+
+<p align="center">
+  PlayOS — открытый проект, который растёт из пожеланий игроков. <b>Предложите идею в <a href="https://github.com/fakem1nk/PlayOS/discussions">Discussions</a></b> или сообщите об ошибке в <a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Issues</a> — она может появиться уже в следующем обновлении.
+</p>
+
+<p align="center"><a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Предложить идею&nbsp;›</a></p>
 
 <br>
 

@@ -31,29 +31,17 @@
 
 <a name="overview"></a>
 <p align="center">
-  <img src="docs/assets/readme/en/stats.webp" width="100%" alt="The highlights. 5 kinds of games in one library: PC, Steam, PS2, PS3 and VR. 1 button pauses any game: PS, Guide or Select + Start. 30 versions of every save kept in the cloud. 3 ways to sync: Yandex Disk, Google Drive or a folder.">
+  <img src="docs/assets/readme/en/stats.webp" width="100%" alt="The highlights. 5 kinds of games in one library: PC, Steam, PS2, PS3 and VR. Its own overlay with handy tools over any game. Up to 30 versions of every save, kept in your cloud. 3 ways to sync: Yandex Disk, Google Drive or a folder.">
 </p>
 
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/en/library.webp" width="100%" alt="Library. All your games. One place. The PlayOS library with PC, PlayStation 2 and PlayStation 3 games.">
+  <img src="docs/assets/readme/en/controls.webp" width="100%" alt="Controllers. Any controller. No Big Picture. DualSense, DualShock 4, Xbox, 8BitDo, Nintendo, DirectInput, keyboard and mouse.">
 </p>
 
 <p align="center">
-  PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR games side by side. <b>Steam games, disc images and the RPCS3 list import in one go</b>; for anything else, pick a folder and PlayOS finds the EXE. Covers, backgrounds and logos arrive on their own, and <b>search, collections and sorting</b> are a stick flick away. You can even uninstall a game without leaving the couch.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#games">Learn more about games&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/controls.webp" width="100%" alt="Controls. Made for the couch. Not the desk. DualSense, DualShock 4, Xbox, 8BitDo, Nintendo, DirectInput, keyboard and mouse.">
-</p>
-
-<p align="center">
-  DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo and older DirectInput pads, with a button mapper for the unusual ones. <b>Button hints follow the pad in your hands</b> and whatever is selected. An on-screen keyboard, menu vibration and right-stick scrolling are built in, and <b>the mouse and keyboard share one focus</b> with the controller.
+  <b>Every controller works across PlayOS and its overlay — no Steam Big Picture needed.</b> DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo and older DirectInput pads, with a button mapper for the unusual ones. Button hints follow the pad in your hands, and an on-screen keyboard, menu vibration and right-stick scrolling are built in. The mouse and keyboard share one focus with the controller.
 </p>
 
 <p align="center"><a href="docs/FAQ.en.md#controls">See the controls&nbsp;›</a></p>
@@ -61,33 +49,11 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/en/overlay.webp" width="100%" alt="In-game menu. Press PS. The game waits. The PlayOS overlay over a paused PlayStation 2 game with quick saves and the control center.">
+  <img src="docs/assets/readme/en/cloud.webp" width="100%" alt="Cloud saves. Your saves. Only in your cloud. This PC and another PC sync through your own cloud: Yandex Disk, Google Drive or a sync folder. No PlayOS servers.">
 </p>
 
 <p align="center">
-  The <b>PS or Guide button</b>, Select&nbsp;+&nbsp;Start or Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H pauses the game and opens <b>quick saves with screenshots</b>, session time, volume, audio output, brightness and controller battery. PCSX2 saves land in the right slot over PINE. Don't want the menu in a particular game? Turn it off just there.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#controller-and-overlay">Learn more about the overlay&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/vr.webp" width="100%" alt="VR. Put it on. Press play. Meta Quest over Link and Air Link, with headset and controller battery in the top bar.">
-</p>
-
-<p align="center">
-  Mark any PC game as a VR game and play it on <b>Meta&nbsp;Quest over Link or Air&nbsp;Link</b>. PlayOS downloads OpenComposite and prepares it before every launch, remembers <b>sharpness, hands, vibration and compatibility mode</b> for each game, and shows the headset and controller battery right in the top bar.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/cloud.webp" width="100%" alt="Cloud saves. Your saves. On every PC. Yandex Disk, Google Drive and sync folder in the PlayOS settings.">
-</p>
-
-<p align="center">
-  Saves, library, play time and profile on <b>Yandex Disk, Google Drive or a sync folder</b>. PC saves are found through the Ludusavi database, <b>up to 30 versions</b> of each are kept, and when two PCs disagree, you choose. On a new PC everything comes back — or move it all with a single <code>.playos</code> backup file.
+  Saves of PS2, PS3 and PC games, along with your library, play time and profile, go to <b>your own Yandex Disk, Google Drive or sync folder</b>. PlayOS has no servers of its own, and on Yandex Disk and Google Drive it can only see its own folder. PC saves are found through the Ludusavi database, <b>up to 30 versions</b> of each are kept, and when two PCs disagree, you choose. Steam games stay with Steam Cloud.
 </p>
 
 <p align="center"><a href="docs/FAQ.en.md#cloud-saves">Learn more about cloud saves&nbsp;›</a></p>
@@ -95,14 +61,60 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/en/profile.webp" width="100%" alt="Trophies and play time. Every hour. Every trophy. The PlayOS profile and a game page with HowLongToBeat and session history.">
+  <img src="docs/assets/readme/en/library.webp" width="100%" alt="Library. Every game on your PC. In one place. The PlayOS library with PC, PlayStation 2 and PlayStation 3 games.">
 </p>
 
 <p align="center">
-  Every session counts, even through third-party launchers. The game page shows <b>HowLongToBeat</b>, session history and two weeks of activity. <b>RetroAchievements for PS2 and Steam achievements for PC</b> — including games on Steam emulators — pop up the moment they unlock, and the trophy list keeps a screenshot of that moment.
+  PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR games side by side in one launcher. <b>Steam games, disc images and the RPCS3 list import in one go</b>; for anything else, pick a folder and PlayOS finds the EXE. Covers, backgrounds and logos arrive on their own, and <b>search, collections and sorting</b> are a stick flick away. You can even uninstall a game without leaving the couch.
+</p>
+
+<p align="center"><a href="docs/FAQ.en.md#games">Learn more about games&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/en/overlay.webp" width="100%" alt="Its own overlay. Press PS. The game waits. The PlayOS overlay over a paused PlayStation 2 game with quick saves and the control center.">
+</p>
+
+<p align="center">
+  The <b>PS or Guide button</b>, Select&nbsp;+&nbsp;Start or Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H pauses the game and opens <b>quick saves with screenshots</b>, session time, volume, audio output, brightness and controller battery. PCSX2 saves land in the right slot over PINE. Don't want the overlay in a particular game? Turn it off just there.
+</p>
+
+<p align="center"><a href="docs/FAQ.en.md#controller-and-overlay">Learn more about the overlay&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/en/vr.webp" width="100%" alt="Built-in VR. Put it on. Press play. Meta Quest over Link and Air Link, with headset and controller battery in the top bar.">
+</p>
+
+<p align="center">
+  VR is built into PlayOS: mark any PC game as a VR game and play it on <b>Meta&nbsp;Quest over Link or Air&nbsp;Link</b>. PlayOS downloads the open-source OpenComposite runtime and prepares it before every launch, remembers <b>sharpness, hands, vibration and compatibility mode</b> for each game, and shows the headset and controller battery right in the top bar.
+</p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/en/profile.webp" width="100%" alt="Trophies. Go for platinum. From retro to AAA. The PlayOS profile and a game page with HowLongToBeat and session history.">
+</p>
+
+<p align="center">
+  Chasing a platinum? <b>RetroAchievements bring trophies to PlayStation&nbsp;2 classics</b>, and <b>Steam achievements cover PC games</b>, including games running on Steam emulators. Collect every trophy in a game and its platinum is yours. Trophies pop up the moment they unlock, the trophy list keeps a screenshot of that moment, and every session counts toward your play time, with HowLongToBeat on the game page.
 </p>
 
 <p align="center"><a href="docs/FAQ.en.md#trophies">Learn more about trophies&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/en/community.webp" width="100%" alt="Community. Built by players. Share your idea. Your idea, we talk it over, it ships.">
+</p>
+
+<p align="center">
+  PlayOS is open source and grows from what players ask for. <b>Share an idea in <a href="https://github.com/fakem1nk/PlayOS/discussions">Discussions</a></b> or report a bug in <a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Issues</a> — it might land in the very next update.
+</p>
+
+<p align="center"><a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Suggest an idea&nbsp;›</a></p>
 
 <br>
 
