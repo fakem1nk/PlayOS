@@ -5,17 +5,23 @@
       "Экран установки обновления: Тиви собирает обновление, пока идёт установка",
       "После обновления Тиви радуется и показывает, какая версия установлена",
       "Короткий звук, когда обновление установилось",
-      "Новый спиннер загрузки у Тиви"
+      "Новый спиннер загрузки у Тиви",
+      "Размер Тиви на вкладке «Недавние»: «Настройки → Экран»"
     ],
-    "fixed": []
+    "fixed": [
+      "Тиви гладится, только когда курсор водят по нему"
+    ]
   },
   "en": {
     "new": [
       "Update install screen: Tivi assembles the update while it installs",
       "After an update, Tivi celebrates and shows the installed version",
       "A short chime when the update is installed",
-      "A new loading spinner for Tivi"
+      "A new loading spinner for Tivi",
+      "Tivi size on the Recent tab: Settings → Display"
     ],
-    "fixed": []
+    "fixed": [
+      "Petting Tivi only counts while the cursor moves over him"
+    ]
   }
 }
