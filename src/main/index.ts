@@ -732,6 +732,8 @@ function createWindow() {
     show: false,
     backgroundColor: lightTheme() ? '#f5f6f9' : '#04060c',
     title: 'PlayOS',
+    // В dev окно иначе получает значок electron.exe; в сборке значок берётся из exe
+    ...(app.isPackaged ? {} : { icon: path.join(app.getAppPath(), 'build', 'icon.ico') }),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
