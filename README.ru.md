@@ -14,12 +14,16 @@
 
 <p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
 
-**PlayOS** — игровой лаунчер с открытым исходным кодом, который превращает компьютер на Windows в приставку: одно место для всех ваших игр и полное управление геймпадом. PlayOS написан на TypeScript (Electron, React, Node.js), общается с Windows через koffi и с DualSense по HID, а игры PlayStation&nbsp;2 и PlayStation&nbsp;3 запускает через PCSX2 и RPCS3.
+**PlayOS** — игровой лаунчер с открытым исходным кодом, который превращает компьютер на Windows в приставку: одно место для всех ваших игр — PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR — с полным управлением геймпадом, меню поверх игры, облачными сохранениями и настоящими трофеями. Интерфейс на русском и английском.
+
+PlayOS написан на TypeScript (Electron, React, Node.js). Он общается с Windows через koffi и с DualSense по HID, игры PlayStation&nbsp;2 и PlayStation&nbsp;3 запускает через PCSX2 и RPCS3, а VR-игры для PC — на Meta&nbsp;Quest через OpenComposite.
 
 <p align="center">
   <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Скачать для Windows</b></a>
   &nbsp;·&nbsp;
   <a href="#возможности">Возможности</a>
+  &nbsp;·&nbsp;
+  <a href="#с-чего-начать">С чего начать</a>
   &nbsp;·&nbsp;
   <a href="docs/FAQ.md">F.A.Q</a>
   &nbsp;·&nbsp;
@@ -39,51 +43,80 @@
     <td width="50%" valign="top">
       <img src="docs/assets/icons/library.svg" width="48" height="48" alt=""><br>
       <b>Одна библиотека для всего</b><br>
-      Игры PC и Steam, PlayStation&nbsp;2 через PCSX2 и PlayStation&nbsp;3 через RPCS3. Игры Steam и образы дисков находятся и узнаются сами.
+      Игры PC и Steam, PlayStation&nbsp;2 через PCSX2, PlayStation&nbsp;3 через RPCS3 и VR-игры. Игры Steam, образы PS2 и список игр RPCS3 импортируются разом; для любой другой игры достаточно выбрать папку — PlayOS сам найдёт EXE. Поиск с геймпада, свои подборки, сортировка и удаление игр с компьютера прямо из PlayOS.
     </td>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/controller.svg" width="48" height="48" alt=""><br>
       <b>Создан под геймпад</b><br>
-      DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo и старые геймпады DirectInput. Подсказки кнопок подстраиваются под геймпад в руках, клавиатура тоже работает.
+      DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo и старые геймпады DirectInput — для необычных есть настройка кнопок. Подсказки подстраиваются под геймпад в руках и под то, что выбрано. Экранная клавиатура, вибрация в меню и прокрутка правым стиком на месте, а мышь и клавиатура делят один фокус с геймпадом.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/overlay.svg" width="48" height="48" alt=""><br>
       <b>Меню поверх любой игры</b><br>
-      Кнопка PS или Guide ставит игру на паузу и открывает сохранения со скриншотами, громкость, вывод звука, яркость и заряд.
+      Кнопка PS или Guide, Select&nbsp;+&nbsp;Start или Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H ставят игру на паузу и открывают быстрые сохранения со скриншотами, время сессии, громкость, вывод звука, яркость и заряд геймпада. В PCSX2 сохранения попадают точно в нужный слот через PINE. Для отдельной игры меню можно выключить.
     </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/icons/vr.svg" width="48" height="48" alt=""><br>
+      <b>VR-игры</b><br>
+      Отметьте любую игру для PC как VR-игру и играйте на Meta&nbsp;Quest по Link или Air&nbsp;Link. PlayOS сам скачает VR-компонент и подготовит его перед каждым запуском, хранит чёткость, руки, вибрацию и режим совместимости для каждой игры, а заряд шлема и контроллеров показывает в верхней панели.
+    </td>
+  </tr>
+  <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/cloud.svg" width="48" height="48" alt=""><br>
       <b>Облачные сохранения</b><br>
-      Сохранения, библиотека, время в играх и профиль на Яндекс Диске, Google Drive или в папке синхронизации. Хранится до 30 версий каждого сохранения, после переустановки всё возвращается.
+      Сохранения, библиотека, время в играх и профиль на Яндекс Диске, Google Drive или в папке синхронизации. Сохранения игр PC находятся по базе Ludusavi, хранится до 30 версий каждого, а на новом компьютере всё возвращается. Удобнее файлом? Всё переносит одна копия <code>.playos</code>.
     </td>
-  </tr>
-  <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/trophy.svg" width="48" height="48" alt=""><br>
       <b>Настоящие трофеи</b><br>
-      RetroAchievements для PS2 и достижения Steam для PC, с уведомлениями прямо поверх игры.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/playtime.svg" width="48" height="48" alt=""><br>
-      <b>Время и история</b><br>
-      Каждая сессия на счету, даже через сторонние лаунчеры. HowLongToBeat показывает, сколько игры уже пройдено.
+      RetroAchievements для PS2 и достижения Steam для PC, в том числе в играх через эмуляторы Steam. Уведомление появляется в момент получения, а в списке трофеев остаётся скриншот этого момента. Каждый ключ PlayOS помогает получить по шагам.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
+      <img src="docs/assets/icons/playtime.svg" width="48" height="48" alt=""><br>
+      <b>Время и история</b><br>
+      Каждая сессия на счету, даже через сторонние лаунчеры. На странице игры — история сессий, активность за две недели и HowLongToBeat; в профиле — игры, в которые вы играли больше всего, последние трофеи и собственные трофеи PlayOS.
+    </td>
+    <td width="50%" valign="top">
       <img src="docs/assets/icons/art.svg" width="48" height="48" alt=""><br>
       <b>Живой главный экран</b><br>
-      Обложки, фоны и логотипы загружаются сами. Меню и подсветка DualSense берут цвет игры, а фон оживает трейлером.
+      Обложки, фоны и логотипы сами загружаются из Steam, SteamGridDB и Википедии. Меню и подсветка DualSense берут цвет игры, фон оживает беззвучным трейлером, а заставка с часами бережёт OLED-экраны.
     </td>
+  </tr>
+  <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/tv.svg" width="48" height="48" alt=""><br>
       <b>Готов к телевизору</b><br>
-      Выбор монитора для PlayOS и эмуляторов, масштаб интерфейса для дивана, тёмная и светлая темы, стриминг через Moonlight.
+      Выбор экрана для PlayOS и эмуляторов, масштаб интерфейса для дивана, тёмная, светлая или системная тема. PlayOS запускается вместе с Windows, дружит с Moonlight и ждёт в трее — вернуть его можно кнопкой PS.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/icons/bell.svg" width="48" height="48" alt=""><br>
+      <b>Не мешает играть</b><br>
+      Пока идёт игра, PlayOS выгружает свой интерфейс и работает в режиме эффективности Windows. Ошибки, трофеи и обновления ждут в центре уведомлений. Обновления скачиваются в фоне и приходят с коротким списком изменений на вашем языке, бета-версии — по желанию.
     </td>
   </tr>
 </table>
+
+## С чего начать
+
+1. Скачайте `PlayOS-Setup-<версия>.exe` из [последнего релиза](https://github.com/fakem1nk/PlayOS/releases/latest) и запустите. Если SmartScreen остановит установку, нажмите «Подробнее» → «Выполнить в любом случае» ([почему так](docs/FAQ.md#windows-пишет-система-windows-защитила-ваш-компьютер)).
+2. Короткая первая настройка спросит имя и язык, подключит облако, найдёт игры, подскажет путь к эмуляторам и поможет выбрать экран и громкость. Любой шаг можно пропустить и поменять потом в настройках.
+3. Готово: дальше PlayOS обновляется сам.
+
+| Чтобы играть | Что нужно |
+| --- | --- |
+| В игры PC и Steam | Windows 10 или 11, 64-бит |
+| В игры PlayStation&nbsp;2 | [PCSX2](https://pcsx2.net), свой BIOS и образы дисков |
+| В игры PlayStation&nbsp;3 | [RPCS3](https://rpcs3.net) и прошивка PS3 |
+| В VR-игры | Meta&nbsp;Quest и приложение Meta Horizon Link |
+| С подсветкой DualSense | [DSX](https://store.steampowered.com/app/1812620/DSX/) |
+| С трофеями и обложками почти для всех игр | Бесплатные ключи RetroAchievements, Steam Web API и SteamGridDB (необязательно) |
+
+Управление, настройка эмуляторов и частые проблемы — в [F.A.Q](docs/FAQ.md).
 
 ## Участники
 
@@ -97,4 +130,4 @@
 
 PlayOS распространяется по лицензии [GPL-3.0](LICENSE).
 
-<sub>PlayOS — независимый проект, не связанный с Sony Interactive Entertainment, Valve и Microsoft. PlayStation, DualSense, Steam и Xbox — товарные знаки их владельцев. Обложки на скриншоте принадлежат правообладателям игр. Эмуляторы, BIOS и игры в комплект не входят.</sub>
+<sub>PlayOS — независимый проект, не связанный с Sony Interactive Entertainment, Valve, Microsoft и Meta. PlayStation, DualSense, Steam, Xbox и Meta&nbsp;Quest — товарные знаки их владельцев. Обложки на скриншоте принадлежат правообладателям игр. Эмуляторы, BIOS и игры в комплект не входят.</sub>

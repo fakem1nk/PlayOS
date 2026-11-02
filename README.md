@@ -14,12 +14,16 @@
 
 <p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
 
-**PlayOS** is an open-source game launcher built to turn a Windows PC into a console: one place for every game you own, driven entirely by a controller. PlayOS is written in TypeScript (Electron, React, Node.js); it talks to Windows through koffi and to the DualSense over HID, and plays PlayStation&nbsp;2 and PlayStation&nbsp;3 games through PCSX2 and RPCS3.
+**PlayOS** is an open-source game launcher built to turn a Windows PC into a console: one place for every game you own — PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR — driven entirely by a controller, with an in-game menu, cloud saves and real trophies. The interface speaks English and Russian.
+
+PlayOS is written in TypeScript (Electron, React, Node.js). It talks to Windows through koffi and to the DualSense over HID, plays PlayStation&nbsp;2 and PlayStation&nbsp;3 games through PCSX2 and RPCS3, and runs PC VR games on Meta&nbsp;Quest through OpenComposite.
 
 <p align="center">
   <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Download for Windows</b></a>
   &nbsp;·&nbsp;
   <a href="#features">Features</a>
+  &nbsp;·&nbsp;
+  <a href="#getting-started">Getting started</a>
   &nbsp;·&nbsp;
   <a href="docs/FAQ.en.md">F.A.Q</a>
   &nbsp;·&nbsp;
@@ -39,51 +43,80 @@
     <td width="50%" valign="top">
       <img src="docs/assets/icons/library.svg" width="48" height="48" alt=""><br>
       <b>One library for everything</b><br>
-      PC games, Steam, PlayStation&nbsp;2 through PCSX2 and PlayStation&nbsp;3 through RPCS3. Steam games and disc images are found and recognized on their own.
+      PC games, Steam, PlayStation&nbsp;2 through PCSX2, PlayStation&nbsp;3 through RPCS3 and VR games. Steam games, PS2 disc images and the RPCS3 game list are imported in one go; for any other game, pick its folder and PlayOS finds the EXE. Search from the controller, your own collections, sorting, and uninstalling games right from PlayOS.
     </td>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/controller.svg" width="48" height="48" alt=""><br>
       <b>Made for a controller</b><br>
-      DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo and old DirectInput pads. Button hints follow the pad in your hands, and a keyboard works too.
+      DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo and old DirectInput pads, with a button mapper for the unusual ones. Button hints follow the pad in your hands and what is selected. An on-screen keyboard, menu vibration and right-stick scrolling are built in, and the mouse and keyboard share one focus with the controller.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/overlay.svg" width="48" height="48" alt=""><br>
       <b>A menu over any game</b><br>
-      The PS or Guide button pauses the game and opens save states with screenshots, volume, audio output, brightness and battery.
+      The PS or Guide button, Select&nbsp;+&nbsp;Start or Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H pauses the game and opens quick saves with screenshots, session time, volume, audio output, brightness and controller battery. PCSX2 saves go straight to the right slot over PINE. The menu can be turned off for a single game.
     </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/icons/vr.svg" width="48" height="48" alt=""><br>
+      <b>VR games</b><br>
+      Mark any PC game as a VR game and play it on a Meta&nbsp;Quest over Link or Air&nbsp;Link. PlayOS downloads the VR component and prepares it before every launch, keeps sharpness, hands, vibration and a compatibility mode for each game, and shows the headset and controller battery in the top bar.
+    </td>
+  </tr>
+  <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/cloud.svg" width="48" height="48" alt=""><br>
       <b>Cloud saves and sync</b><br>
-      Saves, library, play time and profile on Yandex Disk, Google Drive or a sync folder. Up to 30 versions of each save are kept, and a fresh install brings everything back.
+      Saves, library, play time and profile on Yandex Disk, Google Drive or in a sync folder. PC saves are found through the Ludusavi database, up to 30 versions of each save are kept, and on a new PC everything comes back. Prefer a file? A single <code>.playos</code> backup moves it all.
     </td>
-  </tr>
-  <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/trophy.svg" width="48" height="48" alt=""><br>
       <b>Real trophies</b><br>
-      RetroAchievements for PS2 and Steam achievements for PC, with notifications right over the game.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/playtime.svg" width="48" height="48" alt=""><br>
-      <b>Play time and history</b><br>
-      Every session is counted, even through third-party launchers. HowLongToBeat shows how far through the game you are.
+      RetroAchievements for PS2 and Steam achievements for PC, including games running through Steam emulators. A notification pops up the moment a trophy unlocks, and the trophy list keeps a screenshot of that moment. PlayOS walks you through getting every key.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
+      <img src="docs/assets/icons/playtime.svg" width="48" height="48" alt=""><br>
+      <b>Play time and history</b><br>
+      Every session is counted, even through third-party launchers. The game page shows the session history, two weeks of activity and HowLongToBeat; the profile shows your most played games, recent trophies and PlayOS's own trophies.
+    </td>
+    <td width="50%" valign="top">
       <img src="docs/assets/icons/art.svg" width="48" height="48" alt=""><br>
       <b>A living home screen</b><br>
-      Covers, backgrounds and logos download on their own. The menu and the DualSense light bar take the color of the game, and the background turns into a trailer.
+      Covers, backgrounds and logos come from Steam, SteamGridDB and Wikipedia on their own. The menu and the DualSense light bar take the color of the game, the background turns into a silent trailer, and a screensaver with a clock looks after OLED screens.
     </td>
+  </tr>
+  <tr>
     <td width="50%" valign="top">
       <img src="docs/assets/icons/tv.svg" width="48" height="48" alt=""><br>
       <b>Ready for the TV</b><br>
-      Pick the display for PlayOS and for emulators, scale the interface for the couch, switch between dark and light themes, stream through Moonlight.
+      Pick the display for PlayOS and for emulators, scale the interface for the couch, choose a dark, light or system theme. Start PlayOS with Windows, stream through Moonlight, or keep it in the tray and bring it back with the PS button.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/icons/bell.svg" width="48" height="48" alt=""><br>
+      <b>Stays out of the way</b><br>
+      While you play, PlayOS unloads its interface and runs in Windows efficiency mode. Errors, trophies and updates wait in the Notification Center. Updates download in the background with a short list of changes in your language; beta versions are opt-in.
     </td>
   </tr>
 </table>
+
+## Getting started
+
+1. Download `PlayOS-Setup-<version>.exe` from the [latest release](https://github.com/fakem1nk/PlayOS/releases/latest) and run it. If Windows SmartScreen stops it, click “More info” → “Run anyway” ([why](docs/FAQ.en.md#windows-says-windows-protected-your-pc)).
+2. A short first setup asks for your name and language, connects the cloud, finds your games, points to the emulators and picks the display and volume. Any step can be skipped and changed later in Settings.
+3. That's it: from now on PlayOS updates itself.
+
+| To play | You need |
+| --- | --- |
+| PC and Steam games | Windows 10 or 11, 64-bit |
+| PlayStation&nbsp;2 games | [PCSX2](https://pcsx2.net), your BIOS and disc images |
+| PlayStation&nbsp;3 games | [RPCS3](https://rpcs3.net) and the PS3 firmware |
+| VR games | Meta&nbsp;Quest and the Meta Horizon Link app |
+| With the DualSense light bar | [DSX](https://store.steampowered.com/app/1812620/DSX/) |
+| With trophies and art for almost any game | Free RetroAchievements, Steam Web API and SteamGridDB keys (optional) |
+
+Controls, emulator settings and common problems are in the [F.A.Q](docs/FAQ.en.md).
 
 ## Contributors
 
@@ -97,4 +130,4 @@ Want to help? Start with the [developer guide](docs/DEVELOPMENT.md). Ideas and b
 
 PlayOS is licensed under the [GPL-3.0](LICENSE) license.
 
-<sub>PlayOS is an independent project and is not affiliated with Sony Interactive Entertainment, Valve or Microsoft. PlayStation, DualSense, Steam and Xbox are trademarks of their respective owners. Game covers in the screenshot belong to their rights holders. Emulators, BIOS files and games are not included.</sub>
+<sub>PlayOS is an independent project and is not affiliated with Sony Interactive Entertainment, Valve, Microsoft or Meta. PlayStation, DualSense, Steam, Xbox and Meta&nbsp;Quest are trademarks of their respective owners. Game covers in the screenshot belong to their rights holders. Emulators, BIOS files and games are not included.</sub>
