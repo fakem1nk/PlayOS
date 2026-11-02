@@ -332,6 +332,12 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 ]}
                 onChange={(v) => save({ screensaver: Number(v) })}
               />
+              <Toggle
+                label={t('Маскот Тиви')}
+                hint={t('Телевизор с лицом в правом нижнем углу: следит за фокусом, радуется играм и трофеям, засыпает без дела')}
+                value={s.tivi !== false}
+                onChange={(v) => save({ tivi: v })}
+              />
               <div className="note">{t('F11 — переключить окно и весь экран.')}</div>
             </>
           )}

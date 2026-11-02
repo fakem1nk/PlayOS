@@ -693,6 +693,9 @@ export const EN: Record<string, string> = {
   'Скачано и установится при выходе из PlayOS. Можно обновиться сразу.': 'Downloaded and installs when you quit PlayOS. You can update right now.',
   'Уведомления': 'Notifications',
   'Тиви': 'Tivi',
+  'Маскот Тиви': 'Tivi mascot',
+  'Телевизор с лицом в правом нижнем углу: следит за фокусом, радуется играм и трофеям, засыпает без дела':
+    'A TV with a face in the bottom-right corner: follows the focus, cheers for games and trophies, and dozes off when nothing is going on',
   'Уведомления: новых {n}': 'Notifications: {n} new',
   'Очистить': 'Clear',
   'Вчера, {time}': 'Yesterday, {time}',

@@ -4,8 +4,8 @@
  * Строки 0–3 — глаза, 5–7 — рот. Движений-переходов нет: экран просто сменяет кадры.
  */
 
-/** Рывок всем телом: вздрогнуть, подпрыгнуть, искра на антенне блеснёт */
-export type TiviMove = 'shake' | 'hop' | 'twinkle'
+/** Рывок всем телом: вздрогнуть, подпрыгнуть, потянуться вверх, искра на антенне блеснёт, помахать антенной с шариком */
+export type TiviMove = 'shake' | 'hop' | 'stretch' | 'twinkle' | 'wave'
 export type Grid = readonly string[]
 export interface Gaze {
   x: number
@@ -186,6 +186,8 @@ const yawn1 = rows(drowsy, { 5: '.......#.......', 6: '......#.#......', 7: '...
 const SHUT = rows(BLANK, { 3: '..###.....###..' })
 const yawn2 = rows(SHUT, { 5: '......###......', 6: '......#.#......', 7: '......###......' })
 const yawn3 = rows(SHUT, { 5: '.....#####.....', 6: '.....#...#.....', 7: '.....#####.....' })
+// Потягивается: зажмурился, рот зевком
+const stretchFace: Grid = [...SQUINT_EYES, '...............', '......###......', '......#.#......', '......###......']
 const xx: Grid = [
   '...............',
   '..#.#.....#.#..',
@@ -223,6 +225,68 @@ const SPIN = SPIN_AT.map((_, k) =>
   ])
 )
 
+/**
+ * Понг сам с собой: ракетки по краям ходят за мячом, посередине пунктир сетки. Пара отбоев, потом правая
+ * ракетка зевает и пропускает — розыгрыш одинаковый при каждом запуске
+ */
+const PONG = (() => {
+  const H = 3
+  const out: Grid[] = []
+  let bx = 7
+  let by = 2
+  let vx = 1
+  let vy = 1
+  let ly = 2
+  let ry = 3
+  let lazy = false
+  const covers = (top: number, y: number) => y >= top && y < top + H
+  const toward = (top: number, y: number) => Math.max(0, Math.min(ROWS - H, top + Math.sign(y - 1 - top)))
+  const draw = (ball: boolean) => {
+    const g = BLANK.map((r) => [...r])
+    for (let y = 1; y < ROWS; y += 2) g[y][7] = 'd'
+    for (let i = 0; i < H; i++) {
+      g[ly + i][0] = '#'
+      g[ry + i][COLS - 1] = '#'
+    }
+    if (ball) g[by][bx] = '#'
+    return g.map((r) => r.join(''))
+  }
+  for (let k = 0; k < 80; k++) {
+    out.push(draw(true))
+    if (bx === 0 || bx === COLS - 1) break
+    let ny = by + vy
+    if (ny < 0 || ny >= ROWS) {
+      vy = -vy
+      ny = by + vy
+    }
+    let nx = bx + vx
+    if (nx === 0 && covers(ly, ny)) {
+      vx = 1
+      nx = 2
+      if (k > 20) lazy = true
+    } else if (nx === COLS - 1 && covers(ry, ny)) {
+      vx = -1
+      nx = COLS - 3
+    }
+    if (vx < 0) ly = toward(ly, ny)
+    else if (!lazy) ry = toward(ry, ny)
+    bx = nx
+    by = ny
+  }
+  return { frames: out, missed: draw(false) }
+})()
+
+/**
+ * Полоска загрузки обновления вместо рта: глаза следят за её краем, а следующая клетка мигает — значит, идёт.
+ * tick — фаза мигания
+ */
+export function loadFace(percent: number, tick: boolean): Grid {
+  const n = Math.round((Math.max(0, Math.min(100, percent)) / 100) * 11)
+  const bar = '..' + Array.from({ length: 11 }, (_, i) => (i < n || (i === n && tick) ? '#' : 'd')).join('') + '..'
+  const eyes = shift(['...##.....##...', '...##.....##...'], Math.round((n / 11) * 4) - 2)
+  return ['...............', '...............', ...eyes, '...............', bar, bar, '...............']
+}
+
 /** Лица, которые поворачиваются за взглядом и моргают */
 export const FREE = new Set<Grid>([idle, neutral, drowsy])
 
@@ -238,7 +302,9 @@ export const SPRITES = {
   heartS: ['p.p', 'ppp', '.p.'],
   spark: ['..y..', '.yyy.', 'yyyyy', '.yyy.', '..y..'],
   sparkS: ['.y.', 'yyy', '.y.'],
-  note: ['..v.', '..vv', '..v.', 'vvv.', 'vv..']
+  note: ['..v.', '..vv', '..v.', 'vvv.', 'vv..'],
+  // Ночной колпак между антеннами: кончик с помпоном свисает вправо
+  cap: ['......##', '.....v##', '....vv..', '...vvv..', '..vvvv..', '..vvvv..', '.######.']
 } satisfies Record<string, string[]>
 export type Sprite = keyof typeof SPRITES
 
@@ -268,6 +334,8 @@ const notes = (face: Grid, faceB: Grid): Frame[] => [
   f(face, 320, { fx: [fx('note', 228, 28)] }),
   f(faceB, 320)
 ]
+const STRETCH: Frame[] = [f(drowsy, 300), f(stretchFace, 900, { move: 'stretch' }), f(happy, 600)]
+const WAVE: Frame[] = [f(happyOpen, 450, { move: 'wave' }), f(happy, 600)]
 const ask = (face: Grid): Frame[] => [
   f(face, 160, { fx: [fx('ask', 230, 42)] }),
   f(face, 160, { fx: [fx('ask', 230, 34)] }),
@@ -304,6 +372,16 @@ export const SCRIPTS = {
   },
   vr: { intro: [f(coolHalf, 80), f(cool, 1600, { move: 'twinkle' })], outro: [f(coolHalf, 80)] },
   wake: { intro: [f(wow, 450), f(idle, 60)] },
+  // Приветствие: первый запуск за день — машет антенной, утром сперва потягивается; не виделись три дня — бурно радуется
+  wave: { intro: WAVE },
+  morning: { intro: [...STRETCH, ...WAVE] },
+  missed: {
+    intro: [f(wow, 450, { move: 'hop' }), f(laugh, 240, { move: 'hop' }), f(laughShut, 240), f(laugh, 240, { move: 'hop' }), f(laughShut, 240), ...WAVE],
+    loop: hearts(love),
+    outro: [f(happy, 500)]
+  },
+  // Гладят: зажали на нём и водят — жмурится, краснеет, вылетают сердечки
+  pet: { intro: [f(blush, 100)], loop: hearts(blush) },
   off: { intro: [f(idle, 80), ...CRT.map((c, i) => f(c, i ? 70 : 60))], loop: [f(BLANK, 8000)] },
   // Сам по себе
   glance: {
@@ -315,6 +393,11 @@ export const SCRIPTS = {
   think: { intro: [f(neutral, 500, { gaze: LEFT_UP })], loop: [f(DOTS[0], 260), f(DOTS[1], 260), f(DOTS[2], 520)], outro: [f(idle, 80)] },
   wonder: { intro: ask(confused) },
   yawn: { intro: [f(yawn1, 260), f(yawn2, 240), f(yawn3, 950), f(yawn2, 200), f(drowsy, 350)] },
+  stretch: { intro: STRETCH },
+  pong: {
+    intro: [f(idle, 450, { gaze: { x: -1, y: 1 } }), f(STATIC[1], 50), ...PONG.frames.map((g) => f(g, 75)), f(PONG.missed, 320), f(STATIC[2], 50), f(laugh, 240, { move: 'hop' }), f(laughShut, 200), f(laugh, 400)],
+    outro: [f(STATIC[0], 50)]
+  },
   glitch: { intro: [f(STATIC[0], 50), f(shift(idle, 2), 70), f(STATIC[2], 40), f(shift(idle, -1), 60), f(idle, 60)] },
   nod: { intro: [f(sleep, 1700), f(wow, 220, { move: 'shake' })] },
   drool: { intro: [f(drool, 700), f(dots(drool, [[6, 6, 'b']]), 500), f(dots(drool, [[6, 6, 'b'], [6, 7, 'b']]), 1500), f(wow, 220)] }
@@ -348,8 +431,11 @@ export const IDLE_ACTS: [ScriptName, number][] = [
   ['shades', 2],
   ['yawn', 2],
   ['tongue', 1],
+  ['pong', 2],
   ['glitch', 1]
 ]
+/** Утром к своим делам добавляется потягивание */
+export const MORNING_ACTS: [ScriptName, number][] = [['stretch', 3]]
 export const DROWSY_ACTS: [ScriptName, number][] = [
   ['nod', 3],
   ['drool', 2],

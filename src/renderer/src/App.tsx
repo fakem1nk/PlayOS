@@ -507,7 +507,7 @@ export function App() {
           </main>
 
           <footer className="hints">{hints}</footer>
-          <Tivi playing={!!runningGame} />
+          {state.settings.tivi !== false && <Tivi playing={!!runningGame} greet={!booting} />}
         </motion.div>
 
         <AnimatePresence>

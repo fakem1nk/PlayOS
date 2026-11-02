@@ -48,6 +48,21 @@
   animation: tivi-twinkle 0.6s step-end;
 }
 
+/* Потягивается от пола, машет левой антенной от её основания */
+.tivi svg.is-stretch {
+  transform-origin: 50% 100%;
+  animation: tivi-stretch 0.9s step-end;
+}
+
+.tivi-ant-l {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+}
+
+.tivi svg.is-wave .tivi-ant-l {
+  animation: tivi-wave 0.96s step-end;
+}
+
 @keyframes tivi-shake {
   0% {
     transform: translateX(-0.25rem);
@@ -102,9 +117,45 @@
   }
 }
 
+@keyframes tivi-stretch {
+  0% {
+    transform: scale(0.98, 1.03);
+  }
+  15% {
+    transform: scale(0.96, 1.07);
+  }
+  70% {
+    transform: scale(0.98, 1.03);
+  }
+  85%,
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes tivi-wave {
+  0% {
+    transform: rotate(-24deg);
+  }
+  25% {
+    transform: rotate(10deg);
+  }
+  50% {
+    transform: rotate(-24deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+  90%,
+  100% {
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tivi svg,
-  .tivi-spark {
+  .tivi-spark,
+  .tivi-ant-l {
     animation: none !important;
   }
 }

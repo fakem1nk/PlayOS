@@ -11,16 +11,20 @@ import {
   DROWSY_ACTS,
   FREE,
   IDLE_ACTS,
+  MORNING_ACTS,
   ROWS,
   SCRIPTS,
   SPRITES,
+  loadFace,
   type Frame,
   type Gaze,
   type Grid,
   type Script,
   type ScriptName,
+  type Sprite,
   type TiviMove
 } from '../lib/tivi-faces'
+import { useUpdate } from '../lib/update'
 import { t } from '@shared/i18n'
 import '../styles-tivi.css'
 
@@ -30,6 +34,8 @@ import '../styles-tivi.css'
  * Следит глазами за фокусом, а пока двигается мышь — за ней; моргает; в покое сам себя развлекает (сценки в tivi-faces.ts).
  * На клик подмигивает и каждый раз отвечает по-новому, если кликать без конца — ему становится дурно.
  * Радуется запуску игры, грустит от ошибок, влюбляется в трофеи, засыпает при бездействии.
+ * Здоровается в первый запуск за день, утром потягивается, после полуночи надевает колпак и чаще зевает,
+ * любит, когда его гладят (зажать на нём и водить), пока качается обновление — показывает полоску загрузки.
  */
 
 const PITCH = 11.5
@@ -50,6 +56,11 @@ const GAZE_STEP_MS = 45
 /** Своими делами Тиви занимается, только когда его давно не трогали */
 const CALM_MS = 4000
 const AHEAD: Gaze = { x: 0, y: 0 }
+/** Когда Тиви последний раз видели: по нему он скучает или здоровается за день */
+const SEEN_KEY = 'playos-tivi-seen'
+const MISSED_MS = 3 * 86_400_000
+/** Сколько надо провести курсором с зажатой кнопкой, чтобы это считалось поглаживанием */
+const PET_PX = 24
 // Моргание по кадрам: прикрыл, закрыл, прикрыл, открыл (состояние, сколько держать)
 const BLINK: [number, number][] = [
   [1, 40],
@@ -60,6 +71,37 @@ const BLINK: [number, number][] = [
 
 type Stage = 'awake' | 'drowsy' | 'sleep'
 type Part = 'intro' | 'loop' | 'outro'
+
+/** Ночь — с полуночи до пяти, утро — с пяти до одиннадцати */
+const isNight = (h: number) => h < 5
+const isMorning = (h: number) => h >= 5 && h < 11
+
+const readSeen = () => {
+  try {
+    return Number(localStorage.getItem(SEEN_KEY)) || 0
+  } catch {
+    return 0
+  }
+}
+const markSeen = () => {
+  try {
+    localStorage.setItem(SEEN_KEY, String(Date.now()))
+  } catch {
+    /* без хранилища просто поздоровается ещё раз */
+  }
+}
+
+/** Пиксельный значок в единицах образца 256 с центром в x, y */
+function sprite(s: Sprite, x: number, y: number, key: string) {
+  const rows = SPRITES[s]
+  const x0 = x - (rows[0].length * PX) / 2
+  const y0 = y - (rows.length * PX) / 2
+  return rows.flatMap((row, j) =>
+    [...row].flatMap((ch, i) =>
+      ch === '.' ? [] : [<rect key={`${key}.${i}.${j}`} x={x0 + i * PX} y={y0 + j * PX} width={PX} height={PX} fill={COLORS[ch][0]} />]
+    )
+  )
+}
 
 /**
  * Горящие точки лица: номер точки → цвет. У простых лиц взгляд сдвигает лицо целиком: по вертикали глаза и рот вместе
@@ -153,6 +195,8 @@ function createPlayer(show: (frame: Frame, act: ScriptName | null) => void) {
   render()
   return {
     busy: () => !!playing,
+    /** Насколько важна идущая сценка; -1 — ничего не идёт */
+    level: () => playing?.priority ?? -1,
     /** Важная сценка не перебивается мелкой; та же самая не начинается заново, а тянется дольше */
     play(r: TiviReaction) {
       const priority = r.priority ?? 1
@@ -189,9 +233,21 @@ function createPlayer(show: (frame: Frame, act: ScriptName | null) => void) {
 interface Props {
   /** Идёт игра — когда она закончится, Тиви обрадуется возвращению */
   playing: boolean
+  /** Интро закончилось — можно здороваться (после перезагрузки окна его видели только что, и он промолчит) */
+  greet: boolean
 }
 
-export const Tivi = memo(function Tivi({ playing }: Props) {
+export const Tivi = memo(function Tivi({ playing, greet }: Props) {
+  const update = useUpdate()
+  const loading = update.phase === 'downloading' ? (update.percent ?? 0) : null
+  const loadingRef = useRef(loading)
+  loadingRef.current = loading
+  const [tick, setTick] = useState(false)
+  const [hour, setHour] = useState(() => new Date().getHours())
+  const hourRef = useRef(hour)
+  hourRef.current = hour
+  const night = isNight(hour)
+  const [cap, setCap] = useState<'off' | 'drop' | 'on'>('off')
   const padKind = usePadInfo()
   const padStatus = usePadStatus()
   const pad = padKind !== 'none' || padStatus.connected > 0
@@ -213,6 +269,9 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
   const blinkNow = useRef(() => {})
   const clicks = useRef<{ n: number; at: number; last: ScriptName | null }>({ n: 0, at: -Infinity, last: null })
   const hover = useRef(0)
+  const pet = useRef<{ x: number; y: number; dir: number; turns: number; path: number; on: boolean } | null>(null)
+  // Гладили — отпущенная кнопка не считается кликом
+  const petted = useRef(false)
 
   // Взгляд догоняет цель по клетке за кадр; через весь экран — моргнёт на ходу
   useEffect(() => {
@@ -389,8 +448,13 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
       const p = player.current
       const stage = stageRef.current
       const quiet = Math.min(idleFor(), performance.now() - mouseAt.current)
-      if (!p || document.hidden || stage === 'sleep' || p.busy() || quiet < CALM_MS) return plan()
-      const pool = (stage === 'drowsy' ? DROWSY_ACTS : IDLE_ACTS).filter(([name]) => name !== last && (name !== 'yawn' || quiet >= 30_000))
+      if (!p || document.hidden || stage === 'sleep' || p.busy() || quiet < CALM_MS || loadingRef.current !== null) return plan()
+      // Утром ещё и потягивается, ночью зевает втрое чаще и не ждёт для этого полминуты тишины
+      const h = hourRef.current
+      const base = stage === 'drowsy' ? DROWSY_ACTS : isMorning(h) ? [...IDLE_ACTS, ...MORNING_ACTS] : IDLE_ACTS
+      const pool = base
+        .map(([name, w]): [ScriptName, number] => [name, name === 'yawn' && isNight(h) ? w * 3 : w])
+        .filter(([name]) => name !== last && (name !== 'yawn' || isNight(h) || quiet >= 30_000))
       last = pick(pool)
       p.play({ act: last, ms: last === 'hum' ? 1800 + Math.random() * 2400 : 0, priority: 0 })
       plan()
@@ -399,19 +463,83 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
     return () => clearTimeout(timer)
   }, [])
 
-  // Система: геймпад и шлем подключили или отключили, игра закончилась
-  const prev = useRef({ playing, pad, vr })
+  // Система: геймпад и шлем подключили или отключили, игра закончилась, обновление докачалось
+  const downloaded = update.phase === 'ready'
+  const prev = useRef({ playing, pad, vr, loading, downloaded })
   useEffect(() => {
     const was = prev.current
-    prev.current = { playing, pad, vr }
+    prev.current = { playing, pad, vr, loading, downloaded }
     if (pad && !was.pad) tivi({ act: 'happy', priority: 2 })
     else if (!pad && was.pad) tivi({ act: 'gloom', ms: 1800, priority: 2 })
     if (vr && !was.vr) tivi({ act: 'vr', priority: 2 })
     if (!playing && was.playing) tivi({ act: Math.random() < 0.5 ? 'blush' : 'happy', ms: 1400, priority: 2 })
-  }, [playing, pad, vr])
+    if (downloaded && was.loading !== null) tivi({ act: 'news', ms: 1600, priority: 3 })
+  }, [playing, pad, vr, loading, downloaded])
+
+  // Пока качается обновление, следующая клетка полоски мигает
+  const isLoading = loading !== null
+  useEffect(() => {
+    if (!isLoading) return
+    const timer = window.setInterval(() => setTick((v) => !v), 380)
+    return () => clearInterval(timer)
+  }, [isLoading])
+
+  // Часы: утро и ночь меняют его привычки; ночью он сперва надевает колпак (кадр сверху, потом на место)
+  useEffect(() => {
+    const timer = window.setInterval(() => setHour(new Date().getHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+  useEffect(() => {
+    if (!night) return setCap('off')
+    setCap('drop')
+    const timer = window.setTimeout(() => setCap('on'), 160)
+    return () => clearTimeout(timer)
+  }, [night])
+
+  // Приветствие: когда интро закончилось и когда окно снова показали (из трея, после игры).
+  // Смотрит, когда его видели до этого показа; пока окно на виду, время «видели» обновляется
+  const seenBefore = useRef(0)
+  if (!seenBefore.current) seenBefore.current = readSeen() || -1
+  useEffect(() => {
+    if (!greet) return
+    let timer = 0
+    const hello = (tries = 0) => {
+      if (document.hidden) return
+      // Сперва пусть доиграет то, что пришло из системы (трофей, геймпад, шлем), — потом поздоровается
+      if ((player.current?.level() ?? -1) >= 2 && tries < 20) {
+        timer = window.setTimeout(() => hello(tries + 1), 500)
+        return
+      }
+      const seen = seenBefore.current
+      seenBefore.current = Date.now()
+      markSeen()
+      const now = new Date()
+      if (seen > 0 && now.getTime() - seen >= MISSED_MS) return tivi({ act: 'missed', ms: 4200, priority: 3 })
+      if (seen > 0 && new Date(seen).toDateString() === now.toDateString()) return
+      tivi({ act: isMorning(now.getHours()) ? 'morning' : 'wave', priority: 3 })
+    }
+    timer = window.setTimeout(hello, 700)
+    const every = window.setInterval(() => !document.hidden && markSeen(), 60_000)
+    const onShow = () => {
+      clearTimeout(timer)
+      if (!document.hidden) return hello()
+      seenBefore.current = Date.now()
+      markSeen()
+    }
+    document.addEventListener('visibilitychange', onShow)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(every)
+      document.removeEventListener('visibilitychange', onShow)
+    }
+  }, [greet])
 
   // Клик: после перерыва подмигивает, дальше каждый раз по-новому; закликали — кружится голова, злится, падает и перезагружается
   const onClick = () => {
+    if (petted.current) {
+      petted.current = false
+      return
+    }
     play('select')
     const c = clicks.current
     const now = performance.now()
@@ -430,9 +558,39 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
     tivi({ act, ms: 1200, priority: 2 })
   }
 
+  // Зажали кнопку на нём и водят туда-сюда — гладят; пока водят, сценка тянется
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    clearTimeout(hover.current)
+    pet.current = { x: e.clientX, y: e.clientY, dir: 0, turns: 0, path: 0, on: false }
+    petted.current = false
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const p = pet.current
+    if (!p) return
+    const dx = e.clientX - p.x
+    const dy = e.clientY - p.y
+    if (Math.abs(dx) + Math.abs(dy) < 2) return
+    // Туда-сюда по любой оси: считаем развороты вдоль той, по которой ведут
+    const dir = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : 2 * Math.sign(dy)
+    if (p.dir && dir !== p.dir) p.turns++
+    p.dir = dir
+    p.path += Math.abs(dx) + Math.abs(dy)
+    p.x = e.clientX
+    p.y = e.clientY
+    if (!p.on && p.turns >= 1 && p.path >= PET_PX) p.on = petted.current = true
+    if (p.on) tivi({ act: 'pet', ms: 700, priority: 2 })
+  }
+  const onPointerUp = () => {
+    pet.current = null
+  }
+
   const { frame, act } = view
-  const free = FREE.has(frame.face)
-  const lit = paint(frame.face, free ? gaze : AHEAD, free ? blink : 0)
+  // Полоска загрузки заменяет покой; сценки (клик, ошибка) показываются поверх неё
+  const face = loading !== null && !act ? loadFace(loading, tick) : frame.face
+  const free = FREE.has(face)
+  const lit = paint(face, free ? gaze : AHEAD, free || face !== frame.face ? blink : 0)
 
   const dots: React.ReactNode[] = []
   for (let y = 0; y < ROWS; y++)
@@ -450,16 +608,7 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
         />
       )
     }
-  const fx = frame.fx?.flatMap(({ s, x, y }, k) => {
-    const rows = SPRITES[s]
-    const x0 = x - (rows[0].length * PX) / 2
-    const y0 = y - (rows.length * PX) / 2
-    return rows.flatMap((row, j) =>
-      [...row].flatMap((ch, i) =>
-        ch === '.' ? [] : [<rect key={`${k}.${i}.${j}`} x={x0 + i * PX} y={y0 + j * PX} width={PX} height={PX} fill={COLORS[ch][0]} />]
-      )
-    )
-  })
+  const fx = face === frame.face ? frame.fx?.flatMap(({ s, x, y }, k) => sprite(s, x, y, String(k))) : undefined
 
   return (
     <button
@@ -476,6 +625,10 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
         hover.current = window.setTimeout(() => tivi({ act: 'blush', ms: 1200, priority: 1 }), 1200)
       }}
       onPointerLeave={() => clearTimeout(hover.current)}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
     >
       <svg key={move.n} viewBox="8 0 240 236" className={move.kind ? `is-${move.kind}` : ''} aria-hidden>
         <defs>
@@ -521,8 +674,11 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
             </feMerge>
           </filter>
         </defs>
-        <path d="M112 72L80 24M144 72L186 22" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
-        <circle cx="80" cy="24" r="9" fill="url(#tivi-ball)" stroke="#6f7990" strokeOpacity=".4" strokeWidth="1.4" />
+        <path d="M144 72L186 22" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
+        <g className="tivi-ant-l">
+          <path d="M112 72L80 24" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
+          <circle cx="80" cy="24" r="9" fill="url(#tivi-ball)" stroke="#6f7990" strokeOpacity=".4" strokeWidth="1.4" />
+        </g>
         <g transform="translate(188 22)">
           <path className="tivi-spark" d={SPARK} fill="url(#tivi-spark)" />
         </g>
@@ -530,6 +686,11 @@ export const Tivi = memo(function Tivi({ playing }: Props) {
         <g clipPath="url(#tivi-clip)">
           <rect x="16" y="70" width="224" height="160" rx="40" fill="none" stroke="url(#tivi-rim)" strokeWidth="5" />
         </g>
+        {cap !== 'off' && (
+          <g className="tivi-cap" shapeRendering="crispEdges">
+            {sprite('cap', 128, cap === 'drop' ? 34 : 45.5, 'cap')}
+          </g>
+        )}
         <rect x="34" y="88" width="188" height="124" rx="26" fill="#05070c" />
         <rect x="34.75" y="88.75" width="186.5" height="122.5" rx="25.25" fill="none" stroke="url(#tivi-lip)" strokeWidth="1.5" />
         <g filter="url(#tivi-glow)">{dots}</g>
