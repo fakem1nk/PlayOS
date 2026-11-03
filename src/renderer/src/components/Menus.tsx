@@ -19,7 +19,7 @@ import { installNow } from './UpdateNotice'
 import { nextTheme, themeMode, themeName } from '../lib/theme'
 import { t } from '@shared/i18n'
 
-interface Item {
+export interface MenuItem {
   id: string
   label: string
   icon: ReactNode
@@ -30,12 +30,21 @@ interface Item {
   run: () => void
 }
 
-/** Боковая шторка со списком действий (как меню Options на PS5). */
-function SideMenu({ title, titleAction, header, items, onClose }: { title: string; titleAction?: ReactNode; header?: ReactNode; items: Item[]; onClose: () => void }) {
+type Item = MenuItem
+
+/** Боковая шторка со списком действий (как меню Options на PS5). priority — выше, если шторка над другим окном */
+export function SideMenu({ title, titleAction, header, items, priority = 30, onClose }: {
+  title: string
+  titleAction?: ReactNode
+  header?: ReactNode
+  items: Item[]
+  priority?: number
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const [confirming, setConfirming] = useState<Item | null>(null)
 
-  useSpatialNav(ref, { priority: 30, active: !confirming, onBack: onClose, autoFocus: '.menu-item' })
+  useSpatialNav(ref, { priority, active: !confirming, onBack: onClose, autoFocus: '.menu-item' })
   useEffect(() => rumble('open'), [])
 
   const choose = (item: Item) => {
@@ -150,12 +159,14 @@ export function ConfirmDialog({ title, text, button, cancel, tone = 'danger', on
  * Ввод короткого текста (название подборки). Поле открывается сразу: с геймпада — экранная клавиатура,
  * с клавиатуры — ввод на месте; Enter или «Готово» на клавиатуре сохраняет.
  */
-export function PromptDialog({ title, value = '', placeholder, button, maxLength = 40, onCancel, onSubmit }: {
+export function PromptDialog({ title, value = '', placeholder, button, maxLength = 40, priority = 40, onCancel, onSubmit }: {
   title: string
   value?: string
   placeholder?: string
   button: string
   maxLength?: number
+  /** Выше, если окно открывается над другим окном */
+  priority?: number
   onCancel: () => void
   onSubmit: (v: string) => void
 }) {
@@ -168,7 +179,7 @@ export function PromptDialog({ title, value = '', placeholder, button, maxLength
     play('select')
     onSubmit(v)
   }
-  useSpatialNav(ref, { priority: 40, onBack: onCancel, autoFocus: 'input' })
+  useSpatialNav(ref, { priority, onBack: onCancel, autoFocus: 'input' })
   useEffect(() => {
     const el = inputRef.current
     if (!el) return

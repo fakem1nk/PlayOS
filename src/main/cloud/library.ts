@@ -36,6 +36,7 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'uiScale',
   'noticeSize',
   'tiviSize',
+  'downloadDirs',
   'displayId',
   'displayLabel',
   'gameDisplay',

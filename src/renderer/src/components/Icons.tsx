@@ -190,6 +190,43 @@ export const IconList = (p: P) => (
     <circle cx="4.5" cy="17" r="1" fill="currentColor" stroke="none" />
   </svg>
 )
+/** Скопировать ссылку */
+export const IconCopy = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="8.5" y="8.5" width="11" height="11" rx="2.2" />
+    <path d="M15.5 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.6a2.2 2.2 0 0 0 2.2 2.2h1.8" />
+  </svg>
+)
+/** Открыть ссылку в другой программе */
+export const IconExternal = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M13.5 4.5h6v6M19.5 4.5l-8 8M17.5 14v3.3a2.2 2.2 0 0 1-2.2 2.2H6.7a2.2 2.2 0 0 1-2.2-2.2V8.7a2.2 2.2 0 0 1 2.2-2.2H10" />
+  </svg>
+)
+/** «Не та игра»: разорванная связь */
+export const IconUnlink = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9.5 14.5 7.7 16.3a2.9 2.9 0 0 1-4.1-4.1L6.2 9.6a2.9 2.9 0 0 1 4.1 0M14.5 9.5l1.8-1.8a2.9 2.9 0 0 1 4.1 4.1l-2.6 2.6a2.9 2.9 0 0 1-4.1 0M5 5l2 2M19 19l-2-2" />
+  </svg>
+)
+/** Торрент: магнит */
+export const IconMagnet = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5.5 4.5h4v7a2.5 2.5 0 0 0 5 0v-7h4v7a6.5 6.5 0 0 1-13 0ZM5.5 8.5h4M14.5 8.5h4" />
+  </svg>
+)
+/** Выше в очереди */
+export const IconArrowUp = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 19V5m0 0-5.5 5.5M12 5l5.5 5.5" />
+  </svg>
+)
+/** Пауза загрузки */
+export const IconPause = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M8.5 5.5v13M15.5 5.5v13" />
+  </svg>
+)
 /** Раскрыть список вниз */
 export const IconCaret = (p: P) => (
   <svg {...base(p)}>

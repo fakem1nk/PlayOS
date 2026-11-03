@@ -4,6 +4,7 @@ import type {
   AppState,
   ArtCandidate,
   CloudStatus,
+  DownloadJob,
   DownloadOption,
   Game,
   ImportProgress,
@@ -705,6 +706,52 @@ function createMockApi(): PcsApi {
       demoUnbound.add(`${appId}:${key}`)
     },
     storeLink: async () => {},
+    // Загрузки в демо: прогресс идёт сам, прямые ссылки «качаются» за полминуты, торренты — как в PlayOS, пока нельзя
+    downloads: async () => demoJobs,
+    downloadKinds: async () => ['http', 'magnet', 'torrent'],
+    onDownloads: (cb) => {
+      jobSubs.add(cb)
+      return () => void jobSubs.delete(cb)
+    },
+    downloadStart: async (req) => {
+      await new Promise((r) => setTimeout(r, 300))
+      if (!demoFolders.includes(req.folder)) return { error: 'Этой папки нет в списке папок для загрузок' }
+      const job: DownloadJob = { id: String(Date.now()), gameId: req.gameId, title: req.title, name: req.name, cover: req.cover, hero: req.hero, kind: req.kind, uris: req.uris, dir: `${req.folder}\\${req.title}`, status: 'queued', received: 0, size: 6 * 2 ** 30, addedAt: Date.now() }
+      demoJobs = [...demoJobs, job]
+      demoFolders = [req.folder, ...demoFolders.filter((f) => f !== req.folder)]
+      set({ settings: { ...state.settings, downloadDirs: demoFolders } })
+      demoPump()
+      return { job }
+    },
+    downloadControl: async (id, action) => {
+      const job = demoJobs.find((j) => j.id === id)
+      if (action === 'clearDone') demoJobs = demoJobs.filter((j) => j.status !== 'done')
+      else if (!job || action === 'folder') return
+      else if (action === 'pause') job.status = 'paused'
+      else if (action === 'resume') job.status = 'queued'
+      else if (action === 'up') {
+        const i = demoJobs.indexOf(job)
+        if (i > 0) demoJobs = [...demoJobs.slice(0, i - 1), job, demoJobs[i - 1], ...demoJobs.slice(i + 1)]
+      } else demoJobs = demoJobs.filter((j) => j !== job)
+      if (job) job.speed = undefined
+      demoPump()
+    },
+    downloadFolders: async () => demoFolders.map((path, i) => ({ path, free: (812 - i * 300) * 2 ** 30, total: 931 * 2 ** 30, ok: true })),
+    downloadDrives: async () => [
+      { root: 'C:\\', free: 100 * 2 ** 30, total: 465 * 2 ** 30 },
+      { root: 'D:\\', free: 812 * 2 ** 30, total: 931 * 2 ** 30 }
+    ],
+    downloadFolderAdd: async (path) => {
+      await new Promise((r) => setTimeout(r, 300))
+      demoFolders = [path, ...demoFolders.filter((f) => f !== path)]
+      set({ settings: { ...state.settings, downloadDirs: demoFolders } })
+      return { folder: { path, free: 812 * 2 ** 30, total: 931 * 2 ** 30, ok: true } }
+    },
+    downloadFolderBrowse: async () => 'D:\\Games',
+    downloadFolderRemove: async (path) => {
+      demoFolders = demoFolders.filter((f) => f !== path)
+      set({ settings: { ...state.settings, downloadDirs: demoFolders } })
+    },
     // VR: Quest 3S по Air Link, VR-компонент скачан
     vrStatus: async () => ({
       oc: { installed: true, installedAt: Date.now() - 3 * 86400000 },
@@ -727,6 +774,55 @@ let demoSources: StoreSource[] = new URLSearchParams(location.search).has('sourc
   ? [{ id: 'demo', url: 'https://example.invalid/demo-source.json', name: 'Demo', addedAt: Date.now() - 86400000 * 9, updatedAt: Date.now() - 3600000 * 3, count: 5, games: 4 }]
   : []
 const demoUnbound = new Set<string>()
+
+/** Название демо-раздачи в формате источников: по кругу Portable, Лицензия, GOG */
+function demoRelease(title: string, i: number) {
+  const tail = ['PC | Portable', 'PC | Лицензия', '[GOG]'][i % 3]
+  return `${title} [v 1.${i}.${(i * 7) % 10}${i % 2 ? ' + DLC' : ''}] [RUS + ENG] (2024) ${tail}`
+}
+
+// ── Загрузки в демо: ?downloads — очередь из нескольких игр, ?folders — уже есть папка для загрузок ──
+const demoQuery = new URLSearchParams(location.search)
+let demoFolders: string[] = demoQuery.has('folders') || demoQuery.has('downloads') ? ['D:\\PlayOS Games'] : []
+const demoCover = (id: number) => `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${id}/library_600x900.jpg`
+const demoHero = (id: number) => `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${id}/library_hero.jpg`
+let demoJobs: DownloadJob[] = demoQuery.has('downloads')
+  ? [
+      { id: 'd1', title: 'Counter-Strike 2', name: demoRelease('Counter-Strike 2', 1), cover: demoCover(730), hero: demoHero(730), kind: 'http', uris: ['https://example.invalid/demo/730.zip'], dir: 'D:\\PlayOS Games\\Counter-Strike 2', status: 'active', received: 21.4 * 2 ** 30, size: 33.6 * 2 ** 30, speed: 38 * 2 ** 20, addedAt: Date.now() - 600000 },
+      { id: 'd2', title: 'Dota 2', name: demoRelease('Dota 2', 2), cover: demoCover(570), kind: 'http', uris: ['https://example.invalid/demo/570.zip'], dir: 'D:\\PlayOS Games\\Dota 2', status: 'queued', received: 0, size: 41 * 2 ** 30, addedAt: Date.now() - 500000 },
+      { id: 'd3', title: 'Team Fortress 2', name: demoRelease('Team Fortress 2', 4), cover: demoCover(440), kind: 'http', uris: ['https://example.invalid/demo/440.zip'], dir: 'D:\\PlayOS Games\\Team Fortress 2', status: 'paused', received: 9.1 * 2 ** 30, size: 27 * 2 ** 30, addedAt: Date.now() - 400000 },
+      { id: 'd4', title: 'Warframe', name: demoRelease('Warframe', 5), cover: demoCover(230410), kind: 'http', uris: ['https://example.invalid/demo/230410.zip'], dir: 'D:\\PlayOS Games\\Warframe', status: 'error', error: 'Сервер перестал отдавать данные', received: 3.2 * 2 ** 30, size: 50 * 2 ** 30, addedAt: Date.now() - 300000 },
+      { id: 'd5', title: 'Path of Exile', name: demoRelease('Path of Exile', 6), cover: demoCover(238960), kind: 'http', uris: ['https://example.invalid/demo/238960.zip'], dir: 'D:\\PlayOS Games\\Path of Exile', file: 'D:\\PlayOS Games\\Path of Exile\\poe.zip', status: 'done', received: 40 * 2 ** 30, size: 40 * 2 ** 30, addedAt: Date.now() - 900000, doneAt: Date.now() - 200000 }
+    ]
+  : []
+const jobSubs = new Set<(jobs: DownloadJob[]) => void>()
+let demoJobTimer: ReturnType<typeof setInterval> | null = null
+
+/** Демо-очередь: одна качается, скорость 30–45 МБ/с, остальные ждут */
+function demoPump() {
+  if (!demoJobs.some((j) => j.status === 'active')) {
+    const next = demoJobs.find((j) => j.status === 'queued')
+    if (next) next.status = 'active'
+  }
+  demoJobTimer ??= setInterval(() => {
+    const job = demoJobs.find((j) => j.status === 'active')
+    if (job) {
+      job.speed = Math.round((30 + Math.random() * 15) * 2 ** 20)
+      job.received = Math.min(job.size, job.received + job.speed / 2 + (demoQuery.has('fast') ? 2 ** 30 : 0))
+      if (job.received >= job.size) {
+        job.status = 'done'
+        job.speed = undefined
+        job.doneAt = Date.now()
+        demoPump()
+      }
+    }
+    demoJobs = [...demoJobs]
+    jobSubs.forEach((cb) => cb(demoJobs))
+  }, 500)
+  demoJobs = [...demoJobs]
+  jobSubs.forEach((cb) => cb(demoJobs))
+}
+if (demoJobs.length) setTimeout(demoPump, 0)
 
 async function demoFileSource(file: string): Promise<{ source?: StoreSource; error?: string }> {
   await new Promise((r) => setTimeout(r, 700))
@@ -756,7 +852,8 @@ function demoOptionsFor(appId: number): DownloadOption[] {
             key,
             sourceId: src.id,
             source: src.name,
-            title: `${key.replace(/(^|\s)\w/g, (c) => c.toUpperCase())} (demo ${i + 1})`,
+            // Как в настоящих источниках: версия, языки, кто собрал — только без настоящих раздач
+            title: demoRelease(key.replace(/(^|\s)\w/g, (c) => c.toUpperCase()), i),
             uris: [kind === 'magnet' ? `magnet:?xt=urn:btih:${'0'.repeat(40)}&dn=demo` : `https://example.invalid/demo/${id}-${i}.${kind === 'torrent' ? 'torrent' : 'zip'}`],
             kind: kind as DownloadOption['kind'],
             size,

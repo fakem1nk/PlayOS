@@ -567,7 +567,7 @@
 
 
 .dl-dialog {
-  width: min(104rem, 92vw);
+  width: min(96rem, 92vw);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
@@ -591,28 +591,69 @@
   margin: -0.9rem;
 }
 
+/* Вариант: значок (магнит или прямая ссылка) · кто собрал и метки · размер; справа — значки действий для мыши */
 .dl-row {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
-.dl-option.menu-item {
+.dl-option,
+.dl-place,
+.dl-drive,
+.dl-new-name {
+  --r: 1.6rem;
+  position: relative;
+  border: 0;
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  outline: none;
+  transition: background-color 0.15s ease;
+}
+
+.dl-option:focus::after,
+.dl-place:focus::after,
+.dl-drive:focus::after,
+.dl-new-name:focus::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: calc(var(--r) + 0.55rem);
+  border: 0.3rem solid #fff;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dl-option:hover,
+  .dl-place:not(:disabled):hover,
+  .dl-drive:not(:disabled):hover,
+  .dl-new-name:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+}
+
+.dl-option {
   flex: 1;
   min-width: 0;
-  height: auto;
-  min-height: 7.6rem;
-  padding: 1.4rem 2rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.4rem 2.2rem 1.4rem 1.4rem;
 }
 
 .dl-kind {
-  flex: none;
   width: 4.4rem;
   height: 4.4rem;
   border-radius: 50%;
   display: grid;
   place-items: center;
   font-size: 2rem;
+  color: var(--mist);
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -620,35 +661,65 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.6rem;
 }
 
-.dl-title {
-  font-size: 1.8rem;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.dl-by {
+  font-size: 1.9rem;
+  font-weight: 600;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dl-meta {
-  font-size: 1.5rem;
-  color: var(--mist);
+.dl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-/* Кнопки для мыши: у строки в фокусе или под курсором — ярче */
+.dl-chip {
+  padding: 0.2rem 0.9rem;
+  border-radius: 0.8rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.dl-when {
+  margin-left: 0.4rem;
+  font-size: 1.4rem;
+  color: var(--faint);
+}
+
+.dl-size {
+  font-size: 2rem;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Значки для мыши — у строки в фокусе или под курсором; место под них есть всегда, строки не прыгают */
 .dl-tools {
   flex: none;
   display: flex;
-  gap: 0.8rem;
-  opacity: 0.5;
+  gap: 0.6rem;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 0.15s ease;
 }
 
-.dl-row.is-current .dl-tools {
+.dl-row.is-current .dl-tools,
+.dl-row:hover .dl-tools {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.dl-tool {
+  width: 4.2rem;
+  height: 4.2rem;
+  font-size: 1.9rem;
 }
 
 .dl-hints {
@@ -658,6 +729,157 @@
   margin-top: 2.6rem;
   font-size: 1.6rem;
   color: var(--mist);
+}
+
+/* «Куда скачать?»: свои папки карточками, ниже — диски для новой папки; полоска — занято и сколько займёт загрузка */
+.dl-where {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  overflow-y: auto;
+  padding: 0.9rem;
+  margin: -0.9rem;
+}
+
+.dl-where.is-loading {
+  min-height: 18rem;
+}
+
+.dl-places {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dl-place {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.6rem 2.2rem 1.6rem 1.4rem;
+}
+
+.dl-place:disabled,
+.dl-drive:disabled {
+  opacity: 0.45;
+}
+
+.dl-place-icon {
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dl-place-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dl-place-path {
+  font-size: 1.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-place-free,
+.dl-drive-free {
+  font-size: 1.45rem;
+  color: var(--mist);
+}
+
+.dl-cap {
+  position: relative;
+  height: 0.6rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dl-cap-used,
+.dl-cap-need {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.dl-cap-used {
+  left: 0;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.dl-cap-need {
+  background: #fff;
+}
+
+.dl-cap.is-short .dl-cap-need {
+  background: var(--danger);
+}
+
+.dl-new {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-top: 0.6rem;
+}
+
+.dl-new-label {
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.dl-new-name {
+  --r: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem 1.4rem;
+  font-size: 1.6rem;
+}
+
+.dl-new-name svg {
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
+.dl-drives {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: 0.8rem;
+}
+
+.dl-drive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.6rem 1.8rem;
+}
+
+.dl-drive-letter {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+
+.dl-drive-letter svg {
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.dl-browse {
+  justify-content: center;
 }
 
 /* Светлая тема: баннер остаётся тёмным, как заглушка обложки — логотипы игр рисуют под тёмный фон.
@@ -687,4 +909,314 @@ html[data-theme='light'] .store-dots button {
 
 html[data-theme='light'] .store-dots button.is-active {
   background: #fff;
+}
+
+/* ───────────── Загрузки ───────────── */
+/* Кнопка в верхней панели рядом с уведомлениями: кольцо прогресса вокруг, пока что-то качается */
+.dl-btn {
+  margin-right: -0.8rem;
+}
+
+.dl-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.dl-ring circle {
+  fill: none;
+  stroke-width: 2.2;
+}
+
+.dl-ring-track {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+
+.dl-ring-fill {
+  stroke: #fff;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s linear;
+}
+
+/* Раздел «Загрузки» — страница на весь экран, как страница игры: фон — арт того, что качается сейчас.
+   Вверху крупно текущая загрузка, ниже две колонки: очередь и готовое */
+.dl-page-inner {
+  grid-template-rows: auto 1fr auto;
+}
+
+.dl-page-head,
+.dl-page-head .gp-title-wrap {
+  min-height: 12rem;
+}
+
+.dl-page-body {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+  /* место под фокус-рамку; снизу — запас под затухание над подсказками */
+  padding: 0.8rem 0.8rem 4.8rem;
+  margin: 2.4rem -0.8rem -0.8rem;
+}
+
+.dl-now {
+  flex: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3.2rem;
+}
+
+.dl-now-cover {
+  width: 16rem;
+  height: 24rem;
+  border-radius: 1.4rem;
+  object-fit: cover;
+  box-shadow: 0 1.6rem 4rem rgba(0, 0, 0, 0.35);
+}
+
+.dl-now-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.dl-now-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2.4rem;
+}
+
+.dl-now-titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dl-now-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 3.4rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.dl-now-pct.dot-text {
+  flex: none;
+  font-size: 5.2rem;
+}
+
+.dl-now-bar {
+  display: block;
+  height: 1rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dl-now-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transform-origin: left;
+  transition: transform 0.5s linear;
+}
+
+.dl-now.is-paused .dl-now-bar span,
+.dl-now.is-queued .dl-now-bar span {
+  background: var(--mist);
+}
+
+.dl-now.is-error .dl-now-bar span {
+  background: var(--danger);
+}
+
+.dl-now-state {
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.dl-now.is-error .dl-now-state {
+  color: #ff8a8a;
+}
+
+.dl-now-stats {
+  margin: 0.4rem 0 0;
+}
+
+.dl-now-stats dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-now-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin-top: 1rem;
+}
+
+.dl-now-actions .btn.is-danger:focus,
+.dl-now-actions .btn.is-danger:hover {
+  color: var(--danger);
+}
+
+.dl-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2.4rem;
+  align-items: start;
+}
+
+.dl-col-empty {
+  font-size: 1.7rem;
+  color: var(--faint);
+}
+
+.dl-page-empty {
+  min-height: 40rem;
+}
+
+/* Строка очереди или готового: обложка, название и проценты, кто собрал, полоса, коротко скорость и остаток;
+   справа — круглые кнопки действий прямо в строке */
+.dl-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dl-job {
+  flex: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.2rem 1.4rem 1.2rem 1.2rem;
+  border-radius: 1.8rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dl-job-cover {
+  width: 6rem;
+  height: 9rem;
+  border-radius: 1rem;
+  object-fit: cover;
+}
+
+.dl-job-blank {
+  display: grid;
+  place-items: center;
+  font-size: 2.4rem;
+  color: var(--mist);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dl-job-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dl-job-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.2rem;
+  font-size: 1.9rem;
+  font-weight: 600;
+}
+
+.dl-job-name,
+.dl-job-tags {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-job-pct {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-job-tags {
+  font-size: 1.4rem;
+  color: var(--faint);
+}
+
+.dl-job-bar {
+  height: 0.6rem;
+  margin-top: 0.2rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dl-job-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transform-origin: left;
+  transition: transform 0.5s linear;
+}
+
+.dl-job.is-paused .dl-job-bar span,
+.dl-job.is-queued .dl-job-bar span {
+  background: var(--mist);
+}
+
+.dl-job.is-error .dl-job-bar span {
+  background: var(--danger);
+}
+
+.dl-job-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.45rem;
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-job.is-error .dl-job-line {
+  color: #ff8a8a;
+}
+
+.dl-job-acts {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.dl-act {
+  width: 4.4rem;
+  height: 4.4rem;
+  font-size: 1.9rem;
+}
+
+/* Удаление краснеет, только когда на нём фокус или курсор */
+.dl-act.is-danger:focus,
+.dl-act.is-danger:hover {
+  color: var(--danger);
+}
+
+.notice-empty-hint {
+  max-width: 38rem;
+  font-size: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-ring-fill,
+  .dl-job-bar span {
+    transition: none;
+  }
 }

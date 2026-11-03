@@ -9,3 +9,6 @@ release/
 *.tmp
 .DS_Store
 Thumbs.db
+
+# Сборка торрент-клиента (native/torrent)
+native/torrent/build/

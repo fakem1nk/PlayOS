@@ -12,6 +12,7 @@ import { SystemInfoDialog } from './SystemInfoDialog'
 import { CloudPanel } from './Cloud'
 import { VrPanel } from './VrPanel'
 import { SourcesPanel } from './SourcesPanel'
+import { DownloadFoldersPanel } from './DownloadFolders'
 import { KeyGuideButton } from './KeyGuide'
 import { PadMapper, padName } from './PadMapper'
 import { ConfirmDialog } from './Menus'
@@ -219,6 +220,7 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
           {section === 'store' && (
             <>
               <SourcesPanel />
+              <DownloadFoldersPanel />
               <h2 className="panel-title">
                 <IconGrid /> {t('Витрина')}
               </h2>

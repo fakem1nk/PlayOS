@@ -4,12 +4,16 @@ import type { DownloadOption, Platform } from '@shared/types'
 import { api } from '../lib/api'
 import { useInputLayer } from '../lib/input'
 import { focusEl, useSpatialNav } from '../lib/nav'
+import { canDownload } from '../lib/downloads'
+import { bytes } from '../lib/format'
+import { release, sizeBytes } from '../lib/release'
 import { KIND_LABELS, optionsCount } from '../lib/shop'
 import { play } from '../lib/sound'
 import { toast } from '../lib/state'
 import { Hint } from './Glyph'
+import { WhereTo } from './DownloadFolders'
 import { ConfirmDialog } from './Menus'
-import { IconDownload, IconGlobe, IconPlus } from './Icons'
+import { IconCopy, IconExternal, IconGlobe, IconMagnet, IconPlus, IconUnlink } from './Icons'
 import { locale, t } from '@shared/i18n'
 
 interface Props {
@@ -18,18 +22,26 @@ interface Props {
   title: string
   /** Платформа игры: у игр PS2 и PS3 — раздачи для эмулятора */
   platform: Platform
+  /** Игра библиотеки и её обложка — для очереди загрузок */
+  gameId?: string
+  cover?: string
+  hero?: string
   onClose: () => void
   /** Настройки → Магазин: источники загрузок */
   onOpenSources: () => void
 }
 
-const dateText = (ms: number) => new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' })
+/** Дата раздачи: в этом году — без года */
+const dateText = (ms: number) => {
+  const d = new Date(ms)
+  return d.toLocaleDateString(locale(), d.getFullYear() === new Date().getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 /**
  * «Скачать» у игры библиотеки, которой нет на этом ПК. Есть варианты в источниках — список вариантов;
  * нет ни одного источника или игры в них нет — объясняем, что сделать
  */
-export function DownloadFlow({ appId, title, platform, onClose, onOpenSources }: Props) {
+export function DownloadFlow({ appId, title, platform, gameId, cover, hero, onClose, onOpenSources }: Props) {
   const [list, setList] = useState<DownloadOption[] | null>(null)
   const [sources, setSources] = useState(0)
   // Обычно ответ мгновенный — окно-заглушку показываем, только если источники ещё читаются с диска
@@ -53,7 +65,7 @@ export function DownloadFlow({ appId, title, platform, onClose, onOpenSources }:
 
   if (list?.length === 0) return <NoOptions title={title} sources={sources} onClose={onClose} onOpenSources={onOpenSources} />
   if (!list && !slow) return null
-  return <OptionsList appId={appId} title={title} list={list} onClose={onClose} onReload={reload} />
+  return <OptionsList appId={appId} title={title} gameId={gameId} cover={cover} hero={hero} list={list} onClose={onClose} onReload={reload} />
 }
 
 /** Каркас окна: затемнение и стеклянная панель; over — вопрос поверх панели */
@@ -99,20 +111,47 @@ function NoOptions({ title, sources, onClose, onOpenSources }: { title: string; 
   )
 }
 
-/** Варианты загрузки: свежие сверху. ✕ — скопировать ссылку, △ — открыть её (торрент-клиент, браузер), □ — «Не та игра?» */
-function OptionsList({ appId, title, list, onClose, onReload }: { appId: number; title: string; list: DownloadOption[] | null; onClose: () => void; onReload: () => void }) {
+/**
+ * Варианты загрузки: свежие сверху, каждый — коротко: кто собрал, версия, DLC, русский, размер.
+ * ✕ — скачать в PlayOS (вторым шагом в этом же окне — куда), △ — открыть ссылку в другой программе,
+ * □ — «Не та игра?». Мышью то же — кнопками-значками у строки
+ */
+function OptionsList({ appId, title, gameId, cover, hero, list, onClose, onReload }: {
+  appId: number
+  title: string
+  gameId?: string
+  cover?: string
+  hero?: string
+  list: DownloadOption[] | null
+  onClose: () => void
+  onReload: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const [cur, setCur] = useState(0)
   const [unbinding, setUnbinding] = useState<DownloadOption | null>(null)
+  // Второй шаг: куда скачать выбранный вариант
+  const [target, setTarget] = useState<DownloadOption | null>(null)
+  const quiet = !unbinding
+  const manySources = new Set(list?.map((o) => o.source)).size > 1
 
-  useSpatialNav(ref, { priority: 40, active: !unbinding, onBack: onClose, autoFocus: '.dl-option' })
+  const back = () => {
+    play('back')
+    setTarget(null)
+  }
+  useSpatialNav(ref, {
+    priority: 40,
+    active: quiet,
+    onBack: target ? back : onClose,
+    autoFocus: target ? '.dl-where [data-nav]:not(:disabled)' : '.dl-option',
+    focusKey: target ? 'where' : 'list'
+  })
   // Список приходит позже открытия окна, а после «Не та игра» строка в фокусе пропадает — фокус на ближайшую
   useEffect(() => {
-    if (!list?.length || ref.current?.contains(document.activeElement)) return
+    if (target || !list?.length || ref.current?.contains(document.activeElement)) return
     const rows = ref.current?.querySelectorAll<HTMLElement>('.dl-option')
     focusEl(rows?.[Math.min(cur, list.length - 1)])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list])
+  }, [list, target])
 
   const copy = (o: DownloadOption) => {
     play('select')
@@ -123,12 +162,28 @@ function OptionsList({ appId, title, list, onClose, onReload }: { appId: number;
     play('select')
     void api.storeLink(o.uris, 'open')
   }
+  const choose = (o: DownloadOption) => {
+    if (!canDownload(o.kind)) return copy(o)
+    play('select')
+    setTarget(o)
+  }
+  // Папка выбрана — в очередь; окно вариантов больше не нужно, загрузка видна в «Загрузках»
+  const start = async (o: DownloadOption, folder: string) => {
+    const r = await api.downloadStart({ gameId, title, name: o.title, cover, hero, kind: o.kind, uris: o.uris, size: o.size, folder })
+    if (r.error) {
+      play('error')
+      return toast({ title: t('Загрузка не началась'), message: r.error, tone: 'error', history: false })
+    }
+    play('select')
+    toast({ title: t('Загрузка началась'), message: title, image: cover, tone: 'success', history: false })
+    onClose()
+  }
 
-  // △ и □ — к варианту в фокусе; остальное — навигации окна
+  // △ и □ — к варианту в фокусе
   useInputLayer(
     (a) => {
       const o = list?.[cur]
-      if (!o) return false
+      if (!o || target) return false
       if (a === 'menu') return open(o)
       if (a === 'search') {
         play('select')
@@ -137,36 +192,46 @@ function OptionsList({ appId, title, list, onClose, onReload }: { appId: number;
       return false
     },
     41,
-    !unbinding
+    quiet
   )
 
+  const over = (
+    <AnimatePresence>
+      {unbinding && (
+        <ConfirmDialog
+          title={t('Не та игра?')}
+          text={t('Загрузки «{title}» больше не будут показываться у «{game}».', { title: unbinding.title, game: title })}
+          button={t('Убрать')}
+          onCancel={() => setUnbinding(null)}
+          onConfirm={() => {
+            const key = unbinding.key
+            setUnbinding(null)
+            void api.storeUnbind(appId, key).then(onReload)
+          }}
+        />
+      )}
+    </AnimatePresence>
+  )
+
+  if (target) {
+    const need = sizeBytes(target.size)
+    return (
+      <Dialog className="dl-dialog" dref={ref} over={over}>
+        <h2 className="dialog-title">{t('Куда скачать?')}</h2>
+        <p className="dl-sub">{[title, release(target.title).by, need ? bytes(need) : ''].filter(Boolean).join(' · ')}</p>
+        <WhereTo need={need} onPick={(folder) => void start(target, folder)} />
+        <footer className="dl-hints">
+          <Hint glyph="confirm" label={t('Выбрать')} />
+          <Hint glyph="back" label={t('Назад')} />
+        </footer>
+      </Dialog>
+    )
+  }
+
   return (
-    <Dialog
-      className="dl-dialog"
-      dref={ref}
-      over={
-        <AnimatePresence>
-          {unbinding && (
-            <ConfirmDialog
-              title={t('Не та игра?')}
-              text={t('Загрузки «{title}» больше не будут показываться у «{game}».', { title: unbinding.title, game: title })}
-              button={t('Убрать')}
-              onCancel={() => setUnbinding(null)}
-              onConfirm={() => {
-                const key = unbinding.key
-                setUnbinding(null)
-                void api.storeUnbind(appId, key).then(onReload)
-              }}
-            />
-          )}
-        </AnimatePresence>
-      }
-    >
-      <h2 className="dialog-title">{t('Варианты загрузки')}</h2>
-      <p className="dl-sub">
-        {title}
-        {list ? ` · ${optionsCount(list.length)}` : ''}
-      </p>
+    <Dialog className="dl-dialog" dref={ref} over={over}>
+      <h2 className="dialog-title">{t('Скачать «{title}»', { title })}</h2>
+      <p className="dl-sub">{list ? optionsCount(list.length) : ''}</p>
       <div className="dl-list">
         {list === null ? (
           <div className="gp-skeleton">
@@ -174,34 +239,58 @@ function OptionsList({ appId, title, list, onClose, onReload }: { appId: number;
             <span />
           </div>
         ) : (
-          list.map((o, i) => (
-            <div key={`${o.sourceId}:${o.title}:${i}`} className={`dl-row ${i === cur ? 'is-current' : ''}`} onMouseEnter={() => setCur(i)}>
-              <button data-nav className="menu-item dl-option" onFocus={() => setCur(i)} onClick={() => copy(o)}>
-                <span className="dl-kind">{o.kind === 'http' ? <IconGlobe /> : <IconDownload />}</span>
-                <span className="dl-text">
-                  <span className="dl-title">{o.title}</span>
-                  <span className="dl-meta">{[o.source, o.size, o.date ? dateText(o.date) : '', KIND_LABELS[o.kind]].filter(Boolean).join(' · ')}</span>
+          list.map((o, i) => {
+            const r = release(o.title)
+            const size = sizeBytes(o.size)
+            return (
+              <div key={`${o.sourceId}:${o.title}:${i}`} className={`dl-row ${i === cur ? 'is-current' : ''}`} onMouseEnter={() => setCur(i)} title={o.title}>
+                <button data-nav className="dl-option" onFocus={() => setCur(i)} onClick={() => choose(o)}>
+                  <span className="dl-kind" title={KIND_LABELS[o.kind]}>
+                    {o.kind === 'http' ? <IconGlobe /> : <IconMagnet />}
+                  </span>
+                  <span className="dl-text">
+                    <span className="dl-by">{r.by ?? plainTitle(o.title)}</span>
+                    <span className="dl-chips">
+                      {r.version && <span className="dl-chip">{r.version}</span>}
+                      {r.edition && <span className="dl-chip">{r.edition}</span>}
+                      {r.dlc && <span className="dl-chip">DLC</span>}
+                      {r.rus && <span className="dl-chip">RUS</span>}
+                      <span className="dl-when">{[o.date ? dateText(o.date) : '', manySources ? o.source : ''].filter(Boolean).join(' · ')}</span>
+                    </span>
+                  </span>
+                  <span className="dl-size">{size ? bytes(size) : (o.size ?? '')}</span>
+                </button>
+                {/* Мышью — то же, что △ и □ */}
+                <span className="dl-tools">
+                  <button tabIndex={-1} className="btn btn-round dl-tool" onClick={() => copy(o)} aria-label={t('Скопировать ссылку')} title={t('Скопировать ссылку')}>
+                    <IconCopy />
+                  </button>
+                  <button tabIndex={-1} className="btn btn-round dl-tool" onClick={() => open(o)} aria-label={t('Открыть в другой программе')} title={t('Открыть в другой программе')}>
+                    <IconExternal />
+                  </button>
+                  <button tabIndex={-1} className="btn btn-round dl-tool" onClick={() => (play('select'), setUnbinding(o))} aria-label={t('Не та игра?')} title={t('Не та игра?')}>
+                    <IconUnlink />
+                  </button>
                 </span>
-              </button>
-              {/* Для мыши: те же действия, что △ и □ */}
-              <span className="dl-tools">
-                <button tabIndex={-1} className="btn btn-glass btn-sm" onClick={() => open(o)}>
-                  {t('Открыть')}
-                </button>
-                <button tabIndex={-1} className="btn btn-glass btn-sm" onClick={() => setUnbinding(o)}>
-                  {t('Не та игра?')}
-                </button>
-              </span>
-            </div>
-          ))
+              </div>
+            )
+          })
         )}
       </div>
       <footer className="dl-hints">
-        <Hint glyph="confirm" label={t('Скопировать ссылку')} />
-        <Hint glyph="menu" label={t('Открыть')} />
+        <Hint glyph="confirm" label={list?.[cur] && canDownload(list[cur].kind) ? t('Скачать') : t('Скопировать ссылку')} />
+        <Hint glyph="menu" label={t('Открыть в другой программе')} />
         <Hint glyph="search" label={t('Не та игра?')} />
         <Hint glyph="back" label={t('Закрыть')} />
       </footer>
     </Dialog>
   )
 }
+
+/** Название раздачи без скобок и хвоста «| RePack…» — когда не понять, кто её собрал */
+const plainTitle = (s: string) =>
+  s
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, ' ')
+    .replace(/\s\|.*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()

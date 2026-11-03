@@ -21,6 +21,7 @@ import { TABS, TopBar, type Tab } from './components/TopBar'
 import { WindowFrame } from './components/WindowFrame'
 import { api } from './lib/api'
 import { accentOf, DEFAULT_ACCENT, notInstalled } from './lib/format'
+import { useDownloadNotices, useDownloads } from './lib/downloads'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
 import { toast, useAppState } from './lib/state'
@@ -50,6 +51,7 @@ const SteamImport = deferred(() => import('./components/SteamImport').then((m) =
 const Store = deferred(() => import('./components/Store').then((m) => m.Store))
 const StorePage = deferred(() => import('./components/StorePage').then((m) => m.StorePage))
 const DownloadFlow = deferred(() => import('./components/DownloadOptions').then((m) => m.DownloadFlow))
+const DownloadsPage = deferred(() => import('./components/Downloads').then((m) => m.DownloadsPage))
 const TrophyList = deferred(() => import('./components/TrophyList').then((m) => m.TrophyList))
 
 /** Цвета обложек последних игр — для сияния в интро */
@@ -126,6 +128,9 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<string | undefined>(REOPEN_SETTINGS || undefined)
   const [power, setPower] = useState(false)
   const [notices, setNotices] = useState(false)
+  const [downloadsOpen, setDownloadsOpen] = useState(false)
+  const downloads = useDownloads()
+  useDownloadNotices(downloads)
   const [launching, setLaunching] = useState<string | null>(null)
   // Игра, чей запуск ещё ждёт ответа main, и отменённая на экране запуска: её закрываем, как только она стартует
   const launchPending = useRef<string | null>(null)
@@ -145,7 +150,7 @@ export function App() {
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
   const modal =
-    !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || !!downloadFor || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || installing
+    !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || !!downloadFor || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || downloadsOpen || installing
   const contentActive = !modal && tabFocus === null
 
   // Итог сессии не показываем: время игры и так видно на странице игры и в профиле
@@ -295,7 +300,7 @@ export function App() {
     (a) => {
       if (tabFocus === null) return false
       if (a === 'left' || a === 'right') {
-        const next = Math.max(0, Math.min(TABS.length + 1, tabFocus + (a === 'left' ? -1 : 1)))
+        const next = Math.max(0, Math.min(TABS.length + 2, tabFocus + (a === 'left' ? -1 : 1)))
         if (next === tabFocus) return
         setTabFocus(next)
         if (next < TABS.length) goTab(TABS[next].id)
@@ -306,11 +311,15 @@ export function App() {
       } else if (a === 'confirm') {
         if (tabFocus === TABS.length) {
           play('select')
-          pressFx(document.querySelector('.notice-btn'))
-          setNotices(true)
+          pressFx(document.querySelector('.dl-btn'))
+          setDownloadsOpen(true)
         } else if (tabFocus === TABS.length + 1) {
           play('select')
-          pressFx(document.querySelector('.power-btn:not(.notice-btn)'))
+          pressFx(document.querySelector('.notice-btn'))
+          setNotices(true)
+        } else if (tabFocus === TABS.length + 2) {
+          play('select')
+          pressFx(document.querySelector('.power-btn:not(.notice-btn):not(.dl-btn)'))
           setPower(true)
         } else setTabFocus(null)
       } else return false
@@ -455,6 +464,11 @@ export function App() {
               setTabFocus(null)
             }}
             updateReady={update.phase === 'ready'}
+            downloads={downloads}
+            onDownloads={() => {
+              play('select')
+              setDownloadsOpen(true)
+            }}
             onNotices={() => {
               play('select')
               setNotices(true)
@@ -609,6 +623,8 @@ export function App() {
           {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
         </AnimatePresence>
 
+        <AnimatePresence>{downloadsOpen && <DownloadsPage key="downloads" jobs={downloads} onClose={() => setDownloadsOpen(false)} />}</AnimatePresence>
+
         <AnimatePresence>
           {pageGame && (
             <GamePage
@@ -671,6 +687,9 @@ export function App() {
               appId={downloadFor.platform === 'pc' ? (downloadFor.steamAppId ?? 0) : 0}
               title={downloadFor.title}
               platform={downloadFor.platform}
+              gameId={downloadFor.id}
+              cover={downloadFor.cover}
+              hero={downloadFor.hero}
               onClose={() => setDownloadFor(null)}
               onOpenSources={() => {
                 setDownloadFor(null)

@@ -1,13 +1,15 @@
 import { motion } from 'motion/react'
-import type { Game, QuestStatus } from '@shared/types'
+import type { DownloadJob, Game, QuestStatus } from '@shared/types'
 import { clock, timer } from '../lib/format'
+import { fraction } from '../lib/downloads'
 import { DotText } from './DotText'
 import { usePadInfo } from '../lib/input'
 import { useNoticeHistory, useNow, usePadStatus, useVrQuest } from '../lib/state'
 import { Avatar } from './Avatar'
 import { Glyph } from './Glyph'
-import { IconBattery, IconBell, IconGamepad, IconPlug, IconPower, IconVr, IconVrController, IconWifi } from './Icons'
+import { IconBattery, IconBell, IconDownload, IconGamepad, IconPlug, IconPower, IconVr, IconVrController, IconWifi } from './Icons'
 import { t } from '@shared/i18n'
+import '../styles-store.css'
 
 /** Цвет заряда: жёлтый — пора заряжать, красный — вот-вот сядет */
 const chargeClass = (v?: number) => (v === undefined ? '' : v <= 10 ? 'is-empty' : v <= 25 ? 'is-low' : '')
@@ -65,7 +67,7 @@ const BATTERY_TEXT = { empty: t('Геймпад разряжен'), low: t('Ни
 
 interface Props {
   tab: Tab
-  /** Индекс фокуса в зоне вкладок (TABS.length — уведомления, TABS.length + 1 — питание) или null, если фокус в контенте */
+  /** Индекс фокуса в зоне вкладок (TABS.length — загрузки, +1 — уведомления, +2 — питание) или null, если фокус в контенте */
   tabFocus: number | null
   userName: string
   avatar?: string
@@ -73,12 +75,15 @@ interface Props {
   runningSince?: number
   /** Скачано обновление — точка на кнопке питания */
   updateReady?: boolean
+  /** Очередь загрузок: кольцо прогресса на кнопке, пока качается, точка — если загрузка остановилась */
+  downloads: DownloadJob[]
   onTab: (t: Tab) => void
+  onDownloads: () => void
   onNotices: () => void
   onPower: () => void
 }
 
-export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSince, updateReady, onTab, onNotices, onPower }: Props) {
+export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSince, updateReady, downloads, onTab, onDownloads, onNotices, onPower }: Props) {
   const now = useNow(1000)
   const pad = usePadInfo()
   const status = usePadStatus()
@@ -86,6 +91,8 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
   const battery = status.battery
   const quest = useVrQuest()
   const notices = useNoticeHistory()
+  const active = downloads.find((j) => j.status === 'active')
+  const stopped = downloads.some((j) => j.status === 'error')
 
   return (
     <header className="topbar">
@@ -140,7 +147,22 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
         {quest?.connected && <VrStatus q={quest} />}
         <DotText className="clock" text={clock(new Date(now))} />
         <button
-          className={`power-btn notice-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
+          className={`power-btn dl-btn ${tabFocus === TABS.length ? 'is-focused' : ''}`}
+          onClick={onDownloads}
+          tabIndex={-1}
+          aria-label={active ? t('Загрузки: {title}, {pct}%', { title: active.title, pct: Math.floor(fraction(active) * 100) }) : t('Загрузки')}
+        >
+          <IconDownload />
+          {active && (
+            <svg className="dl-ring" viewBox="0 0 40 40" aria-hidden>
+              <circle className="dl-ring-track" cx="20" cy="20" r="18.5" />
+              <circle className="dl-ring-fill" cx="20" cy="20" r="18.5" pathLength={100} strokeDasharray={`${Math.max(2, fraction(active) * 100)} 100`} />
+            </svg>
+          )}
+          {!active && stopped && <span className="power-dot" />}
+        </button>
+        <button
+          className={`power-btn notice-btn ${tabFocus === TABS.length + 1 ? 'is-focused' : ''}`}
           onClick={onNotices}
           tabIndex={-1}
           aria-label={notices.unread ? t('Уведомления: новых {n}', { n: notices.unread }) : t('Уведомления')}
@@ -149,7 +171,7 @@ export function TopBar({ tab, tabFocus, userName, avatar, runningGame, runningSi
           {notices.unread > 0 && <span className="power-dot" />}
         </button>
         <button
-          className={`power-btn ${tabFocus === TABS.length + 1 ? 'is-focused' : ''}`}
+          className={`power-btn ${tabFocus === TABS.length + 2 ? 'is-focused' : ''}`}
           onClick={onPower}
           tabIndex={-1}
           aria-label={updateReady ? t('Питание. Готово обновление PlayOS') : t('Питание')}

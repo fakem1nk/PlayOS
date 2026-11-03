@@ -30,6 +30,8 @@ import type {
   UpdateSplash,
   SaveProgress,
   Settings,
+  DownloadControl,
+  DownloadRequest,
   StoreHome,
   StoreSteam,
   ArtSource,
@@ -43,6 +45,7 @@ import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam, steamRoot } from './steam'
 import * as shop from './shop/catalog'
 import * as sources from './shop/sources'
+import * as downloads from './downloads'
 import { libraryMatch } from '@shared/match'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
@@ -1821,6 +1824,26 @@ function registerIpc() {
     if (how === 'copy') clipboard.writeText(list.join('\n'))
     else await shell.openExternal(list[0])
   })
+  // Загрузки: очередь живёт в main, интерфейс получает её целиком при изменениях
+  ipcMain.handle('downloads:list', () => downloads.listDownloads())
+  ipcMain.handle('downloads:kinds', () => (['http', 'magnet', 'torrent'] as const).filter(downloads.canDownload))
+  ipcMain.handle('downloads:start', (_e, req: DownloadRequest) => downloads.startDownload(req))
+  ipcMain.handle('downloads:control', (_e, id: string, action: DownloadControl) => downloads.controlDownload(String(id), action))
+  ipcMain.handle('downloads:folders', () => downloads.listFolders())
+  ipcMain.handle('downloads:drives', () => downloads.listDrives())
+  ipcMain.handle('downloads:folderAdd', async (_e, p: string) => {
+    const r = await downloads.addFolder(String(p ?? ''))
+    broadcast()
+    return r
+  })
+  ipcMain.handle('downloads:folderBrowse', async () => {
+    const res = await dialog.showOpenDialog(win!, { title: t('Папка для загрузок'), properties: ['openDirectory', 'createDirectory'] })
+    return res.canceled ? null : (res.filePaths[0] ?? null)
+  })
+  ipcMain.handle('downloads:folderRemove', (_e, p: string) => {
+    downloads.removeFolder(String(p ?? ''))
+    broadcast()
+  })
   ipcMain.handle('update:state', () => updateState())
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:install', async (_e, splash?: UpdateSplash) => {
@@ -2236,6 +2259,7 @@ app.whenReady().then(() => {
   setTimeout(backfillAccents, 1500)
   setTimeout(pruneThumbs, 60_000)
   setTimeout(() => void adoptSteamInstalls(true), 5000)
+  downloads.startDownloads((list) => send('downloads', list))
   vr.migrateStandalone()
   // Шлем в верхней панели: шлём только изменения (подключение, способ связи, заряд)
   let lastQuest = ''

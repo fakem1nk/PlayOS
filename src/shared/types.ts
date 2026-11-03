@@ -248,6 +248,8 @@ export interface Settings {
   tiviSize?: 'small' | 'medium' | 'large'
   /** Предупреждать о разряде геймпада (10%) поверх игры */
   lowBatteryWarning: boolean
+  /** Папки для загрузок, которые задал пользователь; последняя выбранная — первой */
+  downloadDirs?: string[]
   /** Всплывающие уведомления; false — тихо копятся в центре уведомлений (ошибки и ответы на действия видны всегда) */
   noticePopups?: boolean
   /** Сколько уведомление держится на экране и какого оно размера; нет — обычно */
@@ -808,6 +810,24 @@ export interface PcsApi {
   storeUnbind(appId: number, key: string): Promise<void>
   /** Ссылка варианта: скопировать (несколько — строками) или открыть в программе, которая её понимает */
   storeLink(uris: string[], how: 'copy' | 'open'): Promise<void>
+  // ── Загрузки ──
+  downloads(): Promise<DownloadJob[]>
+  /** Какие ссылки PlayOS качает сам: прямые всегда, торренты — если на месте его торрент-клиент */
+  downloadKinds(): Promise<DownloadKind[]>
+  /** Очередь целиком при каждом изменении; пока качается — не чаще пары раз в секунду */
+  onDownloads(cb: (jobs: DownloadJob[]) => void): () => void
+  downloadStart(req: DownloadRequest): Promise<{ job?: DownloadJob; error?: string }>
+  /** Пауза, продолжить, отменить, убрать из списка, удалить файлы, выше в очереди, открыть папку, убрать готовые */
+  downloadControl(id: string, action: DownloadControl): Promise<void>
+  /** Папки загрузок пользователя со свободным местом */
+  downloadFolders(): Promise<DownloadFolder[]>
+  /** Диски этого ПК для новой папки */
+  downloadDrives(): Promise<DownloadDrive[]>
+  /** Создать папку (если её нет) и добавить в список */
+  downloadFolderAdd(path: string): Promise<{ folder?: DownloadFolder; error?: string }>
+  /** Выбрать папку окном Windows (для мыши); null — отменили */
+  downloadFolderBrowse(): Promise<string | null>
+  downloadFolderRemove(path: string): Promise<void>
   // ── VR ──
   vrStatus(): Promise<VrStatus>
   /** Шлем для верхней панели; дальше изменения приходят в onVrQuest */
@@ -1044,6 +1064,78 @@ export interface DownloadOption {
   /** Дата публикации, мс */
   date?: number
 }
+
+/** queued — ждёт очереди, active — качается, paused — на паузе, error — остановилась, done — скачана */
+export type DownloadStatus = 'queued' | 'active' | 'paused' | 'error' | 'done'
+
+/** Загрузка в очереди PlayOS */
+export interface DownloadJob {
+  id: string
+  /** Игра библиотеки, ради которой качаем */
+  gameId?: string
+  /** Название игры */
+  title: string
+  /** Название раздачи из источника */
+  name: string
+  cover?: string
+  /** Широкий арт игры — фон раздела «Загрузки» */
+  hero?: string
+  kind: DownloadKind
+  /** Ссылки варианта: зеркала, пробуются по очереди */
+  uris: string[]
+  /** Папка загрузки: папка пользователя\название игры */
+  dir: string
+  /** Файл загрузки, когда его имя уже известно (пока качается — рядом с суффиксом .part) */
+  file?: string
+  status: DownloadStatus
+  received: number
+  /** Полный размер, байт; 0 — пока неизвестен */
+  size: number
+  /** Скорость, байт/с — только пока качается */
+  speed?: number
+  /** Торрент: ищет список файлов или проверяет уже скачанное */
+  phase?: 'metadata' | 'checking'
+  /** Торрент: с кем соединён */
+  peers?: number
+  error?: string
+  addedAt: number
+  doneAt?: number
+}
+
+/** Что скачать и куда */
+export interface DownloadRequest {
+  gameId?: string
+  title: string
+  name: string
+  cover?: string
+  hero?: string
+  kind: DownloadKind
+  uris: string[]
+  /** Размер из источника («12.4 GB») — для проверки места, пока сервер не назвал точный */
+  size?: string
+  /** Папка пользователя из списка папок загрузок */
+  folder: string
+}
+
+/** Папка для загрузок, которую задал пользователь */
+export interface DownloadFolder {
+  path: string
+  /** Свободно на диске, байт */
+  free: number
+  /** Весь диск, байт — для полоски заполненности */
+  total: number
+  /** Папка есть и в неё можно писать */
+  ok: boolean
+}
+
+/** Диск для новой папки загрузок */
+export interface DownloadDrive {
+  root: string
+  free: number
+  total: number
+}
+
+export type DownloadControl = 'pause' | 'resume' | 'cancel' | 'remove' | 'deleteFiles' | 'up' | 'folder' | 'clearDone'
 
 export interface AchievementNotice {
   gameId: string
