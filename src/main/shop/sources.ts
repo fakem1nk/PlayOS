@@ -212,10 +212,23 @@ async function withKeys(list: BareEntry[]): Promise<RawEntry[]> {
   return out
 }
 
+/**
+ * Название без битых букв: некоторые источники отдают «�» вместо кириллицы (её испортили ещё при сборке файла).
+ * Вычищаем их вместе с повисшими разделителями, чтобы в вариантах не было мусора
+ */
+const cleanTitle = (t: string) =>
+  t.includes('�')
+    ? t
+        .replace(/�+/g, ' ')
+        .replace(/[\s|/\-–—:,.]+$/, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+    : t
+
 function toEntry(e: RawEntry, sourceId: string): Entry {
   const keys: TitleKey[] = []
   for (let i = 0; i + 1 < e.k.length; i += 2) keys.push({ full: e.k[i], base: e.k[i + 1] })
-  return { keys, sourceId, title: e.t, uris: e.u, platform: e.p ?? 'pc', date: e.d, size: e.s, year: e.y }
+  return { keys, sourceId, title: cleanTitle(e.t), uris: e.u, platform: e.p ?? 'pc', date: e.d, size: e.s, year: e.y }
 }
 
 /** Разных игр в источнике — по главному ключу */
@@ -533,7 +546,7 @@ async function fetchSource(url: string): Promise<{ name: string; list: RawEntry[
       .slice(0, 20)
     if (!uris.length) continue
     const date = typeof d.uploadDate === 'string' ? Date.parse(d.uploadDate) : NaN
-    const e: BareEntry = { t: d.title.trim().slice(0, 300), u: uris }
+    const e: BareEntry = { t: cleanTitle(d.title.trim()).slice(0, 300), u: uris }
     if (Number.isFinite(date)) e.d = date
     if (typeof d.fileSize === 'string' && d.fileSize.trim()) e.s = d.fileSize.trim().slice(0, 40)
     bare.push(e)

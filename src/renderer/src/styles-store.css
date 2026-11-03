@@ -291,6 +291,47 @@
   }
 }
 
+/* Поиск: плитки дышат по очереди — волна идёт по ряду, пока Steam не ответил */
+.store-search-wait .tile-art,
+.store-wait-line {
+  background: rgba(255, 255, 255, 0.06);
+  animation: store-search-wait 1.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.store-wait-line {
+  display: block;
+  width: 80%;
+  height: 1.4rem;
+  border-radius: 0.7rem;
+}
+
+.store-wait-line.is-short {
+  width: 50%;
+}
+
+@keyframes store-search-wait {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.store-meta-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.store-meta-wait .spinner {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-width: 0.22rem;
+}
+
 /* ───────────────────────── Страница игры в магазине ───────────────────────── */
 /* Ролик проявляется поверх арта, когда уже играет: без чёрного кадра на загрузке */
 .store-trailer {
@@ -579,6 +620,31 @@
   color: var(--mist);
 }
 
+/* Шапка окна вариантов: обложка игры, название, сколько вариантов */
+.dl-head {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2.4rem;
+}
+
+.dl-head .dialog-title {
+  margin: 0;
+}
+
+.dl-head .dl-sub {
+  margin: 0.6rem 0 0;
+}
+
+.dl-head-cover {
+  flex: none;
+  width: 6.4rem;
+  height: 8.6rem;
+  border-radius: 1rem;
+  object-fit: cover;
+  box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.35);
+}
+
 .dl-list {
   flex: 1;
   min-height: 0;
@@ -589,14 +655,6 @@
   /* Запас под кольцо фокуса */
   padding: 0.9rem;
   margin: -0.9rem;
-}
-
-/* Вариант: значок (магнит или прямая ссылка) · кто собрал и метки · размер; справа — значки действий для мыши */
-.dl-row {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
 }
 
 .dl-option,
@@ -636,50 +694,43 @@
   }
 }
 
+/* Вариант: кто собрал и метки, ниже — магнит или ссылка, дата и источник; справа размер и стрелка «скачать» у строки
+   в фокусе или под курсором — видно, что нажатие начнёт загрузку */
 .dl-option {
-  flex: 1;
+  flex: none;
   min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 1.6rem;
-  padding: 1.4rem 2.2rem 1.4rem 1.4rem;
-}
-
-.dl-kind {
-  width: 4.4rem;
-  height: 4.4rem;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 2rem;
-  color: var(--mist);
-  background: rgba(255, 255, 255, 0.08);
+  gap: 2rem;
+  padding: 1.5rem 1.6rem 1.5rem 2.2rem;
 }
 
 .dl-text {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.7rem;
+}
+
+.dl-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 }
 
 .dl-by {
-  font-size: 1.9rem;
+  min-width: 0;
+  font-size: 1.95rem;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dl-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-}
-
 .dl-chip {
+  flex: none;
   padding: 0.2rem 0.9rem;
   border-radius: 0.8rem;
   font-size: 1.35rem;
@@ -688,9 +739,16 @@
 }
 
 .dl-when {
-  margin-left: 0.4rem;
-  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1.45rem;
   color: var(--faint);
+}
+
+.dl-kind {
+  display: inline-flex;
+  font-size: 1.5rem;
 }
 
 .dl-size {
@@ -700,26 +758,32 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Значки для мыши — у строки в фокусе или под курсором; место под них есть всегда, строки не прыгают */
-.dl-tools {
-  flex: none;
-  display: flex;
-  gap: 0.6rem;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.dl-row.is-current .dl-tools,
-.dl-row:hover .dl-tools {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.dl-tool {
+.dl-go {
   width: 4.2rem;
   height: 4.2rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
   font-size: 1.9rem;
+  color: #0b0d12;
+  background: #fff;
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 0.15s ease,
+    transform 0.2s var(--ease-out);
+}
+
+.dl-option:focus .dl-go {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dl-option:hover .dl-go {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .dl-hints {
@@ -1231,4 +1295,10 @@ html[data-theme='light'] .store-dots button.is-active {
   .dl-job-bar span {
     transition: none;
   }
+}
+
+/* Уведомление, которое ведёт в раздел (о загрузке — в «Загрузки»): нажимается */
+.toast.is-link,
+.notice-item.is-link {
+  cursor: pointer;
 }

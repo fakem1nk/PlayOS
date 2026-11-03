@@ -125,7 +125,10 @@ async function findUninstaller(dir: string, exe: string): Promise<string | null>
   return null
 }
 
-/** Запуск программы удаления через ShellExecute: так Windows сама спросит права администратора */
+/**
+ * Запуск программы удаления через ShellExecute (.NET Process.Start): так Windows сама спросит права администратора.
+ * Не Start-Process: он читает [ ] в пути как шаблон и не находит «C:\Games\[Сборка] Игра\unins000.exe»
+ */
 function runUninstaller(cmd: string): Promise<boolean> {
   const exe = exeOf(cmd)
   const quoted = /^\s*"/.test(cmd)
@@ -133,7 +136,9 @@ function runUninstaller(cmd: string): Promise<boolean> {
   // MSI в реестре иногда записан как «/I{GUID}» — это открывает изменение установки, а не удаление
   if (/msiexec(\.exe)?$/i.test(exe)) args = args.replace(/\/I\s*\{/i, '/X{')
   const q = (s: string) => `'${s.replace(/'/g, "''")}'`
-  const ps = `$ErrorActionPreference='Stop';Start-Process -FilePath ${q(exe)}` + (args ? ` -ArgumentList ${q(args)}` : '')
+  const ps =
+    `$ErrorActionPreference='Stop';$si = New-Object System.Diagnostics.ProcessStartInfo; $si.FileName = ${q(exe)}; $si.Arguments = ${q(args)}; ` +
+    '$si.UseShellExecute = $true; [void][System.Diagnostics.Process]::Start($si)'
   return new Promise((resolve) =>
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, timeout: 120000 }, (err) => {
       if (err) log('WARN', 'uninstaller start failed', exe, err.message)

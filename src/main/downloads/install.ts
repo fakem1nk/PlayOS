@@ -124,6 +124,9 @@ export function findImage(roots: string[], platform: Platform): string | null {
 
 // ───────────────────────── Установщик ─────────────────────────
 
+/** Строка для PowerShell в одинарных кавычках: там ничего не подставляется, кавычка удваивается */
+const psQuote = (s: string) => `'${s.replace(/'/g, "''")}'`
+
 export interface InstallerRun {
   /** Код выхода установщика */
   code?: number
@@ -133,15 +136,17 @@ export interface InstallerRun {
 }
 
 /**
- * Запуск установщика через ShellExecute (PowerShell Start-Process): права администратора Windows спросит сама,
- * если они нужны установщику. Ждём, пока он закроется — установка идёт столько, сколько нужно
+ * Запуск установщика через ShellExecute (.NET Process.Start из PowerShell): права администратора Windows спросит
+ * сама, если они нужны установщику. Ждём, пока он закроется — установка идёт столько, сколько нужно.
+ * Не Start-Process: он читает [ ] в пути как шаблон и не находит «[Сборка] Игра\Setup.exe»
  */
 export function runInstaller(file: string, onStart: (pid: number) => void): Promise<InstallerRun> {
-  const q = (s: string) => `'${s.replace(/'/g, "''")}'`
   const ps =
     "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.Encoding]::UTF8;" +
-    `try { $p = Start-Process -FilePath ${q(file)} -WorkingDirectory ${q(path.dirname(file))} -PassThru } ` +
-    'catch { $c = $_.Exception.InnerException.NativeErrorCode; if (-not $c) { $c = $_.Exception.NativeErrorCode }; [Console]::Out.WriteLine("fail $c " + $_.Exception.Message); exit } ' +
+    `$si = New-Object System.Diagnostics.ProcessStartInfo; $si.FileName = ${psQuote(file)}; $si.WorkingDirectory = ${psQuote(path.dirname(file))}; $si.UseShellExecute = $true; ` +
+    'try { $p = [System.Diagnostics.Process]::Start($si) } ' +
+    'catch { $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }; [Console]::Out.WriteLine("fail " + $e.NativeErrorCode + " " + $e.Message); exit } ' +
+    "if (-not $p) { [Console]::Out.WriteLine('fail 0 no process'); exit }; " +
     "[Console]::Out.WriteLine('pid ' + $p.Id); $p.WaitForExit(); [Console]::Out.WriteLine('exit ' + $p.ExitCode)"
   return new Promise((resolve) => {
     const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })

@@ -651,6 +651,23 @@ p {
   gap: 0.9rem;
 }
 
+/* Подсказка, которую можно нажать мышью: выглядит так же, под курсором ярче */
+.hint-click {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hint-click:hover {
+    color: var(--ink);
+  }
+}
+
 .glyph {
   width: 2.7rem;
   height: 2.7rem;

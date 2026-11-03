@@ -7,7 +7,7 @@ import { useInputLayer } from '../lib/input'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { rumble } from '../lib/haptics'
-import { clearNotices, dismissToast, markNoticesRead, toast, useNoticeHistory, useToasts, type Notice } from '../lib/state'
+import { clearNotices, dismissToast, markNoticesRead, openNotice, toast, useNoticeHistory, useToasts, type Notice } from '../lib/state'
 import { Cycler, Toggle } from './Controls'
 import { Hint } from './Glyph'
 import { IconBell, IconDownload, IconSettings, IconTrash, IconTrophy } from './Icons'
@@ -69,12 +69,15 @@ export function Toasts({ size = 'normal' }: { size?: Settings['noticeSize'] }) {
           <motion.div
             key={item.id}
             layout
-            className={`toast toast-${item.tone ?? 'info'} ${item.kind === 'trophy' ? `toast-trophy trophy-${item.tier}` : ''}`}
+            className={`toast toast-${item.tone ?? 'info'} ${item.kind === 'trophy' ? `toast-trophy trophy-${item.tier}` : ''} ${item.open ? 'is-link' : ''}`}
             initial={{ opacity: 0, transform: 'translateX(110%)' }}
             animate={{ opacity: 1, transform: 'translateX(0%)' }}
             exit={{ opacity: 0, transform: 'translateX(40%)', transition: { duration: 0.2 } }}
             transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
-            onClick={() => dismissToast(item.id)}
+            onClick={() => {
+              dismissToast(item.id)
+              if (item.open) openNotice(item)
+            }}
           >
             {item.kind === 'trophy' ? (
               <span className="toast-trophy-icon">
@@ -267,7 +270,12 @@ function NoticeRow({ n }: { n: Notice }) {
   // Кнопка «Обновить» — пока эта версия скачана и ждёт установки
   const installable = n.kind === 'update' && update.phase === 'ready' && update.version === n.version
   return (
-    <div data-nav tabIndex={-1} className={`notice-item is-${n.tone ?? 'info'} ${n.kind === 'trophy' ? `trophy-${n.tier}` : ''}`}>
+    <div
+      data-nav
+      tabIndex={-1}
+      className={`notice-item is-${n.tone ?? 'info'} ${n.kind === 'trophy' ? `trophy-${n.tier}` : ''} ${n.open ? 'is-link' : ''}`}
+      onClick={n.open ? () => (play('select'), openNotice(n)) : undefined}
+    >
       {n.kind === 'trophy' || n.kind === 'update' ? (
         <span className="notice-icon">{n.kind === 'trophy' ? <IconTrophy /> : <IconDownload />}</span>
       ) : n.image ? (

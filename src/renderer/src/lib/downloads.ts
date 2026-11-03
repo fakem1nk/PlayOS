@@ -39,16 +39,17 @@ export function useDownloadNotices(jobs: DownloadJob[]) {
     for (const j of jobs) {
       const was = prev.get(j.id)
       if (!was || (was.status === j.status && was.install === j.install)) continue
-      const note = { message: j.title, image: j.cover }
+      // Любое уведомление о загрузке открывает «Загрузки»
+      const note = { message: j.title, image: j.cover, open: 'downloads' as const }
       if (was.install === 'running' && j.install === 'installed') toast({ ...note, title: t('Игра установлена'), tone: 'success' })
       else if (was.install === 'running' && j.install === 'manual') toast({ ...note, title: t('Укажите файл игры'), message: t('Не нашли, куда установилась «{title}»', { title: j.title }), tone: 'error' })
       else if (was.install === 'running' && j.installError) toast({ ...note, title: t('Установка не завершилась'), message: `${j.title}: ${j.installError}`, tone: 'error' })
       else if (was.status === j.status) continue
       else if (j.status === 'done' && j.install === 'ready') toast({ ...note, title: t('Можно установить'), tone: 'success' })
       else if (j.status === 'done' && j.install === 'installed') toast({ ...note, title: t('Игра готова'), message: t('«{title}» — можно играть', { title: j.title }), tone: 'success' })
-      else if (j.status === 'done') toast({ title: t('Загрузка завершена'), message: j.title, image: j.cover, tone: 'success' })
-      else if (j.status === 'error' && j.needPassword) toast({ title: t('Нужен пароль от архива'), message: j.title, image: j.cover, tone: 'error' })
-      else if (j.status === 'error') toast({ title: t('Загрузка остановилась'), message: `${j.title}: ${j.error ?? ''}`, image: j.cover, tone: 'error' })
+      else if (j.status === 'done') toast({ ...note, title: t('Загрузка завершена'), tone: 'success' })
+      else if (j.status === 'error' && j.needPassword) toast({ ...note, title: t('Нужен пароль от архива'), tone: 'error' })
+      else if (j.status === 'error') toast({ ...note, title: t('Загрузка остановилась'), message: `${j.title}: ${j.error ?? ''}`, tone: 'error' })
     }
   }, [jobs])
 }

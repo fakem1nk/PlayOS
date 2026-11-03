@@ -84,6 +84,8 @@ export interface Toast {
   /** Для kind 'update': какая версия скачана — в центре уведомлений у неё кнопка «Обновить» */
   version?: string
   tier?: 'bronze' | 'silver' | 'gold' | 'platinum'
+  /** Куда ведёт нажатие на уведомление: downloads — раздел «Загрузки» */
+  open?: 'downloads'
   /**
    * false — ответ на действие (подтверждения, проверки, итоги импорта): только всплывающее окошко, в центр уведомлений
    * не попадает и видно даже с выключенными всплывающими уведомлениями
@@ -124,6 +126,13 @@ export function toast(t: Omit<Toast, 'id'>) {
   if (t.history !== false) remember(item)
   return item.id
 }
+
+/** Что делает нажатие на уведомление с open — задаёт App: только он умеет открывать разделы */
+let opener: (n: Toast) => void = () => {}
+export function setNoticeOpener(fn: (n: Toast) => void) {
+  opener = fn
+}
+export const openNotice = (n: Toast) => opener(n)
 
 export function dismissToast(id: number) {
   toasts = toasts.filter((t) => t.id !== id)

@@ -69,7 +69,15 @@ export function Glyph({ name, className = '' }: { name: GlyphName; className?: s
   )
 }
 
-export function Hint({ glyph, label }: { glyph: GlyphName; label: string }) {
+/** Подсказка кнопки внизу; с onClick — её можно нажать и мышью */
+export function Hint({ glyph, label, onClick }: { glyph: GlyphName; label: string; onClick?: () => void }) {
+  if (onClick)
+    return (
+      <button type="button" tabIndex={-1} className="hint hint-click" onClick={onClick}>
+        <Glyph name={glyph} />
+        {label}
+      </button>
+    )
   return (
     <span className="hint">
       <Glyph name={glyph} />

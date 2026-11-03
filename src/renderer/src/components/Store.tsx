@@ -349,7 +349,16 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
             </button>
           )}
         </label>
-        <div className="library-meta store-meta">{meta}</div>
+        <div className="library-meta store-meta">
+          {searching && loading ? (
+            <span className="store-meta-wait">
+              <span className="spinner" />
+              {meta}
+            </span>
+          ) : (
+            meta
+          )}
+        </div>
       </div>
 
       {searching ? (
@@ -368,18 +377,14 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
               ))}
             </div>
           </div>
+        ) : loading ? (
+          <SearchSkeleton />
         ) : (
           <div className="empty">
-            {loading ? (
-              <p className="empty-title">{t('Ищем…')}</p>
-            ) : (
-              <>
-                <p className="empty-title">{searchFailed ? t('Steam не ответил') : t('Ничего не нашлось')}</p>
-                <p className="empty-text">
-                  {searchFailed ? t('Проверьте интернет и попробуйте ещё раз.') : t('Игр с названием «{q}» в Steam нет. Попробуйте написать иначе.', { q: query })}
-                </p>
-              </>
-            )}
+            <p className="empty-title">{searchFailed ? t('Steam не ответил') : t('Ничего не нашлось')}</p>
+            <p className="empty-text">
+              {searchFailed ? t('Проверьте интернет и попробуйте ещё раз.') : t('Игр с названием «{q}» в Steam нет. Попробуйте написать иначе.', { q: query })}
+            </p>
           </div>
         )
       ) : empty ? (
@@ -547,6 +552,27 @@ function StoreHero({ items, index, focused, onPick, onOpen }: { items: StoreItem
 }
 
 /** Пока витрина грузится впервые — пустые места той же формы */
+/** Steam ещё ищет: пустые плитки результатов дышат волной слева направо — видно, что поиск идёт, а не завис */
+function SearchSkeleton() {
+  return (
+    <div className="grid-scroll store-search-wait" aria-hidden>
+      <div className="grid store-grid">
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} className="store-cell" style={{ '--i': i } as React.CSSProperties}>
+            <div className="tile store-tile">
+              <div className="tile-art" />
+            </div>
+            <div className="store-cap">
+              <span className="store-wait-line" />
+              <span className="store-wait-line is-short" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function StoreSkeleton() {
   return (
     <div className="store-scroll store-skeleton" aria-hidden>

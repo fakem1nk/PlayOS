@@ -1297,6 +1297,7 @@ export const EN: Record<string, string> = {
   'Пароль': 'Password',
   'Распаковать': 'Unpack',
   'Распаковано': 'Unpacked',
+  'Ищем варианты…': 'Looking for variants…',
   'Ждёт распаковки': 'Waiting to unpack',
   'Удалять архивы после распаковки': 'Delete archives after unpacking',
   'Скачанные архивы PlayOS распаковывает сам. Включено — после распаковки архивы удаляются и не занимают место': 'PlayOS unpacks downloaded archives by itself. On — archives are deleted after unpacking and take no space',

@@ -24,7 +24,7 @@ import { accentOf, DEFAULT_ACCENT, notInstalled } from './lib/format'
 import { useDownloadNotices, useDownloads } from './lib/downloads'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
-import { toast, useAppState } from './lib/state'
+import { setNoticeOpener, toast, useAppState } from './lib/state'
 import { holdMusic, play, setMusic, setMusicVolume } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
 import { setInstalling, useFinished, useInstalling, useUpdate } from './lib/update'
@@ -128,6 +128,16 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState<string | undefined>(REOPEN_SETTINGS || undefined)
   const [power, setPower] = useState(false)
   const [notices, setNotices] = useState(false)
+  // Нажатие на уведомление о загрузке — раздел «Загрузки»
+  useEffect(
+    () =>
+      setNoticeOpener((n) => {
+        if (n.open !== 'downloads') return
+        setNotices(false)
+        setDownloadsOpen(true)
+      }),
+    []
+  )
   const [downloadsOpen, setDownloadsOpen] = useState(false)
   const downloads = useDownloads()
   useDownloadNotices(downloads)
