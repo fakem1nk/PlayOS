@@ -1,0 +1,29 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Загрузки прямо в PlayOS: ссылки, торренты и magnet-ссылки",
+      "Раздел «Загрузки» — кнопка в верхней панели с кольцом прогресса",
+      "Папку для каждой загрузки можно выбрать или создать одним нажатием",
+      "Архивы распаковываются сами: zip, 7z, rar и архивы из частей",
+      "Скачанная игра сама попадает в библиотеку, установщик — по кнопке «Установить»"
+    ],
+    "fixed": [
+      "Игры из магазина больше не попадают в «Недавние», пока вы в них не сыграли",
+      "Нажатие на неустановленную игру в библиотеке больше не открывает загрузку"
+    ]
+  },
+  "en": {
+    "new": [
+      "Downloads right inside PlayOS: links, torrents and magnet links",
+      "Downloads section — a top bar button with a progress ring",
+      "Pick or create a folder for each download in one press",
+      "Archives unpack on their own: zip, 7z, rar and split archives",
+      "A downloaded game goes to your library, installers run with the Install button"
+    ],
+    "fixed": [
+      "Store games no longer show up in Recently played before you play them",
+      "Pressing a game that is not installed in the Library no longer opens the download"
+    ]
+  }
+}
