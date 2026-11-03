@@ -6,6 +6,7 @@ import { createCollection, deleteCollection, renameCollection, toggleInCollectio
 import { lastInputDevice } from '../lib/input'
 import { beginEdit, openKeyboard } from '../lib/osk'
 import { bytes, notInstalled, playtime } from '../lib/format'
+import { optionsCount, useEmuDownloads } from '../lib/shop'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { rumble } from '../lib/haptics'
@@ -291,12 +292,15 @@ interface GameMenuProps {
   onEdit: (g: Game) => void
   onTrophies: (g: Game) => void
   onInfo: (g: Game) => void
+  /** Варианты загрузки — у игр эмуляторов без файла, если в источниках что-то нашлось */
+  onDownload: (g: Game) => void
   collections: GameCollection[]
 }
 
-export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit, onTrophies, onInfo, collections }: GameMenuProps) {
+export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit, onTrophies, onInfo, onDownload, collections }: GameMenuProps) {
   const [picking, setPicking] = useState(false)
   const [uninstalling, setUninstalling] = useState(false)
+  const emuDownloads = useEmuDownloads(game)
   const isRunning = running?.gameId === game.id
   const inCount = collections.filter((c) => c.games.includes(game.id)).length
   const items: Item[] = [
@@ -308,6 +312,7 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
           : { id: 'play', label: t('Указать файл игры'), icon: <IconFolder />, run: () => (onClose(), onEdit(game)) }
         : { id: 'play', label: t('Играть'), icon: <IconPlay />, run: () => (onClose(), onLaunch(game)) },
     ...(notInstalled(game) && game.platform === 'pc' ? [{ id: 'file', label: t('Указать файл игры'), icon: <IconFolder />, run: () => (onClose(), onEdit(game)) }] : []),
+    ...(emuDownloads ? [{ id: 'download', label: `${t('Скачать')} · ${optionsCount(emuDownloads)}`, icon: <IconDownload />, run: () => onDownload(game) }] : []),
     { id: 'info', label: t('Об игре'), icon: <IconInfo />, run: () => onInfo(game) },
     { id: 'trophies', label: t('Трофеи'), icon: <IconTrophy />, run: () => onTrophies(game) },
     { id: 'edit', label: t('Изменить'), icon: <IconEdit />, group: true, run: () => (onClose(), onEdit(game)) },

@@ -242,6 +242,8 @@ export interface Settings {
   screensaver: number
   /** Маскот Тиви в правом нижнем углу; нет — показывается */
   tivi?: boolean
+  /** Магазин показывает игры для взрослых (откровенный сексуальный контент); нет — скрывает */
+  storeAdult?: boolean
   /** Размер Тиви во вкладке «Недавние» (на остальных он всегда маленький); у каждого ПК свой, как и экран */
   tiviSize?: 'small' | 'medium' | 'large'
   /** Предупреждать о разряде геймпада (10%) поверх игры */
@@ -788,13 +790,20 @@ export interface PcsApi {
   storeSources(): Promise<StoreSource[]>
   /** Добавить источник: скачивается и проверяется сразу; что не так — в error */
   storeSourceAdd(url: string): Promise<{ source?: StoreSource; error?: string }>
+  /** Источник из JSON-файла на диске (окно выбора файла); выбор отменили — пустой ответ */
+  storeSourceAddFile(): Promise<{ source?: StoreSource; error?: string }>
+  /** Источник из файла, который перетащили в окно */
+  storeSourceAddPath(file: string): Promise<{ source?: StoreSource; error?: string }>
+  /** Путь на диске у перетащенного файла (пусто — файл не с диска) */
+  pathForFile(file: File): string
   storeSourceRemove(id: string): Promise<void>
   storeSourcesRefresh(): Promise<StoreSource[]>
   storeSourceRefresh(id: string): Promise<StoreSource[]>
   /** Ссылка из буфера обмена, если там ссылка http(s); иначе пустая строка */
   storeClipboardUrl(): Promise<string>
   /** Варианты загрузки игры из всех источников, свежие первыми */
-  storeOptions(appId: number, title: string): Promise<DownloadOption[]>
+  /** Варианты загрузки игры; platform — для игр эмуляторов (PS2, PS3), по умолчанию PC */
+  storeOptions(appId: number, title: string, platform?: Platform): Promise<DownloadOption[]>
   /** «Не та игра»: варианты с этим ключом больше не показываются у этой игры */
   storeUnbind(appId: number, key: string): Promise<void>
   /** Ссылка варианта: скопировать (несколько — строками) или открыть в программе, которая её понимает */
@@ -960,9 +969,11 @@ export interface StoreItem {
   reviews?: { percent: number; count: number; label: string }
   /** Сколько вариантов загрузки нашлось в источниках пользователя */
   options?: number
+  /** Откровенный сексуальный контент (метки Steam 3 и 4): без settings.storeAdult магазин такие игры не показывает */
+  adult?: boolean
 }
 
-/** sources — «Вышедшие новинки»: свежие загрузки, по одной на игру */
+/** sources — «Новинки и свежие обновления»: свежие загрузки, по одной на игру */
 export type StoreRowId = 'sources' | 'top' | 'new' | 'played' | 'soon'
 
 export interface StoreRow {

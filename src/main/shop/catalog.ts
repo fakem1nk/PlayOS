@@ -3,7 +3,7 @@ import type { GameDetails, StoreBlock, StoreHome, StoreItem, StorePage, StoreRow
 import { getLang } from '@shared/i18n'
 import { howLongToBeat } from '../details'
 import { httpFetch } from '../http'
-import { dataDir } from '../store'
+import { dataDir, getDb } from '../store'
 import { readJson, writeJson } from './disk'
 
 /**
@@ -20,6 +20,10 @@ const HOME_TTL = HOUR
 const PAGE_TTL = 24 * HOUR
 const TAGS_TTL = 7 * 24 * HOUR
 const ROW_SIZE = 20
+/** Версия плиток в кэше: витрина и страницы старее не читаются (в версии 2 появилась метка adult) */
+export const ITEM_V = 2
+/** Метки Steam «Только для взрослых: сексуальный контент» и «Частая нагота или сексуальный контент» */
+const ADULT = new Set([3, 4])
 
 // Сортировки IStoreQueryService/Query (подобраны по ответам Steam): 20 — новое и популярное, 13 — самые ожидаемые
 const SORT_NEW_TRENDING = 20
@@ -65,6 +69,7 @@ interface RawItem {
   screenshots?: { all_ages_screenshots?: { filename: string }[]; mature_content_screenshots?: { filename: string }[] }
   trailers?: { highlights?: RawTrailer[]; other_trailers?: RawTrailer[] }
   full_description_bbcode?: string
+  content_descriptorids?: number[]
 }
 
 /** Что просить у Steam для плитки витрины */
@@ -160,6 +165,7 @@ function toItem(raw: RawItem, names: Map<number, string>, tagCount = 5): StoreIt
     logo: art(a, a?.library_logo_2x ?? a?.library_logo) ?? `${ASSETS}steam/apps/${appId}/logo.png`,
     header: art(a, a?.header)
   }
+  if (raw.content_descriptorids?.some((d) => ADULT.has(d))) item.adult = true
   if (display) item.upcoming = UPCOMING[display] ?? 'soon'
   if (date && item.upcoming !== 'soon' && item.upcoming !== 'tba') item.released = date * 1000
   if (raw.basic_info?.short_description) item.short = decode(raw.basic_info.short_description)
@@ -238,7 +244,7 @@ async function query(filters: object, sort: number): Promise<RawItem[]> {
   return res.store_items ?? []
 }
 
-/** Ряды из Steam; «Вышедшие новинки» собирает sources.ts */
+/** Ряды из Steam; «Новинки и свежие обновления» собирает sources.ts */
 type SteamRow = Exclude<StoreRowId, 'sources'>
 
 const ROWS: Record<SteamRow, () => Promise<RawItem[]>> = {
@@ -288,7 +294,7 @@ function loadHome(prev: StoreHome | null): Promise<StoreHome> {
     if (!rows.length) throw new Error('Steam не ответил')
     const fresh: StoreHome = { rows, fetchedAt: Date.now() }
     home = { ...fresh, lang: steamLang() }
-    writeJson(homeFile(), fresh)
+    writeJson(homeFile(), { ...fresh, v: ITEM_V })
     return fresh
   })().finally(() => (homeLoading = null))
   return homeLoading
@@ -300,8 +306,8 @@ function loadHome(prev: StoreHome | null): Promise<StoreHome> {
  */
 export async function storeHome(refresh = false): Promise<StoreHome> {
   if (home?.lang !== steamLang()) {
-    const disk = readJson<StoreHome>(homeFile())
-    home = disk?.rows?.length ? { ...disk, lang: steamLang() } : null
+    const disk = readJson<StoreHome & { v?: number }>(homeFile())
+    home = disk?.rows?.length && disk.v === ITEM_V ? { rows: disk.rows, fetchedAt: disk.fetchedAt, lang: steamLang() } : null
   }
   if (!home) return loadHome(null)
   const cached: StoreHome = { rows: home.rows, fetchedAt: home.fetchedAt }
@@ -313,6 +319,18 @@ export async function storeHome(refresh = false): Promise<StoreHome> {
       })
   }
   return cached
+}
+
+/** Игры для взрослых — только если их разрешили в настройках. Кэш хранит их с меткой, прячем при выдаче */
+const adultAllowed = () => getDb().settings.storeAdult === true
+
+export function viewerItems(items: StoreItem[]): StoreItem[] {
+  return adultAllowed() ? items : items.filter((i) => !i.adult)
+}
+
+export function viewerHome(h: StoreHome): StoreHome {
+  if (adultAllowed()) return h
+  return { ...h, rows: h.rows.map((r) => ({ ...r, items: viewerItems(r.items) })).filter((r) => r.items.length) }
 }
 
 // ───────────────────────── Поиск ─────────────────────────
@@ -352,18 +370,22 @@ export async function storeItems(ids: number[]): Promise<StoreItem[]> {
   })
 }
 
-/** Игры Steam по запросу, только AppID и английское название — для сопоставления с источниками */
-export async function searchTitles(term: string): Promise<{ appId: number; title: string }[]> {
+/**
+ * Игры Steam по запросу: AppID, название и год выхода — для сопоставления с источниками. Русский запрос ищется
+ * по-русски: так находятся локализованные названия («Ведьмак 3»), английский поиск их не знает
+ */
+export async function searchTitles(term: string, language: 'english' | 'russian' = 'english'): Promise<{ appId: number; title: string; year?: number }[]> {
   const res = await call<{ store_items?: RawItem[] }>('IStoreQueryService/SearchSuggestions', {
     search_term: term,
     max_results: 8,
-    context: { language: 'english', country_code: 'US' },
+    context: { language, country_code: 'US' },
     filters: { type_filters: { include_games: true } },
-    data_request: {}
+    data_request: { include_release: true }
   })
   return (res.store_items ?? []).flatMap((r) => {
     const appId = r.appid ?? r.id
-    return appId && r.name ? [{ appId, title: r.name }] : []
+    const at = r.release?.original_release_date || r.release?.steam_release_date
+    return appId && r.name ? [{ appId, title: r.name, ...(at ? { year: new Date(at * 1000).getUTCFullYear() } : {}) }] : []
   })
 }
 
@@ -376,8 +398,8 @@ const thumbOf = (url: string) => url.replace(/\.jpg(\?|$)/, '.600x338.jpg$1')
 
 export async function storePage(appId: number): Promise<StorePage | null> {
   const file = pageFile(appId)
-  const disk = readJson<StorePage & { at: number }>(file)
-  if (disk && Date.now() - disk.at < PAGE_TTL) return disk
+  const disk = readJson<StorePage & { at: number; v?: number }>(file)
+  if (disk && disk.v === ITEM_V && Date.now() - disk.at < PAGE_TTL) return disk
   try {
     const [names, raws] = await Promise.all([tags(), itemsByIds([appId], PAGE_REQUEST)])
     const raw = raws[0]
@@ -396,7 +418,7 @@ export async function storePage(appId: number): Promise<StorePage | null> {
       screenshots: shots.slice(0, 16).map((full) => ({ full, thumb: thumbOf(full) })),
       trailer: micro ? VIDEO + micro.filename : undefined
     }
-    writeJson(file, { ...page, at: Date.now() })
+    writeJson(file, { ...page, at: Date.now(), v: ITEM_V })
     return page
   } catch {
     // Без сети — пусть и старая, но страница

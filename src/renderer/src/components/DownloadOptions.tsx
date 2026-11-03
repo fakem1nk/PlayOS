@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { DownloadOption } from '@shared/types'
+import type { DownloadOption, Platform } from '@shared/types'
 import { api } from '../lib/api'
 import { useInputLayer } from '../lib/input'
 import { focusEl, useSpatialNav } from '../lib/nav'
@@ -16,6 +16,8 @@ interface Props {
   /** Steam AppID игры; 0 — неизвестен, ищем только по названию */
   appId: number
   title: string
+  /** Платформа игры: у игр PS2 и PS3 — раздачи для эмулятора */
+  platform: Platform
   onClose: () => void
   /** Настройки → Магазин: источники загрузок */
   onOpenSources: () => void
@@ -27,7 +29,7 @@ const dateText = (ms: number) => new Date(ms).toLocaleDateString(locale(), { day
  * «Скачать» у игры библиотеки, которой нет на этом ПК. Есть варианты в источниках — список вариантов;
  * нет ни одного источника или игры в них нет — объясняем, что сделать
  */
-export function DownloadFlow({ appId, title, onClose, onOpenSources }: Props) {
+export function DownloadFlow({ appId, title, platform, onClose, onOpenSources }: Props) {
   const [list, setList] = useState<DownloadOption[] | null>(null)
   const [sources, setSources] = useState(0)
   // Обычно ответ мгновенный — окно-заглушку показываем, только если источники ещё читаются с диска
@@ -36,7 +38,7 @@ export function DownloadFlow({ appId, title, onClose, onOpenSources }: Props) {
   useEffect(() => {
     let alive = true
     const id = setTimeout(() => setSlow(true), 300)
-    Promise.all([api.storeOptions(appId, title).catch(() => []), api.storeSources().catch(() => [])]).then(([l, s]) => {
+    Promise.all([api.storeOptions(appId, title, platform).catch(() => []), api.storeSources().catch(() => [])]).then(([l, s]) => {
       if (!alive) return
       setSources(s.length)
       setList(l)
@@ -45,9 +47,9 @@ export function DownloadFlow({ appId, title, onClose, onOpenSources }: Props) {
       alive = false
       clearTimeout(id)
     }
-  }, [appId, title])
+  }, [appId, title, platform])
 
-  const reload = () => void api.storeOptions(appId, title).then((l) => (l.length ? setList(l) : onClose()))
+  const reload = () => void api.storeOptions(appId, title, platform).then((l) => (l.length ? setList(l) : onClose()))
 
   if (list?.length === 0) return <NoOptions title={title} sources={sources} onClose={onClose} onOpenSources={onOpenSources} />
   if (!list && !slow) return null
@@ -78,11 +80,11 @@ function NoOptions({ title, sources, onClose, onOpenSources }: { title: string; 
   const ref = useRef<HTMLDivElement>(null)
   useSpatialNav(ref, { priority: 40, onBack: onClose, autoFocus: '.btn-primary' })
   return (
-    <Dialog dref={ref}>
+    <Dialog className="dl-empty" dref={ref}>
       <h2 className="dialog-title">{sources ? t('Этой игры нет в ваших источниках') : t('Не найдено источников JSON')}</h2>
       <p className="dialog-text">
         {sources
-          ? t('Ни в одном из добавленных источников ({n}) нет загрузок «{title}». Добавьте ещё источник или загляните позже: источники обновляются сами раз в 12 часов.', { n: sources, title })
+          ? t('Ни в одном из добавленных источников ({n}) нет загрузок «{title}». Добавьте ещё источник или загляните позже: источники по ссылкам обновляются сами раз в 12 часов.', { n: sources, title })
           : t('Чтобы скачать «{title}», нужен источник загрузок — JSON-файл со списком игр. Пожалуйста, добавьте его: Настройки → Магазин → «Добавить источник».', { title })}
       </p>
       <div className="dialog-actions dl-actions-even">

@@ -678,6 +678,11 @@ function createMockApi(): PcsApi {
       demoSources = [...demoSources, source]
       return { source }
     },
+    // Демо: «выбранный» или перетащенный файл — тоже источник с бесплатными играми
+    storeSourceAddFile: async () => demoFileSource('gog.json'),
+    storeSourceAddPath: async (file) => demoFileSource(file),
+    // В браузере у файла нет пути на диске — берём имя
+    pathForFile: (file) => file.name,
     storeSourceRefresh: async (id) => {
       await new Promise((r) => setTimeout(r, 700))
       demoSources = demoSources.map((s) => (s.id === id ? { ...s, updatedAt: Date.now(), error: undefined } : s))
@@ -692,9 +697,9 @@ function createMockApi(): PcsApi {
       demoSources = demoSources.map((s) => ({ ...s, updatedAt: Date.now() }))
       return demoSources
     },
-    storeOptions: async (appId) => {
+    storeOptions: async (appId, title, platform) => {
       await new Promise((r) => setTimeout(r, 250))
-      return demoOptionsFor(appId)
+      return platform === 'ps2' || platform === 'ps3' ? demoEmuOptions(title, platform) : demoOptionsFor(appId)
     },
     storeUnbind: async (appId, key) => {
       demoUnbound.add(`${appId}:${key}`)
@@ -722,6 +727,16 @@ let demoSources: StoreSource[] = new URLSearchParams(location.search).has('sourc
   ? [{ id: 'demo', url: 'https://example.invalid/demo-source.json', name: 'Demo', addedAt: Date.now() - 86400000 * 9, updatedAt: Date.now() - 3600000 * 3, count: 5, games: 4 }]
   : []
 const demoUnbound = new Set<string>()
+
+async function demoFileSource(file: string): Promise<{ source?: StoreSource; error?: string }> {
+  await new Promise((r) => setTimeout(r, 700))
+  const name = file.split(/[\\/]/).pop() ?? file
+  const url = `file:///C:/Users/Demo/Downloads/${encodeURIComponent(name)}`
+  if (demoSources.some((s) => s.url === url)) return { error: 'Этот источник уже добавлен' }
+  const source: StoreSource = { id: String(Date.now()), url, name: name.replace(/\.json$/i, ''), addedAt: Date.now(), updatedAt: Date.now(), count: DEMO_FREE.length, games: 4 }
+  demoSources = [...demoSources, source]
+  return { source }
+}
 const DEMO_FREE: [number, string, string, string][] = [
   [730, 'counter-strike 2', '33.5 GB', 'magnet'],
   [730, 'counter-strike 2', '33.6 GB', 'http'],
@@ -749,6 +764,24 @@ function demoOptionsFor(appId: number): DownloadOption[] {
           }
         ]
   )
+}
+
+/** Демо: у игр эмуляторов без файла — одна раздача для их платформы, если источник добавлен */
+function demoEmuOptions(title: string, platform: 'ps2' | 'ps3'): DownloadOption[] {
+  const src = demoSources[0]
+  if (!src) return []
+  return [
+    {
+      key: title.toLowerCase(),
+      sourceId: src.id,
+      source: src.name,
+      title: `${title} (demo) ${platform.toUpperCase()}`,
+      uris: [`magnet:?xt=urn:btih:${'0'.repeat(40)}&dn=demo`],
+      kind: 'magnet',
+      size: platform === 'ps2' ? '4.3 GB' : '11.2 GB',
+      date: Date.now() - 86400000 * 5
+    }
+  ]
 }
 
 const demoDecorate = (items: StoreItem[]) =>

@@ -7,7 +7,8 @@ import { t } from '@shared/i18n'
 /**
  * Копия данных PlayOS одним файлом .playos (обычный ZIP без сжатия: обложки и так сжаты).
  * Внутри: library.json (игры, время, сессии, настройки и ключи API), achievements.json, details-cache.json,
- * аватар и папка art без видео живого фона — его PlayOS перекачает сам.
+ * аватар, папка art без видео живого фона — его PlayOS перекачает сам — и источники магазина с их загрузками,
+ * ответами Steam и выбором «Не та игра» (витрина и страницы магазина — кэш, их не берём).
  * Пути внутри JSON записаны абсолютными, поэтому папка данных заменяется меткой %PLAYOS_DATA%
  * и при восстановлении подставляется новая — копию можно перенести на другой компьютер.
  */
@@ -15,6 +16,8 @@ import { t } from '@shared/i18n'
 const TOKEN = '%PLAYOS_DATA%'
 const JSON_FILES = ['library.json', 'achievements.json', 'details-cache.json']
 const SKIP = /\.(mp4|webm|tmp)$/i
+/** Данные магазина, которые не скачать заново: список источников, сопоставления, «Не та игра» */
+const SHOP_FILES = ['sources.json', 'match-cache.json', 'match-overrides.json']
 
 // ── CRC32 для заголовков ZIP ──
 const CRC_TABLE = (() => {
@@ -167,6 +170,12 @@ export function exportData(dataDir: string, gamesCount: number, out = path.join(
   // Аватар лежит в корне папки данных
   for (const f of fs.readdirSync(dataDir)) if (/^avatar-/.test(f)) entries.push({ name: f, data: fs.readFileSync(path.join(dataDir, f)) })
   walk(path.join(dataDir, 'art'), dataDir, entries)
+  for (const f of SHOP_FILES) {
+    const file = path.join(dataDir, 'shop', f)
+    if (fs.existsSync(file)) entries.push({ name: path.join('shop', f), data: fs.readFileSync(file) })
+  }
+  // Загрузки источников: источник из файла с другого ПК заново не скачать
+  walk(path.join(dataDir, 'shop', 'sources'), dataDir, entries)
   fs.mkdirSync(path.dirname(out), { recursive: true })
   writeZip(out, entries)
   return out
@@ -192,6 +201,11 @@ export function importData(file: string, dataDir: string, currentGames: number) 
   const safety = exportData(dataDir, currentGames, path.join(dataDir, 'backups', t('до-восстановления-{v}.playos', { v: stamp() })))
   fs.rmSync(path.join(dataDir, 'art'), { recursive: true, force: true })
   for (const f of fs.readdirSync(dataDir)) if (/^avatar-/.test(f)) fs.rmSync(path.join(dataDir, f), { force: true })
+  // Источники магазина — как в копии; в старых копиях их нет, тогда текущие остаются
+  if ([...files.keys()].some((n) => /^shop[\\/]/.test(n))) {
+    fs.rmSync(path.join(dataDir, 'shop', 'sources'), { recursive: true, force: true })
+    for (const f of SHOP_FILES) fs.rmSync(path.join(dataDir, 'shop', f), { force: true })
+  }
   const to = inJson(dataDir)
   for (const [name, data] of files) {
     if (name === 'manifest.json') continue

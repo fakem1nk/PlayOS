@@ -42,7 +42,7 @@ export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Prop
   const [logoOk, setLogoOk] = useState(true)
   const [adding, setAdding] = useState(false)
   const steam = useStoreSteam()
-  const libGame = libraryGameFor(games, item.appId)
+  const libGame = libraryGameFor(games, item.appId, item.title)
 
   useEffect(() => {
     let alive = true

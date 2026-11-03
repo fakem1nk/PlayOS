@@ -533,8 +533,29 @@
   padding-bottom: 2.4rem;
 }
 
+/* Над окном тащат файл или ссылку — строка добавления светлеет и получает кольцо, как в фокусе */
+.src-add.is-drop {
+  background: var(--grain), var(--frost-sheen), rgba(255, 255, 255, 0.12);
+}
+
+.src-add.is-drop::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+  border-radius: calc(var(--r, 1rem) + 0.55rem);
+  border: 0.3rem solid #fff;
+  box-shadow: 0 0 1rem var(--ring-glow, rgba(255, 255, 255, 0.16));
+  pointer-events: none;
+  animation: ring-in 120ms ease-out;
+}
+
 /* ───────────── Варианты загрузки ───────────── */
-/* «Вариантов нет»: две кнопки одной ширины на всю строку */
+/* «Вариантов нет»: текст по центру, две кнопки одной ширины на всю строку */
+.dl-empty .dialog-title,
+.dl-empty .dialog-text {
+  text-align: center;
+}
+
 .dl-actions-even {
   display: grid;
   grid-template-columns: 1fr 1fr;

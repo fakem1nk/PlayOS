@@ -216,7 +216,20 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
         >
           {section === 'cloud' && <CloudPanel s={s} save={save} />}
           {section === 'vr' && <VrPanel />}
-          {section === 'store' && <SourcesPanel />}
+          {section === 'store' && (
+            <>
+              <SourcesPanel />
+              <h2 className="panel-title">
+                <IconGrid /> {t('Витрина')}
+              </h2>
+              <Toggle
+                label={t('Игры для взрослых')}
+                hint={t('Показывать в магазине игры с откровенным сексуальным контентом. Выключено — их нет ни в рядах, ни в поиске')}
+                value={s.storeAdult === true}
+                onChange={(v) => save({ storeAdult: v })}
+              />
+            </>
+          )}
 
           {section === 'library' && (
             <>

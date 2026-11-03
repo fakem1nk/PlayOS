@@ -598,6 +598,10 @@ export function App() {
                 setMenuGameId(null)
                 setPageGameId(g.id)
               }}
+              onDownload={(g) => {
+                setMenuGameId(null)
+                setDownloadFor(g)
+              }}
               collections={state.settings.collections ?? []}
             />
           )}
@@ -664,8 +668,9 @@ export function App() {
           {downloadFor && (
             <DownloadFlow
               key={`dl-${downloadFor.id}`}
-              appId={downloadFor.steamAppId ?? 0}
+              appId={downloadFor.platform === 'pc' ? (downloadFor.steamAppId ?? 0) : 0}
               title={downloadFor.title}
+              platform={downloadFor.platform}
               onClose={() => setDownloadFor(null)}
               onOpenSources={() => {
                 setDownloadFor(null)

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { PcsApi, WindowMode } from '@shared/types'
 
 const listen =
@@ -123,11 +123,14 @@ const api: PcsApi = {
   storeAddToLibrary: (appId, title) => ipcRenderer.invoke('store:addToLibrary', appId, title),
   storeSources: () => ipcRenderer.invoke('store:sources'),
   storeSourceAdd: (url) => ipcRenderer.invoke('store:sourceAdd', url),
+  storeSourceAddFile: () => ipcRenderer.invoke('store:sourceAddFile'),
+  storeSourceAddPath: (file) => ipcRenderer.invoke('store:sourceAddPath', file),
+  pathForFile: (file) => webUtils.getPathForFile(file),
   storeSourceRemove: (id) => ipcRenderer.invoke('store:sourceRemove', id),
   storeSourcesRefresh: () => ipcRenderer.invoke('store:sourcesRefresh'),
   storeSourceRefresh: (id) => ipcRenderer.invoke('store:sourceRefresh', id),
   storeClipboardUrl: () => ipcRenderer.invoke('store:clipboardUrl'),
-  storeOptions: (appId, title) => ipcRenderer.invoke('store:options', appId, title),
+  storeOptions: (appId, title, platform) => ipcRenderer.invoke('store:options', appId, title, platform),
   storeUnbind: (appId, key) => ipcRenderer.invoke('store:unbind', appId, key),
   storeLink: (uris, how) => ipcRenderer.invoke('store:link', uris, how),
   vrStatus: () => ipcRenderer.invoke('vr:status'),

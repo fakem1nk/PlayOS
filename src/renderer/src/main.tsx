@@ -28,6 +28,13 @@ setTheme((new URLSearchParams(location.search).get('theme') ?? (window as { pcsT
 if (import.meta.env.DEV) Object.assign(window, { __i18nMissing: missingKeys })
 
 startInput()
+// Брошенный в окно файл или ссылка не уводят страницу на себя: принимают их только места, которые ждут (источники магазина)
+for (const type of ['dragover', 'drop'] as const)
+  window.addEventListener(type, (e) => {
+    if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'
+  })
 // Окна грузят только свой код: оверлею не нужны библиотека, настройки и интро
 const root = createRoot(document.getElementById('root')!)
 if (isOverlay) void import('./OverlayApp').then(({ OverlayApp }) => root.render(<OverlayApp />))

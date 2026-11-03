@@ -30,6 +30,7 @@ import type {
   UpdateSplash,
   SaveProgress,
   Settings,
+  StoreHome,
   StoreSteam,
   ArtSource,
   WindowAction,
@@ -42,6 +43,7 @@ import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam, steamRoot } from './steam'
 import * as shop from './shop/catalog'
 import * as sources from './shop/sources'
+import { libraryMatch } from '@shared/match'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
 import { endUpdateSplash, showUpdateSplash, updateFinished } from './splash'
@@ -534,6 +536,33 @@ async function locateCloudGames(games: Game[]) {
   }
 }
 
+let adoptedAt = 0
+
+/**
+ * Игры без файлов со Steam AppID (добавлены из магазина) — не поставили ли их через Steam. Поставили — берём папку
+ * и запуск через Steam: игра становится установленной, а импорт Steam не предлагает её второй раз.
+ * Зовётся при запуске, при возврате в окно PlayOS и перед списком игр Steam; force — без паузы между проверками
+ */
+async function adoptSteamInstalls(force = false): Promise<void> {
+  if (!force && Date.now() - adoptedAt < 15_000) return
+  adoptedAt = Date.now()
+  const waiting = getDb().games.filter((g) => g.platform === 'pc' && g.steamAppId && !g.path)
+  if (!waiting.length || !(await steamRoot())) return
+  const installed = await scanSteam(getDb().games).catch(() => [])
+  let found = 0
+  for (const g of waiting) {
+    const hit = installed.find((s) => s.appId === g.steamAppId)
+    if (!hit || g.path) continue
+    g.path = hit.dir
+    g.launcher = 'steam'
+    g.updatedAt = stamp()
+    found++
+  }
+  if (!found) return
+  saveDb()
+  broadcast()
+}
+
 /**
  * Арт для игры из облака: сам арт в облаке не хранится, только ссылки, откуда он скачан.
  * Скачиваем по ним; если ссылок нет (на том ПК арт выбирали с диска) — подбираем в сети:
@@ -783,6 +812,8 @@ function createWindow() {
   // Вернулись в PlayOS (Alt+Tab, «На главную» в оверлее, конец игры) — интерфейс снова нужен. Только по
   // разворачиванию: свёрнутое окно Windows может на миг сделать активным, когда прячется оверлей, — это не возврат
   win.on('restore', () => restoreUi())
+  // Вернулись в PlayOS, например из Steam, где поставили игру из магазина
+  win.on('focus', () => void adoptSteamInstalls())
   win.on('blur', () => {
     // Окно игры перехватило фокус — значит, она запустилась. Сворачиваемся.
     const r = launcher.running()
@@ -1667,7 +1698,10 @@ function registerIpc() {
     const g = findGame(id)
     return g && getDb().settings.liveBackground ? liveBackground(g) : null
   })
-  ipcMain.handle('steam:scan', () => scanSteam(getDb().games))
+  ipcMain.handle('steam:scan', async () => {
+    await adoptSteamInstalls(true)
+    return scanSteam(getDb().games)
+  })
   ipcMain.handle('steam:import', async (_e, appIds: number[]) => {
     const picked = (await scanSteam(getDb().games)).filter((g) => appIds.includes(g.appId) && !g.added)
     const art = await media.steamArtFor(picked.map((g) => ({ appId: g.appId, name: g.name })))
@@ -1693,23 +1727,25 @@ function registerIpc() {
   })
   // Магазин: каталог Steam, витрина обновляется в фоне и приходит отдельным событием
   // Варианты загрузки из источников пользователя дописываются к играм перед отправкой; кэш Steam их не хранит
-  shop.setHomeListener((h) => sendTo(win, 'store-home', sources.decorateHome(h)))
+  const sendHome = async (h: StoreHome) => sendTo(win, 'store-home', shop.viewerHome(await sources.decorateHome(h)))
+  shop.setHomeListener((h) => void sendHome(h))
   sources.setSourcesListener(() => {
     shop
       .storeHome()
-      .then((h) => sendTo(win, 'store-home', sources.decorateHome(h)))
+      .then(sendHome)
       .catch(() => {
         /* витрины ещё нет — придёт сама */
       })
   })
-  ipcMain.handle('store:home', (_e, refresh?: boolean) => shop.storeHome(refresh).then(sources.decorateHome))
-  ipcMain.handle('store:search', async (_e, q: string) => sources.mergeSearch(q, await shop.storeSearch(q)))
+  ipcMain.handle('store:home', async (_e, refresh?: boolean) => shop.viewerHome(await sources.decorateHome(await shop.storeHome(refresh))))
+  ipcMain.handle('store:search', async (_e, q: string) => shop.viewerItems(await sources.mergeSearch(q, await shop.storeSearch(q))))
   ipcMain.handle('store:page', async (_e, appId: number) => {
     const page = await shop.storePage(appId)
-    return page && { ...page, options: sources.decorateItems([page])[0].options }
+    return page && { ...page, options: (await sources.decorateItems([page], true))[0].options }
   })
   ipcMain.handle('store:hltb', (_e, appId: number, title: string) => shop.storeHltb(appId, title))
   ipcMain.handle('store:steam', async (): Promise<StoreSteam> => {
+    await adoptSteamInstalls()
     const client = !!(await steamRoot())
     return { client, installed: client ? (await scanSteam(getDb().games)).map((g) => g.appId) : [] }
   })
@@ -1725,8 +1761,17 @@ function registerIpc() {
   ipcMain.handle('store:addToLibrary', async (_e, appId: number, title: string): Promise<string | null> => {
     const id = Math.trunc(Number(appId))
     if (!id) return null
-    const have = getDb().games.find((g) => g.steamAppId === id)
-    if (have) return have.id
+    const have = libraryMatch(getDb().games, id, String(title || ''))
+    if (have) {
+      // Своя игра с тем же названием — та же игра: привязываем к странице магазина, второй раз не добавляем
+      if (!have.steamAppId) {
+        have.steamAppId = id
+        have.updatedAt = stamp()
+        saveDb()
+        broadcast()
+      }
+      return have.id
+    }
     const installed = (await steamRoot()) ? (await scanSteam(getDb().games)).find((g) => g.appId === id) : undefined
     const name = installed?.name ?? (await shop.storePage(id).catch(() => null))?.title ?? String(title || '').trim()
     if (!name) return null
@@ -1749,6 +1794,15 @@ function registerIpc() {
   })
   ipcMain.handle('store:sources', () => sources.listSources())
   ipcMain.handle('store:sourceAdd', (_e, url: string) => sources.addSource(String(url)))
+  // Источник с диска: сайт с проверкой браузера отдаёт файл только браузеру. Отмена выбора — пустой ответ
+  ipcMain.handle('store:sourceAddFile', async () => {
+    const res = await dialog.showOpenDialog(win!, { title: t('Файл источника'), properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] })
+    const file = res.canceled ? undefined : res.filePaths[0]
+    return file ? sources.addSourceFile(file) : {}
+  })
+  ipcMain.handle('store:sourceAddPath', (_e, file: string) =>
+    typeof file === 'string' && path.isAbsolute(file) ? sources.addSourceFile(file) : { error: t('Это не JSON-файл') }
+  )
   ipcMain.handle('store:sourceRemove', (_e, id: string) => sources.removeSource(String(id)))
   ipcMain.handle('store:sourcesRefresh', () => sources.refreshSources())
   ipcMain.handle('store:sourceRefresh', (_e, id: string) => sources.refreshSources(String(id)))
@@ -1756,7 +1810,9 @@ function registerIpc() {
     const text = (await clipboard.readText().catch(() => '')).trim()
     return /^https?:\/\/\S+$/i.test(text) && text.length <= 2000 ? text : ''
   })
-  ipcMain.handle('store:options', (_e, appId: number, title: string) => sources.optionsFor(Number(appId), String(title)))
+  ipcMain.handle('store:options', (_e, appId: number, title: string, platform?: Platform) =>
+    sources.optionsFor(Number(appId), String(title), platform === 'ps2' || platform === 'ps3' ? platform : 'pc')
+  )
   ipcMain.handle('store:unbind', (_e, appId: number, key: string) => sources.unbind(Number(appId), String(key)))
   // Ссылки варианта: только магнеты и http(s) — источник чужой, другие схемы не открываем
   ipcMain.handle('store:link', async (_e, uris: string[], how: 'copy' | 'open') => {
@@ -2179,7 +2235,7 @@ app.whenReady().then(() => {
   // Игры, добавленные до 0.6.1, ещё без цвета обложки — считаем один раз, не задерживая старт
   setTimeout(backfillAccents, 1500)
   setTimeout(pruneThumbs, 60_000)
-  sources.startSources()
+  setTimeout(() => void adoptSteamInstalls(true), 5000)
   vr.migrateStandalone()
   // Шлем в верхней панели: шлём только изменения (подключение, способ связи, заряд)
   let lastQuest = ''

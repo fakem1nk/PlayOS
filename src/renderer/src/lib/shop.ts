@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { DownloadKind, Game, StoreHome, StoreItem, StoreRowId, StoreSteam } from '@shared/types'
 import { locale, plural, t } from '@shared/i18n'
+import { libraryMatch } from '@shared/match'
 import { api } from './api'
 import { DEFAULT_ACCENT } from './format'
 
 /** Магазин: общие данные вкладки и страницы игры. Витрина живёт дольше вкладки — переключение не мигает пустотой */
 
 export const ROW_TITLES: Record<StoreRowId, string> = {
-  sources: t('Вышедшие новинки'),
+  sources: t('Новинки и свежие обновления'),
   top: t('Лидеры продаж'),
   new: t('Новое и популярное'),
   played: t('Самые популярные'),
@@ -114,7 +115,31 @@ export function useStoreSteam() {
   return steam
 }
 
-/** Игра магазина уже в библиотеке PlayOS — по Steam AppID */
-export function libraryGameFor(games: Game[], appId: number) {
-  return games.find((g) => g.steamAppId === appId)
+/**
+ * Сколько раздач в источниках у игры эмулятора (PS2, PS3), которой нет на этом ПК. У таких игр главное — указать
+ * файл, а «Скачать» появляется, только если что-то нашлось
+ */
+export function useEmuDownloads(game: Game | null): number {
+  const [count, setCount] = useState(0)
+  const want = !!game && !game.path && game.platform !== 'pc'
+  const title = game?.title ?? ''
+  const platform = game?.platform ?? 'pc'
+  useEffect(() => {
+    setCount(0)
+    if (!want) return
+    let alive = true
+    api
+      .storeOptions(0, title, platform)
+      .then((l) => alive && setCount(l.length))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [want, title, platform])
+  return count
+}
+
+/** Игра магазина уже в библиотеке PlayOS — по Steam AppID, а своя PC-игра без него — по названию */
+export function libraryGameFor(games: Game[], appId: number, title: string) {
+  return libraryMatch(games, appId, title)
 }

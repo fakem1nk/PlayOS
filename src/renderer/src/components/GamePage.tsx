@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { platformName, type AchievementSummaryItem, type Game, type GameDetails, type GameFiles, type RunningGame } from '@shared/types'
 import { api } from '../lib/api'
 import { accentOf, bytes, lastPlayed, media, playtime } from '../lib/format'
+import { optionsCount, useEmuDownloads } from '../lib/shop'
 import { useSpatialNav } from '../lib/nav'
 import { useNow } from '../lib/state'
 import { Hint } from './Glyph'
@@ -39,6 +40,7 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onDownloa
   const [details, setDetails] = useState<GameDetails | null>(null)
   const [logoOk, setLogoOk] = useState(true)
   const isRunning = running?.gameId === game.id
+  const emuDownloads = useEmuDownloads(game)
   const now = useNow(1000, isRunning)
   const played = game.playtime + (isRunning && running ? Math.floor((now - running.startedAt) / 1000) : 0)
 
@@ -147,9 +149,17 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onDownloa
               </button>
             </>
           ) : (
-            <button data-nav className="btn btn-primary" onClick={() => onLaunch(game)}>
-              {game.path ? <IconPlay /> : <IconFolder />} {isRunning ? t('Вернуться в игру') : game.path ? t('Играть') : t('Указать файл игры')}
-            </button>
+            <>
+              <button data-nav className="btn btn-primary" onClick={() => onLaunch(game)}>
+                {game.path ? <IconPlay /> : <IconFolder />} {isRunning ? t('Вернуться в игру') : game.path ? t('Играть') : t('Указать файл игры')}
+              </button>
+              {/* Игре эмулятора без файла нашлись раздачи в источниках */}
+              {emuDownloads > 0 && (
+                <button data-nav className="btn btn-glass" onClick={() => onDownload(game)}>
+                  <IconDownload /> {`${t('Скачать')} · ${optionsCount(emuDownloads)}`}
+                </button>
+              )}
+            </>
           )}
           {/* Трофеи — у игры, которая есть на этом ПК */}
           {!!game.path && (
