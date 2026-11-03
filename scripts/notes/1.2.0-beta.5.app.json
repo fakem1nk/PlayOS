@@ -1,0 +1,25 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Новый раздел «Загрузки»: ряд обложек и подробная карточка выбранной загрузки",
+      "Живой график скорости загрузки",
+      "Пиксельные полосы прогресса в стиле Тиви",
+      "Свободное место на дисках прямо в «Загрузках»"
+    ],
+    "fixed": [
+      "«Загрузки» открываются с фокусом на загрузках, а не на крестике"
+    ]
+  },
+  "en": {
+    "new": [
+      "New Downloads section: a row of covers and a detail card for the selected download",
+      "Live download speed graph",
+      "Pixel progress bars in Tivi's style",
+      "Free disk space right in Downloads"
+    ],
+    "fixed": [
+      "Downloads opens with focus on your downloads, not on the close button"
+    ]
+  }
+}
