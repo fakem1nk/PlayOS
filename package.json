@@ -53,6 +53,10 @@
         "to": "PlayOSTorrent.exe"
       },
       {
+        "from": "resources/7zip",
+        "to": "7zip"
+      },
+      {
         "from": "resources/tray.ico",
         "to": "tray.ico"
       }

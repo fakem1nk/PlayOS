@@ -7,6 +7,7 @@ import { t } from '@shared/i18n'
 import { log } from '../log'
 import { dataDir, getDb, saveDb } from '../store'
 import { diskSpace, freeSpace, httpDownload, parseSize, safeName, Stop, type Progress } from './http'
+import { extractAll, NeedPassword } from './extract'
 import { quitTorrents, removeTorrent, torrentDownload, torrentReady } from './torrent'
 
 /**
@@ -14,7 +15,8 @@ import { quitTorrents, removeTorrent, torrentDownload, torrentReady } from './to
  * перезапуска продолжается с того же места. Интерфейс получает очередь целиком: при смене состояния сразу,
  * прогресс — не чаще раза в полсекунды. Пока что-то качается, Windows не уходит в сон.
  * Каждая загрузка — в своей папке «папка пользователя\название игры»; удаляются только файлы, которые она скачала.
- * Прямые ссылки качает http.ts, торренты — свой клиент на libtorrent (torrent.ts).
+ * Прямые ссылки качает http.ts, торренты — свой клиент на libtorrent (torrent.ts). Скачанные архивы распаковываются
+ * сразу, в той же очереди (extract.ts): загрузка готова, когда игра лежит на диске как есть.
  */
 
 const file = () => path.join(dataDir(), 'downloads.json')
@@ -136,43 +138,69 @@ function errText(e: unknown): string {
   return msg
 }
 
+/** Скорость по последним секундам: (сколько уже) → байт/с */
+function meter() {
+  const samples: [number, number][] = []
+  return (value: number) => {
+    const now = Date.now()
+    samples.push([now, value])
+    while (samples.length > 2 && now - samples[0][0] > SPEED_WINDOW) samples.shift()
+    const [t0, v0] = samples[0]
+    return now > t0 ? Math.round(((value - v0) * 1000) / (now - t0)) : 0
+  }
+}
+
 async function run(job: DownloadJob) {
   const abort = new AbortController()
   current = { id: job.id, abort }
   job.status = 'active'
   job.error = undefined
+  job.needPassword = undefined
   holdAwake(true)
   save(true)
   emit(true)
-  const samples: [number, number][] = []
+  const speed = meter()
   const progress: Progress = (received, size) => {
     job.received = received
     if (size) job.size = size
-    const now = Date.now()
-    samples.push([now, received])
-    while (samples.length > 2 && now - samples[0][0] > SPEED_WINDOW) samples.shift()
-    const [t0, r0] = samples[0]
-    job.speed = now > t0 ? Math.round(((received - r0) * 1000) / (now - t0)) : 0
+    job.speed = speed(received)
     emit()
     save()
   }
   try {
-    job.file = await (isTorrent(job) ? torrentDownload : httpDownload)(job, abort.signal, progress, () => save(true))
+    // Уже скачано, остановилась распаковка — сразу к ней
+    if (!job.downloaded || !job.file || !fs.existsSync(job.file)) {
+      job.downloaded = false
+      job.archives = undefined
+      job.file = await (isTorrent(job) ? torrentDownload : httpDownload)(job, abort.signal, progress, () => save(true))
+      job.downloaded = true
+      job.received = job.size || job.received
+      log('INFO', '[загрузки] скачано:', job.title, '→', job.file)
+    }
+    const unpackSpeed = meter()
+    const unpack = (done: number, total: number) => {
+      job.phase = 'extracting'
+      job.unpack = { done, total }
+      job.speed = unpackSpeed(done)
+      emit()
+    }
+    await extractAll(job, abort.signal, unpack, () => save(true), getDb().settings.keepArchives === true)
     job.status = 'done'
     job.doneAt = Date.now()
-    job.received = job.size || job.received
-    log('INFO', '[загрузки] готово:', job.title, '→', job.file)
+    log('INFO', '[загрузки] готово:', job.title)
     dropOldDone()
   } catch (e) {
     // Пауза и отмена сами выставили состояние — это не ошибка
     if (!abort.signal.aborted) {
       job.status = 'error'
       job.error = errText(e)
+      if (e instanceof NeedPassword) job.needPassword = true
       log('WARN', '[загрузки] остановилась:', job.title, job.error, e instanceof Stop ? '' : '(после повторов)')
     }
   } finally {
     job.speed = undefined
     job.phase = undefined
+    job.unpack = undefined
     current = null
     save(true)
     emit(true)
@@ -282,6 +310,17 @@ function changed() {
   pump()
 }
 
+/** Пароль от архива: загрузка снова в очереди, распаковка продолжится с ним */
+export function setPassword(id: string, password: string) {
+  const job = jobs.find((j) => j.id === id)
+  if (!job || job.status !== 'error' || !password) return
+  job.password = password.slice(0, 256)
+  job.needPassword = undefined
+  job.error = undefined
+  job.status = 'queued'
+  changed()
+}
+
 /**
  * Только файлы этой загрузки, и только внутри её папки; пустая папка — тоже. Торрент удаляет свои файлы клиент,
  * а если клиент уже закрыт — PlayOS сам удаляет папку раздачи
@@ -291,7 +330,7 @@ function deleteFiles(job: DownloadJob) {
   if (isTorrent(job)) removeTorrent(job, true)
   // Файл мог ещё держаться открытым после остановки — даём ему закрыться
   setTimeout(() => {
-    for (const f of job.file ? [job.file, job.file + '.part'] : []) if (inside(f)) fs.rmSync(f, { force: true, recursive: true })
+    for (const f of [...(job.file ? [job.file, job.file + '.part'] : []), ...(job.unpacked ?? [])]) if (inside(f)) fs.rmSync(f, { force: true, recursive: true })
     try {
       fs.rmdirSync(job.dir)
     } catch {

@@ -10,8 +10,8 @@ import { release } from '../lib/release'
 import { play } from '../lib/sound'
 import { DotText } from './DotText'
 import { Hint } from './Glyph'
-import { ConfirmDialog } from './Menus'
-import { IconArrowUp, IconClose, IconDownload, IconFolder, IconPause, IconPlay, IconRestart, IconTrash } from './Icons'
+import { ConfirmDialog, PromptDialog } from './Menus'
+import { IconArrowUp, IconClose, IconDownload, IconFolder, IconKey, IconPause, IconPlay, IconRestart, IconTrash } from './Icons'
 import { t } from '@shared/i18n'
 import '../styles-store.css'
 
@@ -26,7 +26,7 @@ interface Action {
 }
 
 /** Что можно сделать с загрузкой в этом состоянии — кнопками прямо на месте, без меню */
-function actionsFor(j: DownloadJob, canMoveUp: boolean): Action[] {
+function actionsFor(j: DownloadJob, canMoveUp: boolean, askPassword: (j: DownloadJob) => void): Action[] {
   const go = (action: DownloadControl) => () => void api.downloadControl(j.id, action)
   const folder: Action = { id: 'folder', label: t('Открыть папку'), icon: <IconFolder />, run: go('folder') }
   if (j.status === 'done')
@@ -46,9 +46,11 @@ function actionsFor(j: DownloadJob, canMoveUp: boolean): Action[] {
   return [
     going
       ? { id: 'pause', label: t('Пауза'), icon: <IconPause />, run: go('pause') }
-      : j.status === 'error'
-        ? { id: 'resume', label: t('Повторить'), icon: <IconRestart />, run: go('resume') }
-        : { id: 'resume', label: t('Продолжить'), icon: <IconPlay />, run: go('resume') },
+      : j.needPassword
+        ? { id: 'password', label: t('Ввести пароль'), icon: <IconKey />, run: () => askPassword(j) }
+        : j.status === 'error'
+          ? { id: 'resume', label: t('Повторить'), icon: <IconRestart />, run: go('resume') }
+          : { id: 'resume', label: t('Продолжить'), icon: <IconPlay />, run: go('resume') },
     ...(canMoveUp ? [{ id: 'up', label: t('Выше в очереди'), icon: <IconArrowUp />, run: go('up') }] : []),
     folder,
     {
@@ -77,6 +79,8 @@ const tagsOf = (j: DownloadJob) => {
 export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const [asking, setAsking] = useState<Action | null>(null)
+  // Архив просит пароль: вводим прямо здесь, распаковка продолжается с ним
+  const [passwordFor, setPasswordFor] = useState<DownloadJob | null>(null)
   const [hint, setHint] = useState('')
   const main = jobs.find((j) => j.status === 'active') ?? jobs.find((j) => j.status !== 'done')
   const waiting = jobs.filter((j) => j.status !== 'done' && j !== main)
@@ -87,7 +91,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
 
   useSpatialNav(ref, {
     priority: 30,
-    active: !asking,
+    active: !asking && !passwordFor,
     onBack: onClose,
     autoFocus: '.dl-now .btn, .dl-act, .gp-close',
     onAction: (a) => {
@@ -125,7 +129,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
       <span className="dl-job-main">
         <span className="dl-job-top">
           <span className="dl-job-name">{j.title}</span>
-          {j.status !== 'done' && j.received > 0 && j.size > 0 && <span className="dl-job-pct">{Math.floor(fraction(j) * 100)}%</span>}
+          {j.status !== 'done' && !j.downloaded && j.received > 0 && j.size > 0 && <span className="dl-job-pct">{Math.floor(fraction(j) * 100)}%</span>}
         </span>
         {tagsOf(j).length > 0 && <span className="dl-job-tags">{tagsOf(j).join(' · ')}</span>}
         {j.status !== 'done' && (
@@ -136,7 +140,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
         <span className="dl-job-line">{jobLine(j)}</span>
       </span>
       <span className="dl-job-acts">
-        {actionsFor(j, j.status === 'queued' && j !== firstQueued).map((a) => (
+        {actionsFor(j, j.status === 'queued' && j !== firstQueued, setPasswordFor).map((a) => (
           <button
             key={a.id}
             data-nav
@@ -181,7 +185,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
         </header>
 
         <div className="dl-page-body">
-          {main && <NowCard job={main} onPress={press} onHint={focusHint} />}
+          {main && <NowCard job={main} onPress={press} onHint={focusHint} onPassword={setPasswordFor} />}
 
           {(waiting.length > 0 || done.length > 0) && (
             <div className="dl-cols">
@@ -229,20 +233,40 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
             }}
           />
         )}
+        {passwordFor && (
+          <PromptDialog
+            title={t('Пароль от архива «{title}»', { title: passwordFor.title })}
+            placeholder={t('Пароль')}
+            button={t('Распаковать')}
+            maxLength={128}
+            onCancel={() => setPasswordFor(null)}
+            onSubmit={(v) => {
+              setPasswordFor(null)
+              void api.downloadPassword(passwordFor.id, v)
+            }}
+          />
+        )}
       </AnimatePresence>
     </motion.div>
   )
 }
 
 /** То, что качается сейчас: крупно, с понятными числами и кнопками с подписями */
-function NowCard({ job, onPress, onHint }: { job: DownloadJob; onPress: (a: Action) => void; onHint: (a: Action) => () => void }) {
+function NowCard({ job, onPress, onHint, onPassword }: { job: DownloadJob; onPress: (a: Action) => void; onHint: (a: Action) => () => void; onPassword: (j: DownloadJob) => void }) {
   const pct = Math.floor(fraction(job) * 100)
   const tags = tagsOf(job)
-  const actions = actionsFor(job, false)
+  const actions = actionsFor(job, false, onPassword)
+  const u = job.phase === 'extracting' ? job.unpack : undefined
   const stats: [string, string][] =
     job.status === 'error'
       ? []
-      : ([
+      : u
+        ? [
+            [t('Распаковано'), t('{a} из {b}', { a: bytes(u.done), b: bytes(u.total) })],
+            [t('Скорость'), job.speed ? t('{v}/с', { v: bytes(job.speed) }) : '—'],
+            [t('Осталось'), job.speed ? timeLeft((u.total - u.done) / job.speed) : '—']
+          ]
+        : ([
           [t('Скачано'), job.size ? t('{a} из {b}', { a: bytes(job.received), b: bytes(job.size) }) : job.received ? bytes(job.received) : '—'],
           [t('Скорость'), job.status === 'active' && job.speed ? t('{v}/с', { v: bytes(job.speed) }) : '—'],
           [t('Осталось'), job.status === 'active' && job.speed && job.size ? timeLeft((job.size - job.received) / job.speed) : '—']

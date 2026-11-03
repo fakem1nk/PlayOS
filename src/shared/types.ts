@@ -250,6 +250,8 @@ export interface Settings {
   lowBatteryWarning: boolean
   /** Папки для загрузок, которые задал пользователь; последняя выбранная — первой */
   downloadDirs?: string[]
+  /** Оставлять архивы после распаковки; нет — удаляются, когда всё распаковалось */
+  keepArchives?: boolean
   /** Всплывающие уведомления; false — тихо копятся в центре уведомлений (ошибки и ответы на действия видны всегда) */
   noticePopups?: boolean
   /** Сколько уведомление держится на экране и какого оно размера; нет — обычно */
@@ -819,6 +821,8 @@ export interface PcsApi {
   downloadStart(req: DownloadRequest): Promise<{ job?: DownloadJob; error?: string }>
   /** Пауза, продолжить, отменить, убрать из списка, удалить файлы, выше в очереди, открыть папку, убрать готовые */
   downloadControl(id: string, action: DownloadControl): Promise<void>
+  /** Пароль от архива загрузки — распаковка продолжается с ним */
+  downloadPassword(id: string, password: string): Promise<void>
   /** Папки загрузок пользователя со свободным местом */
   downloadFolders(): Promise<DownloadFolder[]>
   /** Диски этого ПК для новой папки */
@@ -1093,8 +1097,20 @@ export interface DownloadJob {
   size: number
   /** Скорость, байт/с — только пока качается */
   speed?: number
-  /** Торрент: ищет список файлов или проверяет уже скачанное */
-  phase?: 'metadata' | 'checking'
+  /** Торрент: ищет список файлов или проверяет уже скачанное; extracting — скачано, распаковываются архивы */
+  phase?: 'metadata' | 'checking' | 'extracting'
+  /** Скачано целиком: повтор после ошибки распаковки не качает заново */
+  downloaded?: boolean
+  /** Архивы, которые ещё надо распаковать (первые части); нет — ещё не искали */
+  archives?: string[]
+  /** Распаковка: сколько байт распаковано из скольких */
+  unpack?: { done: number; total: number }
+  /** Что распаковка положила на диск (верхний уровень) — удаляется вместе с загрузкой */
+  unpacked?: string[]
+  /** Архиву нужен пароль (или введённый не подошёл): «Ввести пароль» вместо «Повторить» */
+  needPassword?: boolean
+  /** Пароль от архива, который ввёл пользователь */
+  password?: string
   /** Торрент: с кем соединён */
   peers?: number
   error?: string

@@ -221,6 +221,12 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
             <>
               <SourcesPanel />
               <DownloadFoldersPanel />
+              <Toggle
+                label={t('Удалять архивы после распаковки')}
+                hint={t('Скачанные архивы PlayOS распаковывает сам. Включено — после распаковки архивы удаляются и не занимают место')}
+                value={s.keepArchives !== true}
+                onChange={(v) => save({ keepArchives: !v })}
+              />
               <h2 className="panel-title">
                 <IconGrid /> {t('Витрина')}
               </h2>

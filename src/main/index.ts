@@ -1829,6 +1829,7 @@ function registerIpc() {
   ipcMain.handle('downloads:kinds', () => (['http', 'magnet', 'torrent'] as const).filter(downloads.canDownload))
   ipcMain.handle('downloads:start', (_e, req: DownloadRequest) => downloads.startDownload(req))
   ipcMain.handle('downloads:control', (_e, id: string, action: DownloadControl) => downloads.controlDownload(String(id), action))
+  ipcMain.handle('downloads:password', (_e, id: string, password: string) => downloads.setPassword(String(id), String(password ?? '')))
   ipcMain.handle('downloads:folders', () => downloads.listFolders())
   ipcMain.handle('downloads:drives', () => downloads.listDrives())
   ipcMain.handle('downloads:folderAdd', async (_e, p: string) => {

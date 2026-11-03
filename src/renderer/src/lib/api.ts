@@ -736,6 +736,13 @@ function createMockApi(): PcsApi {
       if (job) job.speed = undefined
       demoPump()
     },
+    // Демо: любой пароль подходит
+    downloadPassword: async (id) => {
+      const job = demoJobs.find((j) => j.id === id)
+      if (!job || job.status !== 'error') return
+      Object.assign(job, { status: 'queued', needPassword: undefined, error: undefined })
+      demoPump()
+    },
     downloadFolders: async () => demoFolders.map((path, i) => ({ path, free: (812 - i * 300) * 2 ** 30, total: 931 * 2 ** 30, ok: true })),
     downloadDrives: async () => [
       { root: 'C:\\', free: 100 * 2 ** 30, total: 465 * 2 ** 30 },
@@ -792,11 +799,14 @@ let demoJobs: DownloadJob[] = demoQuery.has('downloads')
       { id: 'd2', title: 'Dota 2', name: demoRelease('Dota 2', 2), cover: demoCover(570), kind: 'http', uris: ['https://example.invalid/demo/570.zip'], dir: 'D:\\PlayOS Games\\Dota 2', status: 'queued', received: 0, size: 41 * 2 ** 30, addedAt: Date.now() - 500000 },
       { id: 'd3', title: 'Team Fortress 2', name: demoRelease('Team Fortress 2', 4), cover: demoCover(440), kind: 'http', uris: ['https://example.invalid/demo/440.zip'], dir: 'D:\\PlayOS Games\\Team Fortress 2', status: 'paused', received: 9.1 * 2 ** 30, size: 27 * 2 ** 30, addedAt: Date.now() - 400000 },
       { id: 'd4', title: 'Warframe', name: demoRelease('Warframe', 5), cover: demoCover(230410), kind: 'http', uris: ['https://example.invalid/demo/230410.zip'], dir: 'D:\\PlayOS Games\\Warframe', status: 'error', error: 'Сервер перестал отдавать данные', received: 3.2 * 2 ** 30, size: 50 * 2 ** 30, addedAt: Date.now() - 300000 },
+      { id: 'd6', title: 'Portal 2', name: demoRelease('Portal 2', 7), cover: demoCover(620), kind: 'magnet', uris: ['magnet:?xt=urn:btih:demo'], dir: 'D:\\PlayOS Games\\Portal 2', status: 'error', error: 'Архив защищён паролем', needPassword: true, downloaded: true, received: 11.8 * 2 ** 30, size: 11.8 * 2 ** 30, addedAt: Date.now() - 250000 },
       { id: 'd5', title: 'Path of Exile', name: demoRelease('Path of Exile', 6), cover: demoCover(238960), kind: 'http', uris: ['https://example.invalid/demo/238960.zip'], dir: 'D:\\PlayOS Games\\Path of Exile', file: 'D:\\PlayOS Games\\Path of Exile\\poe.zip', status: 'done', received: 40 * 2 ** 30, size: 40 * 2 ** 30, addedAt: Date.now() - 900000, doneAt: Date.now() - 200000 }
     ]
   : []
 const jobSubs = new Set<(jobs: DownloadJob[]) => void>()
 let demoJobTimer: ReturnType<typeof setInterval> | null = null
+// ?downloads=unpack — первая загрузка уже скачана и распаковывается
+if (demoQuery.get('downloads') === 'unpack' && demoJobs[0]) Object.assign(demoJobs[0], { received: demoJobs[0].size, downloaded: true, phase: 'extracting', unpack: { done: 14.2 * 2 ** 30, total: 52.4 * 2 ** 30 } })
 
 /** Демо-очередь: одна качается, скорость 30–45 МБ/с, остальные ждут */
 function demoPump() {
@@ -806,15 +816,20 @@ function demoPump() {
   }
   demoJobTimer ??= setInterval(() => {
     const job = demoJobs.find((j) => j.status === 'active')
-    if (job) {
-      job.speed = Math.round((30 + Math.random() * 15) * 2 ** 20)
-      job.received = Math.min(job.size, job.received + job.speed / 2 + (demoQuery.has('fast') ? 2 ** 30 : 0))
-      if (job.received >= job.size) {
-        job.status = 'done'
-        job.speed = undefined
-        job.doneAt = Date.now()
+    const fast = demoQuery.has('fast') ? 2 ** 30 : 0
+    if (job?.phase === 'extracting' && job.unpack) {
+      // Распаковка: 180–240 МБ/с, потом готово
+      job.speed = Math.round((180 + Math.random() * 60) * 2 ** 20)
+      job.unpack = { ...job.unpack, done: Math.min(job.unpack.total, job.unpack.done + job.speed / 2 + fast) }
+      if (job.unpack.done >= job.unpack.total) {
+        Object.assign(job, { status: 'done', speed: undefined, phase: undefined, unpack: undefined, doneAt: Date.now() })
         demoPump()
       }
+    } else if (job) {
+      job.speed = Math.round((30 + Math.random() * 15) * 2 ** 20)
+      job.received = Math.min(job.size, job.received + job.speed / 2 + fast)
+      // Скачано — дальше распаковка архива
+      if (job.received >= job.size) Object.assign(job, { downloaded: true, phase: 'extracting', unpack: { done: 0, total: Math.round(job.size * 1.5) } })
     }
     demoJobs = [...demoJobs]
     jobSubs.forEach((cb) => cb(demoJobs))

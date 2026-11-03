@@ -40,13 +40,15 @@ export function useDownloadNotices(jobs: DownloadJob[]) {
       const was = prev.get(j.id)
       if (!was || was === j.status) continue
       if (j.status === 'done') toast({ title: t('Загрузка завершена'), message: j.title, image: j.cover, tone: 'success' })
+      else if (j.status === 'error' && j.needPassword) toast({ title: t('Нужен пароль от архива'), message: j.title, image: j.cover, tone: 'error' })
       else if (j.status === 'error') toast({ title: t('Загрузка остановилась'), message: `${j.title}: ${j.error ?? ''}`, image: j.cover, tone: 'error' })
     }
   }, [jobs])
 }
 
-/** Доля скачанного, 0…1; размер неизвестен — 0 */
-export const fraction = (j: DownloadJob) => (j.size ? Math.min(1, j.received / j.size) : 0)
+/** Доля скачанного (а во время распаковки — распакованного), 0…1; размер неизвестен — 0 */
+export const fraction = (j: DownloadJob) =>
+  j.phase === 'extracting' && j.unpack?.total ? Math.min(1, j.unpack.done / j.unpack.total) : j.size ? Math.min(1, j.received / j.size) : 0
 
 /** Сколько осталось: «меньше минуты», «6 мин», «1 ч 20 мин» */
 export function timeLeft(sec: number): string {
@@ -59,17 +61,19 @@ export function timeLeft(sec: number): string {
 
 /** Строка под названием: сколько из скольких, скорость, сколько осталось */
 export function jobLine(j: DownloadJob): string {
-  const of = j.size ? (j.received ? t('{a} / {b}', { a: bytes(j.received), b: bytes(j.size) }) : bytes(j.size)) : j.received ? bytes(j.received) : ''
+  // Уже скачано (ждёт распаковки) — только размер
+  const of = j.downloaded ? bytes(j.size) : j.size ? (j.received ? t('{a} / {b}', { a: bytes(j.received), b: bytes(j.size) }) : bytes(j.size)) : j.received ? bytes(j.received) : ''
   switch (j.status) {
     case 'active':
       // Торрент сначала узнаёт список файлов у раздающих, после перезапуска — проверяет уже скачанное
       if (j.phase === 'metadata') return j.peers ? t('Получаем список файлов…') : t('Ищем раздающих…')
       if (j.phase === 'checking') return [t('Проверяем скачанное…'), of].filter(Boolean).join(' · ')
+      if (j.phase === 'extracting') return t('Распаковываем архивы…')
       return [of, j.speed ? t('{v}/с', { v: bytes(j.speed) }) : j.kind !== 'http' && !j.peers ? t('Ищем раздающих…') : t('Подключаемся…'), j.speed && j.size ? t('ещё {v}', { v: timeLeft((j.size - j.received) / j.speed) }) : '']
         .filter(Boolean)
         .join(' · ')
     case 'queued':
-      return [t('В очереди'), of].filter(Boolean).join(' · ')
+      return [j.downloaded ? t('Ждёт распаковки') : t('В очереди'), of].filter(Boolean).join(' · ')
     case 'paused':
       return [t('Пауза'), of].filter(Boolean).join(' · ')
     case 'error':
