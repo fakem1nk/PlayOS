@@ -1203,6 +1203,18 @@ html[data-theme='light'] .store-dots button.is-active {
   font-size: 1.9rem;
 }
 
+/* Главное действие готовой загрузки — с подписью, как «Запустить» в Steam */
+.dl-act-main {
+  height: 4.4rem;
+  padding: 0 2rem;
+  gap: 0.8rem;
+  font-size: 1.6rem;
+}
+
+.dl-job.has-error .dl-job-line {
+  color: #ff8a8a;
+}
+
 /* Удаление краснеет, только когда на нём фокус или курсор */
 .dl-act.is-danger:focus,
 .dl-act.is-danger:hover {

@@ -218,6 +218,8 @@ export function App() {
     // Игры нет на этом ПК: PC-игру предлагаем скачать («Указать файл игры» — на её странице и в меню), эмуляторам — сразу выбрать файл
     if (notInstalled(g)) {
       play('select')
+      // Игра уже качается или ждёт установки — показываем её загрузку, а не варианты заново
+      if (downloads.some((j) => j.gameId === g.id && (j.status !== 'done' || (j.install && j.install !== 'installed')))) return setDownloadsOpen(true)
       return g.platform === 'pc' ? setDownloadFor(g) : setEditor({ game: g, pickFile: true })
     }
     if (running) {
@@ -625,7 +627,27 @@ export function App() {
           {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
         </AnimatePresence>
 
-        <AnimatePresence>{downloadsOpen && <DownloadsPage key="downloads" jobs={downloads} onClose={() => setDownloadsOpen(false)} />}</AnimatePresence>
+        <AnimatePresence>
+          {downloadsOpen && (
+            <DownloadsPage
+              key="downloads"
+              jobs={downloads}
+              onClose={() => setDownloadsOpen(false)}
+              onPlay={(id) => {
+                const g = games.find((x) => x.id === id)
+                if (!g) return play('bump')
+                setDownloadsOpen(false)
+                void launch(g)
+              }}
+              onPickFile={(id) => {
+                const g = games.find((x) => x.id === id)
+                if (!g) return play('bump')
+                setDownloadsOpen(false)
+                setEditor({ game: g, pickFile: true })
+              }}
+            />
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {pageGame && (

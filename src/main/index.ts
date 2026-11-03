@@ -1568,6 +1568,7 @@ function registerIpc() {
     try {
       const game = await saveGame(draft, { signal: ctrl.signal, onProgress: (p) => sendTo(win, 'save-progress', p) })
       sync.syncGame(game)
+      downloads.gameUpdated(game.id, !!game.path)
       return game
     } finally {
       if (editorSave === ctrl) editorSave = null
@@ -2260,7 +2261,14 @@ app.whenReady().then(() => {
   setTimeout(backfillAccents, 1500)
   setTimeout(pruneThumbs, 60_000)
   setTimeout(() => void adoptSteamInstalls(true), 5000)
-  downloads.startDownloads((list) => send('downloads', list))
+  downloads.startDownloads((list) => send('downloads', list), {
+    library: broadcast,
+    // Окно установщика должно быть видно — PlayOS уходит в фон и возвращается, когда установщик закрылся
+    away: () => win?.minimize(),
+    back: () => {
+      if (win?.isMinimized() && !launcher.running()) bringToFront()
+    }
+  })
   vr.migrateStandalone()
   // Шлем в верхней панели: шлём только изменения (подключение, способ связи, заряд)
   let lastQuest = ''

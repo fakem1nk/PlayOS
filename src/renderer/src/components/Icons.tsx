@@ -326,6 +326,12 @@ export const IconWifi = (p: P) => (
     <circle cx="12" cy="19" r="1.1" fill="currentColor" stroke="none" />
   </svg>
 )
+/** Установка: стрелка в лоток */
+export const IconInstall = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 4v9M8.5 9.5 12 13l3.5-3.5M4.5 13.5h3.3l1.4 2.5h5.6l1.4-2.5h3.3v4a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z" />
+  </svg>
+)
 export const IconDownload = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 4.5v10.5M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />

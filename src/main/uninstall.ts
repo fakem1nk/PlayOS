@@ -72,19 +72,21 @@ function steamApp(game: Game): { appId: number; manifest: string; dir: string } 
 
 // ───────────────────────── Программа удаления ─────────────────────────
 
-interface RegEntry {
-  /** InstallLocation, UninstallString, DisplayIcon */
+export interface RegEntry {
+  /** Ключ реестра, DisplayName, InstallLocation, UninstallString, DisplayIcon */
+  k?: string
+  n?: string
   l?: string
   u?: string
   i?: string
 }
 
 /** Записи «Программы и компоненты» из реестра (машина, 32-битные, пользователь) */
-function registryEntries(): Promise<RegEntry[]> {
+export function registryEntries(): Promise<RegEntry[]> {
   const keys = ['HKLM:\\Software', 'HKLM:\\Software\\WOW6432Node', 'HKCU:\\Software'].map((k) => `'${k}\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'`).join(',')
   const script =
     "$ErrorActionPreference='SilentlyContinue';[Console]::OutputEncoding=[Text.Encoding]::UTF8;" +
-    `ConvertTo-Json -Compress -InputObject @(Get-ItemProperty ${keys} | Where-Object { $_.UninstallString } | ForEach-Object { [pscustomobject]@{ l = $_.InstallLocation; u = $_.UninstallString; i = $_.DisplayIcon } })`
+    `ConvertTo-Json -Compress -InputObject @(Get-ItemProperty ${keys} | Where-Object { $_.UninstallString } | ForEach-Object { [pscustomobject]@{ k = $_.PSPath; n = $_.DisplayName; l = $_.InstallLocation; u = $_.UninstallString; i = $_.DisplayIcon } })`
   return new Promise((resolve) => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 15000, maxBuffer: 8 << 20 }, (err, out) => {
       try {
@@ -99,8 +101,8 @@ function registryEntries(): Promise<RegEntry[]> {
 }
 
 /** EXE из командной строки: в кавычках или до «.exe» (в реестре пути с пробелами бывают без кавычек) */
-const exeOf = (cmd: string) => /^\s*"([^"]+)"/.exec(cmd)?.[1] ?? /^\s*(.+?\.exe)(\s|$)/i.exec(cmd)?.[1] ?? parseCommand(cmd)[0] ?? ''
-const iconFile = (s?: string) => (s ?? '').replace(/"/g, '').replace(/,\s*-?\d+$/, '').trim()
+export const exeOf = (cmd: string) => /^\s*"([^"]+)"/.exec(cmd)?.[1] ?? /^\s*(.+?\.exe)(\s|$)/i.exec(cmd)?.[1] ?? parseCommand(cmd)[0] ?? ''
+export const iconFile = (s?: string) => (s ?? '').replace(/"/g, '').replace(/,\s*-?\d+$/, '').trim()
 
 /**
  * Программа удаления именно этой игры: папка установки из реестра совпадает с папкой игры, программа удаления

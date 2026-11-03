@@ -28,18 +28,25 @@ export function useDownloads(): DownloadJob[] {
   return jobs
 }
 
-/** Готово и остановилась — уведомлением: загрузка идёт в фоне, пока пользователь занят другим */
+/** Готово, остановилась, установилась — уведомлением: загрузка идёт в фоне, пока пользователь занят другим */
 export function useDownloadNotices(jobs: DownloadJob[]) {
-  const seen = useRef<Map<string, DownloadJob['status']> | null>(null)
+  const seen = useRef<Map<string, Pick<DownloadJob, 'status' | 'install'>> | null>(null)
   useEffect(() => {
     const prev = seen.current
-    seen.current = new Map(jobs.map((j) => [j.id, j.status]))
+    seen.current = new Map(jobs.map((j) => [j.id, { status: j.status, install: j.install }]))
     // Первый список — то, что было до запуска: о нём не напоминаем
     if (!prev) return
     for (const j of jobs) {
       const was = prev.get(j.id)
-      if (!was || was === j.status) continue
-      if (j.status === 'done') toast({ title: t('Загрузка завершена'), message: j.title, image: j.cover, tone: 'success' })
+      if (!was || (was.status === j.status && was.install === j.install)) continue
+      const note = { message: j.title, image: j.cover }
+      if (was.install === 'running' && j.install === 'installed') toast({ ...note, title: t('Игра установлена'), tone: 'success' })
+      else if (was.install === 'running' && j.install === 'manual') toast({ ...note, title: t('Укажите файл игры'), message: t('Не нашли, куда установилась «{title}»', { title: j.title }), tone: 'error' })
+      else if (was.install === 'running' && j.installError) toast({ ...note, title: t('Установка не завершилась'), message: `${j.title}: ${j.installError}`, tone: 'error' })
+      else if (was.status === j.status) continue
+      else if (j.status === 'done' && j.install === 'ready') toast({ ...note, title: t('Можно установить'), tone: 'success' })
+      else if (j.status === 'done' && j.install === 'installed') toast({ ...note, title: t('Игра готова'), message: t('«{title}» — можно играть', { title: j.title }), tone: 'success' })
+      else if (j.status === 'done') toast({ title: t('Загрузка завершена'), message: j.title, image: j.cover, tone: 'success' })
       else if (j.status === 'error' && j.needPassword) toast({ title: t('Нужен пароль от архива'), message: j.title, image: j.cover, tone: 'error' })
       else if (j.status === 'error') toast({ title: t('Загрузка остановилась'), message: `${j.title}: ${j.error ?? ''}`, image: j.cover, tone: 'error' })
     }
@@ -79,6 +86,10 @@ export function jobLine(j: DownloadJob): string {
     case 'error':
       return j.error ?? t('Загрузка остановилась')
     case 'done':
+      if (j.install === 'running') return t('Идёт установка — закончите её в окне установщика')
+      if (j.install === 'ready') return [j.installError ?? t('Можно установить'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
+      if (j.install === 'manual') return j.installError ?? t('Не нашли игру — укажите её файл')
+      if (j.install === 'installed') return [t('Можно играть'), j.doneAt ? finished(j.doneAt) : ''].filter(Boolean).join(' · ')
       return [j.doneAt ? t('Завершено {when}', { when: finished(j.doneAt) }) : t('Скачано'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
   }
 }

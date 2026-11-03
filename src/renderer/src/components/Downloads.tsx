@@ -11,7 +11,7 @@ import { play } from '../lib/sound'
 import { DotText } from './DotText'
 import { Hint } from './Glyph'
 import { ConfirmDialog, PromptDialog } from './Menus'
-import { IconArrowUp, IconClose, IconDownload, IconFolder, IconKey, IconPause, IconPlay, IconRestart, IconTrash } from './Icons'
+import { IconArrowUp, IconClose, IconDownload, IconEdit, IconFolder, IconInstall, IconKey, IconPause, IconPlay, IconRestart, IconTrash } from './Icons'
 import { t } from '@shared/i18n'
 import '../styles-store.css'
 
@@ -21,33 +21,73 @@ interface Action {
   icon: ReactNode
   run: () => void
   danger?: boolean
+  /** Главное действие строки (Установить, Играть) — кнопка с подписью, а не круглая */
+  main?: boolean
   /** Спросить перед действием: файлы удалятся */
   confirm?: { title: string; text: string; button: string }
 }
 
+/** Что страница умеет сама: пароль от архива, запуск игры, выбор файла игры */
+interface Ctx {
+  askPassword: (j: DownloadJob) => void
+  play: (gameId: string) => void
+  pickFile: (gameId: string) => void
+}
+
 /** Что можно сделать с загрузкой в этом состоянии — кнопками прямо на месте, без меню */
-function actionsFor(j: DownloadJob, canMoveUp: boolean, askPassword: (j: DownloadJob) => void): Action[] {
+function actionsFor(j: DownloadJob, canMoveUp: boolean, ctx: Ctx): Action[] {
   const go = (action: DownloadControl) => () => void api.downloadControl(j.id, action)
   const folder: Action = { id: 'folder', label: t('Открыть папку'), icon: <IconFolder />, run: go('folder') }
-  if (j.status === 'done')
-    return [
-      folder,
-      { id: 'remove', label: t('Убрать из списка'), icon: <IconClose />, run: go('remove') },
-      {
-        id: 'delete',
-        label: t('Удалить файлы'),
-        icon: <IconTrash />,
-        danger: true,
-        run: go('deleteFiles'),
-        confirm: { title: t('Удалить файлы «{title}»?', { title: j.title }), text: t('Скачанные файлы удалятся с диска.'), button: t('Удалить') }
-      }
-    ]
+  if (j.status === 'done') {
+    const remove: Action = { id: 'remove', label: t('Убрать из списка'), icon: <IconClose />, run: go('remove') }
+    const del: Action = {
+      id: 'delete',
+      label: t('Удалить файлы'),
+      icon: <IconTrash />,
+      danger: true,
+      run: go('deleteFiles'),
+      confirm: { title: t('Удалить файлы «{title}»?', { title: j.title }), text: t('Скачанные файлы удалятся с диска.'), button: t('Удалить') }
+    }
+    const gameId = j.gameId ?? ''
+    switch (j.install) {
+      case 'running':
+        return [folder]
+      case 'ready':
+        return [
+          { id: 'install', label: t('Установить'), icon: <IconInstall />, run: go('install'), main: true },
+          // PlayOS ошибся и это уже готовая игра — указать её EXE без установки
+          { id: 'pick', label: t('Указать файл игры'), icon: <IconEdit />, run: () => ctx.pickFile(gameId) },
+          folder,
+          remove,
+          del
+        ]
+      case 'manual':
+        return [{ id: 'pick', label: t('Указать файл игры'), icon: <IconFolder />, run: () => ctx.pickFile(gameId), main: true }, folder, remove, del]
+      case 'installed':
+        return [
+          { id: 'play', label: t('Играть'), icon: <IconPlay />, run: () => ctx.play(gameId), main: true },
+          folder,
+          remove,
+          // Игра стоит отдельно от установщика — его можно убрать с диска; игру без установщика удаляют из её меню
+          ...(j.installer
+            ? [
+                {
+                  ...del,
+                  label: t('Удалить установщик'),
+                  confirm: { title: t('Удалить установщик «{title}»?', { title: j.title }), text: t('Скачанные файлы установщика удалятся с диска. Установленная игра останется.'), button: t('Удалить') }
+                }
+              ]
+            : [])
+        ]
+    }
+    return [folder, remove, del]
+  }
   const going = j.status === 'active' || j.status === 'queued'
   return [
     going
       ? { id: 'pause', label: t('Пауза'), icon: <IconPause />, run: go('pause') }
       : j.needPassword
-        ? { id: 'password', label: t('Ввести пароль'), icon: <IconKey />, run: () => askPassword(j) }
+        ? { id: 'password', label: t('Ввести пароль'), icon: <IconKey />, run: () => ctx.askPassword(j) }
         : j.status === 'error'
           ? { id: 'resume', label: t('Повторить'), icon: <IconRestart />, run: go('resume') }
           : { id: 'resume', label: t('Продолжить'), icon: <IconPlay />, run: go('resume') },
@@ -76,7 +116,7 @@ const tagsOf = (j: DownloadJob) => {
  * Ниже две колонки: очередь (ждут, на паузе, остановились) и готовое. Действия — кнопками на месте, без меню;
  * ✕ нажимает кнопку в фокусе, □ убирает готовые, ○ закрывает раздел
  */
-export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose: () => void }) {
+export function DownloadsPage({ jobs, onClose, onPlay, onPickFile }: { jobs: DownloadJob[]; onClose: () => void; onPlay: (gameId: string) => void; onPickFile: (gameId: string) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const [asking, setAsking] = useState<Action | null>(null)
   // Архив просит пароль: вводим прямо здесь, распаковка продолжается с ним
@@ -85,8 +125,11 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
   const main = jobs.find((j) => j.status === 'active') ?? jobs.find((j) => j.status !== 'done')
   const waiting = jobs.filter((j) => j.status !== 'done' && j !== main)
   const done = jobs.filter((j) => j.status === 'done')
+  // □ убирает только законченные: ждущие установки или файла игры остаются
+  const clearable = done.filter((j) => !j.install || j.install === 'installed').length
   // «Выше в очереди» — только у тех, перед кем ждёт другая загрузка
   const firstQueued = waiting.find((j) => j.status === 'queued')
+  const ctx: Ctx = { askPassword: setPasswordFor, play: onPlay, pickFile: onPickFile }
   useEffect(() => rumble('open'), [])
 
   useSpatialNav(ref, {
@@ -96,7 +139,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
     autoFocus: '.dl-now .btn, .dl-act, .gp-close',
     onAction: (a) => {
       if (a !== 'search') return false
-      if (!done.length) return play('bump')
+      if (!clearable) return play('bump')
       play('back')
       void api.downloadControl('', 'clearDone')
     }
@@ -118,7 +161,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
   const bg = main?.hero ?? main?.cover ?? done[0]?.hero ?? done[0]?.cover
 
   const row = (j: DownloadJob) => (
-    <div key={j.id} className={`dl-job is-${j.status}`}>
+    <div key={j.id} className={`dl-job is-${j.status} ${j.installError ? 'has-error' : ''}`}>
       {j.cover ? (
         <img className="dl-job-cover" src={media(j.cover, 'tile')} alt="" />
       ) : (
@@ -140,17 +183,18 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
         <span className="dl-job-line">{jobLine(j)}</span>
       </span>
       <span className="dl-job-acts">
-        {actionsFor(j, j.status === 'queued' && j !== firstQueued, setPasswordFor).map((a) => (
+        {actionsFor(j, j.status === 'queued' && j !== firstQueued, ctx).map((a) => (
           <button
             key={a.id}
             data-nav
-            className={`btn btn-round dl-act ${a.danger ? 'is-danger' : ''}`}
+            className={a.main ? 'btn btn-primary dl-act-main' : `btn btn-round dl-act ${a.danger ? 'is-danger' : ''}`}
             aria-label={a.label}
             title={a.label}
             onFocus={focusHint(a)}
             onClick={() => press(a)}
           >
             {a.icon}
+            {a.main && a.label}
           </button>
         ))}
       </span>
@@ -185,7 +229,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
         </header>
 
         <div className="dl-page-body">
-          {main && <NowCard job={main} onPress={press} onHint={focusHint} onPassword={setPasswordFor} />}
+          {main && <NowCard job={main} onPress={press} onHint={focusHint} ctx={ctx} />}
 
           {(waiting.length > 0 || done.length > 0) && (
             <div className="dl-cols">
@@ -217,7 +261,7 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
 
         <footer className="sheet-hints">
           <Hint glyph="confirm" label={hint || t('Выбрать')} />
-          {done.length > 0 && <Hint glyph="search" label={t('Убрать готовые')} />}
+          {clearable > 0 && <Hint glyph="search" label={t('Убрать готовые')} />}
           <Hint glyph="back" label={t('Назад')} />
         </footer>
       </div>
@@ -252,10 +296,10 @@ export function DownloadsPage({ jobs, onClose }: { jobs: DownloadJob[]; onClose:
 }
 
 /** То, что качается сейчас: крупно, с понятными числами и кнопками с подписями */
-function NowCard({ job, onPress, onHint, onPassword }: { job: DownloadJob; onPress: (a: Action) => void; onHint: (a: Action) => () => void; onPassword: (j: DownloadJob) => void }) {
+function NowCard({ job, onPress, onHint, ctx }: { job: DownloadJob; onPress: (a: Action) => void; onHint: (a: Action) => () => void; ctx: Ctx }) {
   const pct = Math.floor(fraction(job) * 100)
   const tags = tagsOf(job)
-  const actions = actionsFor(job, false, onPassword)
+  const actions = actionsFor(job, false, ctx)
   const u = job.phase === 'extracting' ? job.unpack : undefined
   const stats: [string, string][] =
     job.status === 'error'

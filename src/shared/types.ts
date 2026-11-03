@@ -1111,6 +1111,15 @@ export interface DownloadJob {
   needPassword?: boolean
   /** Пароль от архива, который ввёл пользователь */
   password?: string
+  /**
+   * После загрузки: ready — нашёлся установщик, ждёт «Установить»; running — установщик открыт; installed — игра
+   * в библиотеке, можно играть; manual — игру не нашли, файл указывает пользователь
+   */
+  install?: 'ready' | 'running' | 'installed' | 'manual'
+  /** Установщик, который запускает «Установить» */
+  installer?: string
+  /** Почему установка не завершилась */
+  installError?: string
   /** Торрент: с кем соединён */
   peers?: number
   error?: string
@@ -1151,7 +1160,7 @@ export interface DownloadDrive {
   total: number
 }
 
-export type DownloadControl = 'pause' | 'resume' | 'cancel' | 'remove' | 'deleteFiles' | 'up' | 'folder' | 'clearDone'
+export type DownloadControl = 'pause' | 'resume' | 'cancel' | 'remove' | 'deleteFiles' | 'up' | 'folder' | 'clearDone' | 'install'
 
 export interface AchievementNotice {
   gameId: string

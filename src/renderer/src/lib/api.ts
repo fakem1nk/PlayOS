@@ -725,10 +725,19 @@ function createMockApi(): PcsApi {
     },
     downloadControl: async (id, action) => {
       const job = demoJobs.find((j) => j.id === id)
-      if (action === 'clearDone') demoJobs = demoJobs.filter((j) => j.status !== 'done')
+      if (action === 'clearDone') demoJobs = demoJobs.filter((j) => j.status !== 'done' || (j.install && j.install !== 'installed'))
       else if (!job || action === 'folder') return
       else if (action === 'pause') job.status = 'paused'
       else if (action === 'resume') job.status = 'queued'
+      else if (action === 'install') {
+        // Демо-установщик: три секунды, потом игра в библиотеке
+        job.install = 'running'
+        setTimeout(() => {
+          Object.assign(job, { install: 'installed' })
+          demoJobs = [...demoJobs]
+          jobSubs.forEach((cb) => cb(demoJobs))
+        }, 3000)
+      }
       else if (action === 'up') {
         const i = demoJobs.indexOf(job)
         if (i > 0) demoJobs = [...demoJobs.slice(0, i - 1), job, demoJobs[i - 1], ...demoJobs.slice(i + 1)]
@@ -800,7 +809,9 @@ let demoJobs: DownloadJob[] = demoQuery.has('downloads')
       { id: 'd3', title: 'Team Fortress 2', name: demoRelease('Team Fortress 2', 4), cover: demoCover(440), kind: 'http', uris: ['https://example.invalid/demo/440.zip'], dir: 'D:\\PlayOS Games\\Team Fortress 2', status: 'paused', received: 9.1 * 2 ** 30, size: 27 * 2 ** 30, addedAt: Date.now() - 400000 },
       { id: 'd4', title: 'Warframe', name: demoRelease('Warframe', 5), cover: demoCover(230410), kind: 'http', uris: ['https://example.invalid/demo/230410.zip'], dir: 'D:\\PlayOS Games\\Warframe', status: 'error', error: 'Сервер перестал отдавать данные', received: 3.2 * 2 ** 30, size: 50 * 2 ** 30, addedAt: Date.now() - 300000 },
       { id: 'd6', title: 'Portal 2', name: demoRelease('Portal 2', 7), cover: demoCover(620), kind: 'magnet', uris: ['magnet:?xt=urn:btih:demo'], dir: 'D:\\PlayOS Games\\Portal 2', status: 'error', error: 'Архив защищён паролем', needPassword: true, downloaded: true, received: 11.8 * 2 ** 30, size: 11.8 * 2 ** 30, addedAt: Date.now() - 250000 },
-      { id: 'd5', title: 'Path of Exile', name: demoRelease('Path of Exile', 6), cover: demoCover(238960), kind: 'http', uris: ['https://example.invalid/demo/238960.zip'], dir: 'D:\\PlayOS Games\\Path of Exile', file: 'D:\\PlayOS Games\\Path of Exile\\poe.zip', status: 'done', received: 40 * 2 ** 30, size: 40 * 2 ** 30, addedAt: Date.now() - 900000, doneAt: Date.now() - 200000 }
+      { id: 'd5', title: 'Path of Exile', name: demoRelease('Path of Exile', 6), cover: demoCover(238960), kind: 'http', uris: ['https://example.invalid/demo/238960.zip'], dir: 'D:\\PlayOS Games\\Path of Exile', file: 'D:\\PlayOS Games\\Path of Exile\\poe.zip', status: 'done', received: 40 * 2 ** 30, size: 40 * 2 ** 30, addedAt: Date.now() - 900000, doneAt: Date.now() - 200000, install: 'ready', installer: 'D:\\PlayOS Games\\Path of Exile\\setup.exe' },
+      // Готовая игра без установщика — сразу в библиотеке, «Играть» запускает демо-игру
+      { id: 'd7', gameId: '1', title: 'Death Stranding', name: demoRelease('Death Stranding', 8), cover: demoCover(1190460), kind: 'http', uris: ['https://example.invalid/demo/1190460.zip'], dir: 'D:\\PlayOS Games\\Death Stranding', status: 'done', received: 72 * 2 ** 30, size: 72 * 2 ** 30, addedAt: Date.now() - 2000000, doneAt: Date.now() - 1500000, install: 'installed' }
     ]
   : []
 const jobSubs = new Set<(jobs: DownloadJob[]) => void>()
@@ -822,7 +833,8 @@ function demoPump() {
       job.speed = Math.round((180 + Math.random() * 60) * 2 ** 20)
       job.unpack = { ...job.unpack, done: Math.min(job.unpack.total, job.unpack.done + job.speed / 2 + fast) }
       if (job.unpack.done >= job.unpack.total) {
-        Object.assign(job, { status: 'done', speed: undefined, phase: undefined, unpack: undefined, doneAt: Date.now() })
+        // Распаковано — нашёлся установщик
+        Object.assign(job, { status: 'done', speed: undefined, phase: undefined, unpack: undefined, doneAt: Date.now(), install: 'ready', installer: job.dir + '\\setup.exe' })
         demoPump()
       }
     } else if (job) {
