@@ -1,0 +1,21 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Магазин: витрина, поиск по всему каталогу Steam и страницы игр с роликом и скриншотами",
+      "Источники загрузок: добавьте свою ссылку на JSON в «Настройки → Магазин»",
+      "Игры из магазина добавляются в библиотеку, у неустановленных — кнопка «Скачать»",
+      "Удержание ✕ на игре открывает её страницу, △ — параметры"
+    ],
+    "fixed": []
+  },
+  "en": {
+    "new": [
+      "Store: featured games, search across the whole Steam catalogue and game pages with video and screenshots",
+      "Download sources: add your own JSON link in Settings → Store",
+      "Store games go to your library; games that are not installed show Download",
+      "Holding ✕ on a game opens its page, △ opens the options"
+    ],
+    "fixed": []
+  }
+}
