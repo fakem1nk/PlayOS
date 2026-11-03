@@ -1,0 +1,29 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Источник загрузок можно добавить из файла или перетащить в «Настройки → Магазин»",
+      "Настройка «Игры для взрослых»: без неё такие игры в магазине скрыты",
+      "«Скачать» для игр PS2 и PS3, если они есть в ваших источниках"
+    ],
+    "fixed": [
+      "Игра из магазина, установленная через Steam, больше не остаётся «не установленной»",
+      "Загрузки находятся точнее: два названия, русские названия, ремейки отдельно от оригиналов",
+      "Загрузки для Android, PSP, Xbox и других платформ больше не попадают к играм для PC",
+      "Источники обновляются, когда вы заходите в магазин, и попадают в резервную копию"
+    ]
+  },
+  "en": {
+    "new": [
+      "Add a download source from a file or drag it into Settings → Store",
+      "Adult games setting: without it, such games are hidden in the store",
+      "Download for PS2 and PS3 games when your sources have them"
+    ],
+    "fixed": [
+      "A store game installed through Steam no longer stays \"not installed\"",
+      "Downloads are matched better: two names, Russian titles, remakes apart from originals",
+      "Downloads for Android, PSP, Xbox and other platforms no longer show for PC games",
+      "Sources update when you open the store and are included in backups"
+    ]
+  }
+}
