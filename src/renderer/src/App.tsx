@@ -102,7 +102,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>(() => (REOPEN_SETTINGS ? 'settings' : 'home'))
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
-  const [libFocus, setLibFocus] = useState<LibraryHintState>({ focus: 'grid', searching: false, running: false, missing: false, download: false, empty: false })
+  const [libFocus, setLibFocus] = useState<LibraryHintState>({ focus: 'grid', searching: false, running: false, missing: false, empty: false })
   const [homeFocus, setHomeFocus] = useState<HomeFocus>({ zone: 'row', item: 'game' })
   const [storeFocus, setStoreFocus] = useState<StoreFocus>({ zone: 'hero', searching: false })
   // Открытая страница игры из магазина
@@ -376,7 +376,7 @@ export function App() {
       </>
     ) : (
       <>
-        <Hint glyph="confirm" label={libFocus.running ? t('Вернуться в игру') : libFocus.missing ? (libFocus.download ? t('Скачать') : t('Указать файл игры')) : t('Играть')} />
+        {!libFocus.missing && <Hint glyph="confirm" label={libFocus.running ? t('Вернуться в игру') : t('Играть')} />}
         <Hint glyph="menu" label={t('Параметры')} />
         <HoldHint label={t('Об игре')} />
         {libFocus.searching ? <Hint glyph="back" label={t('Сбросить поиск')} /> : <Hint glyph="search" label={t('Добавить игру')} />}
@@ -587,7 +587,9 @@ export function App() {
                 // Правка видна сразу на плитке, а новая игра может оказаться не там, куда смотрели
                 if (!editor.game) toast({ title: t('Игра добавлена'), message: g.title, image: g.cover, tone: 'success', history: false })
                 setEditor(null)
-                focusGame(g)
+                // В «Недавних» только игры, в которые уже играли: новую показываем её страницей
+                if (g.lastPlayed) focusGame(g)
+                else if (!editor.game) setPageGameId(g.id)
               }}
             />
           )}

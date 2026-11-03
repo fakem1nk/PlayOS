@@ -24,6 +24,11 @@ const EMIT_MS = 500
 const SAVE_MS = 5000
 /** Скорость — среднее за последние секунды */
 const SPEED_WINDOW = 3000
+/** Готовые видны в разделе 3 дня и не больше 10 последних — потом уходят из списка сами, файлы остаются */
+const DONE_KEEP_MS = 3 * 86_400_000
+const DONE_MAX = 10
+/** Как часто проверять, не пора ли убрать готовые */
+const DONE_CHECK_MS = 3_600_000
 
 let jobs: DownloadJob[] = []
 let current: { id: string; abort: AbortController } | null = null
@@ -47,10 +52,30 @@ export function startDownloads(onChange: (list: DownloadJob[]) => void) {
     j.speed = undefined
     if (j.status === 'active') j.status = 'queued'
   }
+  if (dropOldDone()) save(true)
+  setInterval(() => dropOldDone() && changed(), DONE_CHECK_MS)
   pump()
 }
 
 export const listDownloads = () => jobs
+
+/** Убрать из списка готовые старше DONE_KEEP_MS и сверх DONE_MAX; true — что-то убрали */
+function dropOldDone(): boolean {
+  const since = Date.now() - DONE_KEEP_MS
+  const at = (j: DownloadJob) => j.doneAt ?? j.addedAt
+  const keep = new Set(
+    jobs
+      .filter((j) => j.status === 'done' && at(j) > since)
+      .sort((a, b) => at(b) - at(a))
+      .slice(0, DONE_MAX)
+  )
+  const old = jobs.filter((j) => j.status === 'done' && !keep.has(j))
+  if (!old.length) return false
+  jobs = jobs.filter((j) => !old.includes(j))
+  for (const j of old) if (isTorrent(j)) removeTorrent(j, false)
+  log('INFO', '[загрузки] убраны старые готовые:', old.length)
+  return true
+}
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 function save(now = false) {
@@ -137,6 +162,7 @@ async function run(job: DownloadJob) {
     job.doneAt = Date.now()
     job.received = job.size || job.received
     log('INFO', '[загрузки] готово:', job.title, '→', job.file)
+    dropOldDone()
   } catch (e) {
     // Пауза и отмена сами выставили состояние — это не ошибка
     if (!abort.signal.aborted) {

@@ -1217,6 +1217,7 @@ export const EN: Record<string, string> = {
   'В очереди': 'Queued',
   'Пауза': 'Pause',
   'Скачано': 'Downloaded',
+  'Завершено {when}': 'Finished {when}',
   'Продолжить': 'Resume',
   'Загрузки': 'Downloads',
   'Загрузок нет': 'No downloads',

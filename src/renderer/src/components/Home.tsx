@@ -73,14 +73,30 @@ interface Props {
 export function Home(props: Props) {
   const { games, running, active } = props
   const items = useMemo<RowItem[]>(() => {
-    // Как на консоли: в ряду только недавние игры, вся коллекция — в «Библиотеке» в конце ряда
-    const sorted = [...games].sort((a, b) => (b.lastPlayed ?? b.addedAt / 1e3) - (a.lastPlayed ?? a.addedAt / 1e3)).slice(0, RECENT_MAX)
-    const special: RowItem[] = [{ kind: 'library' }, ...(games.length > 1 ? [{ kind: 'random' } as const] : []), { kind: 'add' }]
+    // Как на консоли: в ряду только игры, в которые уже играли (и запущенная сейчас — первой), вся коллекция —
+    // в «Библиотеке» в конце ряда. Добавленные из магазина или найденные, но ни разу не запущенные, сюда не попадают
+    const at = (g: Game) => (g.id === running?.gameId ? running.startedAt : (g.lastPlayed ?? 0))
+    const sorted = games
+      .filter((g) => at(g) > 0)
+      .sort((a, b) => at(b) - at(a))
+      .slice(0, RECENT_MAX)
+    const special: RowItem[] = [{ kind: 'library' }, ...(sorted.length > 1 ? [{ kind: 'random' } as const] : []), { kind: 'add' }]
     return [...sorted.map((game) => ({ kind: 'game' as const, game })), ...special]
-  }, [games])
+  }, [games, running?.gameId, running?.startedAt])
 
   const [index, setIndex] = useState(0)
   const [zone, setZone] = useState<'row' | 'actions'>('row')
+  // Ряд перестроился (игра запустилась, сессия закончилась) — фокус остаётся на той же плитке. Игра, запущенная
+  // впервые, только что встала в ряд первой: App просил фокус на неё ещё при запуске, когда её тут не было
+  const [shown, setShown] = useState(items)
+  if (shown !== items) {
+    setShown(items)
+    const was = shown[Math.min(index, shown.length - 1)]
+    const fresh = items.findIndex((it) => it.kind === 'game' && it.game.id === running?.gameId && !shown.some((s) => s.kind === 'game' && s.game.id === it.game.id))
+    const i = fresh >= 0 ? fresh : items.findIndex((it) => it.kind === was.kind && (it.kind !== 'game' || (was.kind === 'game' && it.game.id === was.game.id)))
+    if (fresh >= 0) setZone('row')
+    if (i >= 0 && i !== index) setIndex(i)
+  }
   const [action, setAction] = useState(0)
   const [shuffling, setShuffling] = useState(false)
   const viewport = useViewportRem(props.uiScale)

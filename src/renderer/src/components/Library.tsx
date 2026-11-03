@@ -41,10 +41,8 @@ export interface LibraryHintState {
   focus: LibraryFocus
   searching: boolean
   running: boolean
-  /** Игра в фокусе не установлена на этом ПК: ✕ — указать файл */
+  /** Игра в фокусе не установлена на этом ПК: ✕ ничего не делает, скачать или указать файл — в параметрах */
   missing: boolean
-  /** …и это PC-игра: ✕ — скачать */
-  download: boolean
   empty: boolean
 }
 
@@ -223,11 +221,10 @@ export function Library(props: Props) {
   const focusRunning = !!focused && running?.gameId === focused.id
   const empty = list.length === 0
   const focusMissing = !!focused && notInstalled(focused)
-  const focusDownload = focusMissing && focused?.platform === 'pc'
   useEffect(() => {
-    if (active) onFocusKind({ focus: focusKind, searching, running: focusRunning, missing: focusMissing, download: focusDownload, empty })
+    if (active) onFocusKind({ focus: focusKind, searching, running: focusRunning, missing: focusMissing, empty })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusKind, active, searching, focusRunning, focusMissing, focusDownload, empty])
+  }, [focusKind, active, searching, focusRunning, focusMissing, empty])
 
   // Выбранный ряд держим в верхней трети: видно и его, и следующий ряд — понятно, куда листать дальше
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -263,6 +260,9 @@ export function Library(props: Props) {
     if (lastInputDevice() === 'keyboard') beginEdit(el)
     else openKeyboard(el)
   }
+
+  /** ✕ или клик по игре в фокусе. Игры нет на этом ПК — ничего не открываем: скачать или указать файл можно в параметрах (△) и на её странице */
+  const press = (g: Game) => (notInstalled(g) ? play('bump') : onLaunch(g))
 
   const clearSearch = () => {
     play('back')
@@ -375,7 +375,7 @@ export function Library(props: Props) {
       else if (a === 'down') bump('down')
       else if (a === 'up') idx >= COLS ? move(idx - COLS) : toChips()
       else if (a === 'confirm') {
-        if (focused) onLaunch(focused)
+        if (focused) press(focused)
         else if (searching) clearSearch()
         else {
           play('select')
@@ -551,7 +551,7 @@ export function Library(props: Props) {
                   animate={active && i === idx}
                   running={running?.gameId === g.id}
                   className="grid-tile"
-                  onClick={() => (i === idx ? onLaunch(g) : (setIndex(i), setZone('grid')))}
+                  onClick={() => (i === idx ? press(g) : (setIndex(i), setZone('grid')))}
                   onMenu={() => {
                     play('select')
                     onMenu(g)

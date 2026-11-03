@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DownloadJob, DownloadKind } from '@shared/types'
-import { t } from '@shared/i18n'
+import { locale, t } from '@shared/i18n'
 import { api } from './api'
-import { bytes } from './format'
+import { bytes, lastPlayed } from './format'
 import { toast } from './state'
 
 /** Какие ссылки PlayOS качает сам — спрашиваем main один раз: торренты, если на месте его торрент-клиент */
@@ -75,6 +75,9 @@ export function jobLine(j: DownloadJob): string {
     case 'error':
       return j.error ?? t('Загрузка остановилась')
     case 'done':
-      return [t('Скачано'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
+      return [j.doneAt ? t('Завершено {when}', { when: finished(j.doneAt) }) : t('Скачано'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
   }
 }
+
+/** Когда скачалось, как в Steam: «сегодня, 10:55» */
+const finished = (ts: number) => `${lastPlayed(ts).toLowerCase()}, ${new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}`
