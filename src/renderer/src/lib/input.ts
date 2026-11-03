@@ -84,8 +84,8 @@ export function dispatch(a: PadAction) {
 // ───────────── Удержание ✕ ─────────────
 
 /**
- * Удержание ✕ (Enter) на игре открывает её параметры (как ☰ Options). Пока хоть один экран это включил,
- * ✕ срабатывает на отпускании, а удержание дольше HOLD_MS вместо него отправляет 'options'.
+ * Удержание ✕ (Enter) на игре открывает её страницу. Пока хоть один экран это включил,
+ * ✕ срабатывает на отпускании, а удержание дольше HOLD_MS вместо него отправляет 'hold'.
  */
 let holdZones = 0
 const HOLD_MS = 500
@@ -264,7 +264,7 @@ function onKey(e: KeyboardEvent) {
     const hold = { key: e.key, fired: false, timer: setTimeout(() => {
       hold.fired = true
       syncHolding()
-      dispatch('options')
+      dispatch('hold')
     }, HOLD_MS) }
     keyHold = hold
     syncHolding()
@@ -472,7 +472,7 @@ function pollPads() {
         viewHeld.delete(p.index)
         if (view && !view.spoiled && now - view.at < VIEW_TAP_MS) dispatch('view')
       } else if (pendingHold.has(key)) {
-        // ✕ ждёт: отпустили быстро — обычное нажатие, держат дольше HOLD_MS — параметры
+        // ✕ ждёт: отпустили быстро — обычное нажатие, держат дольше HOLD_MS — страница игры
         if (!down) {
           pendingHold.delete(key)
           syncHolding()
@@ -482,7 +482,7 @@ function pollPads() {
           pendingHold.delete(key)
           syncHolding()
           holdRumble('done')
-          dispatch('options')
+          dispatch('hold')
         }
       } else if (down && repeats(action)) {
         const held = now - (holdStart.get(key) ?? now)

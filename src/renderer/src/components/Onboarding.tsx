@@ -366,8 +366,7 @@ function ScreenArt({ scale }: { scale: number }) {
 const BUTTONS: { glyph: GlyphName; label: string }[] = [
   { glyph: 'confirm', label: t('Играть и выбирать') },
   { glyph: 'back', label: t('Назад') },
-  { glyph: 'menu', label: t('Об игре') },
-  { glyph: 'options', label: t('Параметры игры') },
+  { glyph: 'menu', label: t('Параметры игры') },
   { glyph: 'search', label: t('Добавить игру') },
   { glyph: 'r1', label: t('Вкладки') },
   { glyph: 'guide', label: t('Меню поверх игры') }

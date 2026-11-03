@@ -1,10 +1,10 @@
-import fs from 'node:fs'
 import path from 'node:path'
 import type { GameDetails, StoreBlock, StoreHome, StoreItem, StorePage, StoreRow, StoreRowId, StoreUpcoming } from '@shared/types'
 import { getLang } from '@shared/i18n'
 import { howLongToBeat } from '../details'
 import { httpFetch } from '../http'
 import { dataDir } from '../store'
+import { readJson, writeJson } from './disk'
 
 /**
  * Каталог магазина из Steam. Только api.steampowered.com: он отвечает за секунду, а store.steampowered.com
@@ -221,27 +221,6 @@ export function parseAbout(bb: string): StoreBlock[] {
   return blocks.filter((b) => b.text).slice(0, 80)
 }
 
-// ───────────────────────── Диск ─────────────────────────
-
-function readJson<T>(file: string): T | null {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8')) as T
-  } catch {
-    return null
-  }
-}
-
-function writeJson(file: string, data: unknown) {
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    const tmp = `${file}.tmp`
-    fs.writeFileSync(tmp, JSON.stringify(data), 'utf8')
-    fs.renameSync(tmp, file)
-  } catch {
-    /* кэш не критичен */
-  }
-}
-
 // ───────────────────────── Витрина ─────────────────────────
 
 async function itemsByIds(ids: number[], request: object): Promise<RawItem[]> {
@@ -259,7 +238,10 @@ async function query(filters: object, sort: number): Promise<RawItem[]> {
   return res.store_items ?? []
 }
 
-const ROWS: Record<StoreRowId, () => Promise<RawItem[]>> = {
+/** Ряды из Steam; «Вышедшие новинки» собирает sources.ts */
+type SteamRow = Exclude<StoreRowId, 'sources'>
+
+const ROWS: Record<SteamRow, () => Promise<RawItem[]>> = {
   top: async () => {
     const res = await call<{ ranks?: { item?: RawItem }[] }>('IStoreTopSellersService/GetWeeklyTopSellers', {
       country_code: 'US',
@@ -277,7 +259,7 @@ const ROWS: Record<StoreRowId, () => Promise<RawItem[]>> = {
   },
   soon: () => query({ coming_soon_only: true }, SORT_WISHLISTED)
 }
-const ROW_ORDER: StoreRowId[] = ['top', 'new', 'played', 'soon']
+const ROW_ORDER: SteamRow[] = ['top', 'new', 'played', 'soon']
 
 let home: (StoreHome & { lang: string }) | null = null
 let homeLoading: Promise<StoreHome> | null = null
@@ -357,6 +339,32 @@ export async function storeSearch(q: string): Promise<StoreItem[]> {
   if (searches.size > 60) searches.delete(searches.keys().next().value!)
   searches.set(key, items)
   return items
+}
+
+/** Плитки по списку AppID в том же порядке; то, что не игра, пропускается */
+export async function storeItems(ids: number[]): Promise<StoreItem[]> {
+  const [names, raws] = await Promise.all([tags(), itemsByIds(ids, TILE_REQUEST)])
+  const byId = new Map(raws.map((r) => [r.appid ?? r.id, r]))
+  return ids.flatMap((id) => {
+    const raw = byId.get(id)
+    const item = raw ? toItem(raw, names) : null
+    return item ? [item] : []
+  })
+}
+
+/** Игры Steam по запросу, только AppID и английское название — для сопоставления с источниками */
+export async function searchTitles(term: string): Promise<{ appId: number; title: string }[]> {
+  const res = await call<{ store_items?: RawItem[] }>('IStoreQueryService/SearchSuggestions', {
+    search_term: term,
+    max_results: 8,
+    context: { language: 'english', country_code: 'US' },
+    filters: { type_filters: { include_games: true } },
+    data_request: {}
+  })
+  return (res.store_items ?? []).flatMap((r) => {
+    const appId = r.appid ?? r.id
+    return appId && r.name ? [{ appId, title: r.name }] : []
+  })
 }
 
 // ───────────────────────── Страница игры ─────────────────────────

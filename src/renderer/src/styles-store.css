@@ -254,10 +254,15 @@
 }
 
 /* Уже в библиотеке — галочка в углу обложки */
-.store-badge {
+.store-badges {
   position: absolute;
   top: 1rem;
   right: 1rem;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.store-badge {
   width: 2.8rem;
   height: 2.8rem;
   border-radius: 50%;
@@ -502,6 +507,136 @@
 /* Тиви живёт в правом нижнем углу: прокрутка магазина не заходит под него */
 .shell:has(> .tivi) .store-scroll {
   padding-bottom: 10rem;
+}
+
+/* ───────────── Настройки → Магазин: источники ───────────── */
+.src-actions {
+  flex: none;
+  display: flex;
+  gap: 1rem;
+}
+
+.src-host {
+  margin-left: 1rem;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.src-error {
+  color: #ff8a8a;
+}
+
+/* Источников ещё нет — первая строка заметнее, кнопка «Вставить ссылку» главная */
+.src-add.is-empty {
+  padding-top: 2.4rem;
+  padding-bottom: 2.4rem;
+}
+
+/* ───────────── Варианты загрузки ───────────── */
+/* «Вариантов нет»: две кнопки одной ширины на всю строку */
+.dl-actions-even {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.dl-actions-even .btn {
+  justify-content: center;
+}
+
+
+.dl-dialog {
+  width: min(104rem, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dl-sub {
+  margin: -0.6rem 0 2.4rem;
+  font-size: 1.7rem;
+  color: var(--mist);
+}
+
+.dl-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  overflow-y: auto;
+  /* Запас под кольцо фокуса */
+  padding: 0.9rem;
+  margin: -0.9rem;
+}
+
+.dl-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.dl-option.menu-item {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  min-height: 7.6rem;
+  padding: 1.4rem 2rem;
+}
+
+.dl-kind {
+  flex: none;
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dl-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dl-title {
+  font-size: 1.8rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dl-meta {
+  font-size: 1.5rem;
+  color: var(--mist);
+}
+
+/* Кнопки для мыши: у строки в фокусе или под курсором — ярче */
+.dl-tools {
+  flex: none;
+  display: flex;
+  gap: 0.8rem;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.dl-row.is-current .dl-tools {
+  opacity: 1;
+}
+
+.dl-hints {
+  display: flex;
+  gap: 3.2rem;
+  align-items: center;
+  margin-top: 2.6rem;
+  font-size: 1.6rem;
+  color: var(--mist);
 }
 
 /* Светлая тема: баннер остаётся тёмным, как заглушка обложки — логотипы игр рисуют под тёмный фон.

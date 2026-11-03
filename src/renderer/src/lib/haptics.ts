@@ -31,7 +31,7 @@ export function setRumblePad(index: number | null) {
 export function rumble(kind: Kind, force = false) {
   if ((!enabled && !force) || padIndex === null) return
   const now = performance.now()
-  // Удержание ✕ само открывает меню — второй толчок следом не нужен
+  // Удержание ✕ уже закончилось толчком — окну, которое оно открыло, второй не нужен
   if (kind === 'open' && now - lastHold < 250) return
   if (kind === 'hold') lastHold = now
   send(EFFECTS[kind])

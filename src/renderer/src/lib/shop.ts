@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import type { Game, StoreHome, StoreItem, StoreRowId, StoreSteam } from '@shared/types'
-import { locale, t } from '@shared/i18n'
+import type { DownloadKind, Game, StoreHome, StoreItem, StoreRowId, StoreSteam } from '@shared/types'
+import { locale, plural, t } from '@shared/i18n'
 import { api } from './api'
 import { DEFAULT_ACCENT } from './format'
 
 /** Магазин: общие данные вкладки и страницы игры. Витрина живёт дольше вкладки — переключение не мигает пустотой */
 
 export const ROW_TITLES: Record<StoreRowId, string> = {
+  sources: t('Вышедшие новинки'),
   top: t('Лидеры продаж'),
   new: t('Новое и популярное'),
   played: t('Самые популярные'),
@@ -56,6 +57,15 @@ export function tileNote(item: StoreItem): string {
   if (item.upcoming) return releaseText(item)
   if (item.reviews?.label) return item.reviews.label
   return item.tags?.[0] ?? ''
+}
+
+/** «3 варианта» */
+export const optionsCount = (n: number) => `${n} ${plural(n, ['вариант', 'варианта', 'вариантов'], ['option', 'options'])}`
+
+export const KIND_LABELS: Record<DownloadKind, string> = {
+  magnet: t('Торрент · магнет'),
+  torrent: t('Торрент-файл'),
+  http: t('Прямая ссылка')
 }
 
 let homeMemo: StoreHome | null = null

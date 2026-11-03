@@ -66,13 +66,15 @@ interface TileProps {
   animate?: boolean
   running?: boolean
   onClick?: () => void
-  /** Параметры игры: правый клик или зажатая левая кнопка мыши — как удержание ✕ */
+  /** Параметры игры: правый клик — как △ */
   onMenu?: () => void
+  /** Страница игры: зажатая левая кнопка мыши — как удержание ✕ */
+  onHold?: () => void
   className?: string
   style?: React.CSSProperties
 }
 
-export function Tile({ game, focused, animate, running, onClick, onMenu, className = '', style }: TileProps) {
+export function Tile({ game, focused, animate, running, onClick, onMenu, onHold, className = '', style }: TileProps) {
   // Удержание ✕ на плитке в фокусе: обложка медленно вдавливается, вокруг набегает кольцо — отпустить раньше значит «Играть».
   // Мышью то же самое: зажатая левая кнопка на любой плитке
   const padHolding = useHolding() && !!focused
@@ -93,13 +95,13 @@ export function Tile({ game, focused, animate, running, onClick, onMenu, classNa
       className={`tile ${focused ? 'is-focused' : ''} ${holding ? 'is-holding' : ''} ${missing ? 'is-missing' : ''} ${className}`}
       style={{ ...style, '--hold-ms': `${HOLD_DURATION}ms` } as React.CSSProperties}
       onPointerDown={(e) => {
-        if (!onMenu || e.button !== 0 || e.pointerType === 'touch') return
+        if (!onHold || e.button !== 0 || e.pointerType === 'touch') return
         const p = {
           fired: false,
           timer: window.setTimeout(() => {
             p.fired = true
             setMouseHolding(false)
-            onMenu()
+            onHold()
           }, HOLD_DURATION)
         }
         press.current = p

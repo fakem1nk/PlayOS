@@ -6,7 +6,7 @@ import { useConfirmHold, useInputLayer } from '../lib/input'
 import { useNow } from '../lib/state'
 import { nudge } from '../lib/nav'
 import { play } from '../lib/sound'
-import { IconDice, IconDots, IconFolder, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
+import { IconDice, IconDots, IconDownload, IconFolder, IconGrid, IconInfo, IconPlay, IconPlus } from './Icons'
 import { Tile } from './Tile'
 import { t } from '@shared/i18n'
 
@@ -14,7 +14,8 @@ type RowItem = { kind: 'game'; game: Game } | { kind: 'library' } | { kind: 'ran
 type SpecialKind = Exclude<RowItem['kind'], 'game'>
 
 /** Что в фокусе главного экрана — по нему App подбирает подсказки кнопок внизу */
-export type HomeFocus = { zone: 'row' | 'actions'; item: 'game' | 'running' | 'missing' | SpecialKind }
+/** missing — игры нет на этом ПК (✕ — указать файл), download — то же у PC-игры (✕ — скачать) */
+export type HomeFocus = { zone: 'row' | 'actions'; item: 'game' | 'running' | 'missing' | 'download' | SpecialKind }
 
 export const SPECIAL: Record<SpecialKind, { label: string; title: string; sub: string; action: string }> = {
   library: { label: t('Библиотека'), title: t('Библиотека игр'), sub: '', action: t('Открыть библиотеку') },
@@ -87,7 +88,7 @@ export function Home(props: Props) {
   const item = items[idx]
   const focusedGame = item.kind === 'game' ? item.game : null
   const isRunning = !!focusedGame && running?.gameId === focusedGame.id
-  // Удержание ✕ на плитке игры — её параметры
+  // Удержание ✕ на плитке игры — её страница
   useConfirmHold(active && zone === 'row' && !!focusedGame)
 
   // Внешний запрос сфокусировать игру (после добавления или запуска)
@@ -106,7 +107,8 @@ export function Home(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedGame?.id, focusedGame?.hero, focusedGame?.cover, active])
 
-  const focusItem: HomeFocus['item'] = item.kind !== 'game' ? item.kind : isRunning ? 'running' : notInstalled(item.game) ? 'missing' : 'game'
+  const focusItem: HomeFocus['item'] =
+    item.kind !== 'game' ? item.kind : isRunning ? 'running' : notInstalled(item.game) ? (item.game.platform === 'pc' ? 'download' : 'missing') : 'game'
   useEffect(() => {
     if (active) props.onFocusKind({ zone, item: focusItem })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,7 +124,7 @@ export function Home(props: Props) {
         { id: 'menu', label: '' }
       ]
     return [
-      { id: 'play', label: focusedGame && notInstalled(focusedGame) ? t('Указать файл игры') : t('Играть') },
+      { id: 'play', label: focusedGame && notInstalled(focusedGame) ? (focusedGame.platform === 'pc' ? t('Скачать') : t('Указать файл игры')) : t('Играть') },
       { id: 'info', label: '' },
       { id: 'menu', label: '' }
     ]
@@ -223,9 +225,9 @@ export function Home(props: Props) {
           setZone('actions')
           setAction(0)
         } else if (a === 'confirm') activateTile()
-        // △ — страница игры, ☰ и удержание ✕ — параметры
-        else if (a === 'menu' && focusedGame) activate('info')
-        else if (a === 'options' && focusedGame) activate('menu')
+        // △ и ☰ — параметры игры, удержание ✕ — её страница
+        else if ((a === 'menu' || a === 'options') && focusedGame) activate('menu')
+        else if (a === 'hold' && focusedGame) activate('info')
         else if (a === 'search') activate('add')
         else return false
         return
@@ -240,8 +242,7 @@ export function Home(props: Props) {
         play('move')
         setZone('row')
       } else if (a === 'confirm') activate(actions[Math.min(action, actions.length - 1)].id)
-      else if (a === 'menu' && focusedGame) activate('info')
-      else if (a === 'options' && focusedGame) activate('menu')
+      else if ((a === 'menu' || a === 'options') && focusedGame) activate('menu')
       else if (a === 'search') activate('add')
       else return false
     },
@@ -290,6 +291,10 @@ export function Home(props: Props) {
                   play('select')
                   props.onMenu(it.game)
                 }}
+                onHold={() => {
+                  play('select')
+                  props.onInfo(it.game)
+                }}
               />
             )
           }
@@ -336,7 +341,7 @@ export function Home(props: Props) {
                 tabIndex={-1}
                 aria-label={a.label || (a.id === 'info' ? t('Об игре') : t('Параметры игры'))}
               >
-                {a.id === 'play' && (focusedGame && notInstalled(focusedGame) ? <IconFolder /> : <IconPlay />)}
+                {a.id === 'play' && (focusedGame && notInstalled(focusedGame) ? focusedGame.platform === 'pc' ? <IconDownload /> : <IconFolder /> : <IconPlay />)}
                 {a.label || (a.id === 'info' ? <IconInfo /> : <IconDots />)}
               </button>
             )

@@ -4,12 +4,13 @@ import type { Game, GameDetails, StoreItem, StorePage as StorePageData } from '@
 import { api } from '../lib/api'
 import { useInputLayer } from '../lib/input'
 import { useSpatialNav } from '../lib/nav'
-import { libraryGameFor, releaseText, useStoreSteam } from '../lib/shop'
+import { notInstalled } from '../lib/format'
+import { libraryGameFor, optionsCount, releaseText, useStoreSteam } from '../lib/shop'
 import { play } from '../lib/sound'
 import { toast } from '../lib/state'
 import { DotText } from './DotText'
 import { Hint } from './Glyph'
-import { IconClock, IconClose, IconGlobe, IconGrid, IconImage, IconPlus } from './Icons'
+import { IconClock, IconClose, IconDownload, IconGlobe, IconGrid, IconImage, IconPlus } from './Icons'
 import { locale, t } from '@shared/i18n'
 
 /** Абзацев описания до «Читать полностью» */
@@ -26,10 +27,12 @@ interface Props {
   onClose: () => void
   /** Игра уже в библиотеке — открыть её страницу */
   onOpenGame: (g: Game) => void
+  /** Скачать игру библиотеки, которой нет на этом ПК */
+  onDownload: (g: Game) => void
 }
 
 /** Страница игры в магазине: шапка с роликом, что делать с игрой, описание, скриншоты и время прохождения */
-export function StorePage({ item, games, onClose, onOpenGame }: Props) {
+export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState<StorePageData | null | undefined>(undefined)
   const [hltb, setHltb] = useState<GameDetails['hltb'] | undefined>(undefined)
@@ -37,10 +40,9 @@ export function StorePage({ item, games, onClose, onOpenGame }: Props) {
   const [shot, setShot] = useState<number | null>(null)
   const [trailerOn, setTrailerOn] = useState(false)
   const [logoOk, setLogoOk] = useState(true)
-  const [importing, setImporting] = useState(false)
+  const [adding, setAdding] = useState(false)
   const steam = useStoreSteam()
   const libGame = libraryGameFor(games, item.appId)
-  const installed = !!steam?.installed.includes(item.appId)
 
   useEffect(() => {
     let alive = true
@@ -62,14 +64,17 @@ export function StorePage({ item, games, onClose, onOpenGame }: Props) {
   const data: StoreItem = page ?? item
   const quiet = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+  // В библиотеку — первым делом: оттуда игру скачивают и запускают. Стоит в Steam на этом ПК — main добавит её сразу с папкой
   const addToLibrary = async () => {
+    if (adding) return
     play('select')
-    setImporting(true)
+    setAdding(true)
     try {
-      const n = await api.importSteam([item.appId])
-      if (n) toast({ title: t('Игра добавлена'), message: item.title, image: item.cover, tone: 'success', history: false })
+      const id = await api.storeAddToLibrary(item.appId, item.title)
+      if (id) toast({ title: t('Игра в библиотеке'), message: item.title, image: item.cover, tone: 'success', history: false })
+      else toast({ title: t('Не удалось добавить игру'), message: t('Steam не ответил. Проверьте интернет и попробуйте ещё раз.'), tone: 'error', history: false })
     } finally {
-      setImporting(false)
+      setAdding(false)
     }
   }
   const openSteam = (how: 'store' | 'web') => {
@@ -77,11 +82,14 @@ export function StorePage({ item, games, onClose, onOpenGame }: Props) {
     void api.storeOpen(item.appId, how)
   }
 
-  // Главная кнопка — игра уже на этом ПК. Скачивание из источников появится здесь же; Steam — всегда второстепенная кнопка
+  // Сначала игра попадает в библиотеку, потом её можно скачать. Steam — всегда второстепенная кнопка
+  const options = page?.options ?? item.options ?? 0
   const primary = libGame
     ? { label: t('Открыть в библиотеке'), icon: <IconGrid />, run: () => (play('select'), onOpenGame(libGame)) }
-    : installed
-      ? { label: importing ? t('Добавляем…') : t('Добавить в библиотеку'), icon: <IconPlus />, run: addToLibrary }
+    : { label: adding ? t('Добавляем…') : t('Добавить в библиотеку'), icon: <IconPlus />, run: addToLibrary }
+  const download =
+    libGame && notInstalled(libGame) && !data.upcoming
+      ? { label: options ? `${t('Скачать')} · ${optionsCount(options)}` : t('Скачать'), icon: <IconDownload />, run: () => (play('select'), onDownload(libGame)) }
       : null
 
   const reviews = data.reviews
@@ -138,8 +146,13 @@ export function StorePage({ item, games, onClose, onOpenGame }: Props) {
 
         <div className="gp-actions">
           {primary && (
-            <button data-nav className="btn btn-primary" disabled={importing} onClick={primary.run}>
+            <button data-nav className="btn btn-primary" disabled={adding} onClick={primary.run}>
               {primary.icon} {primary.label}
+            </button>
+          )}
+          {download && (
+            <button data-nav className="btn btn-glass" onClick={download.run}>
+              {download.icon} {download.label}
             </button>
           )}
           {steam && (

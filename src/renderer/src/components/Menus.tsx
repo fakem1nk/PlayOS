@@ -149,11 +149,12 @@ export function ConfirmDialog({ title, text, button, cancel, tone = 'danger', on
  * Ввод короткого текста (название подборки). Поле открывается сразу: с геймпада — экранная клавиатура,
  * с клавиатуры — ввод на месте; Enter или «Готово» на клавиатуре сохраняет.
  */
-export function PromptDialog({ title, value = '', placeholder, button, onCancel, onSubmit }: {
+export function PromptDialog({ title, value = '', placeholder, button, maxLength = 40, onCancel, onSubmit }: {
   title: string
   value?: string
   placeholder?: string
   button: string
+  maxLength?: number
   onCancel: () => void
   onSubmit: (v: string) => void
 }) {
@@ -191,7 +192,7 @@ export function PromptDialog({ title, value = '', placeholder, button, onCancel,
           value={text}
           placeholder={placeholder}
           spellCheck={false}
-          maxLength={40}
+          maxLength={maxLength}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
         />
@@ -302,8 +303,11 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
     isRunning
       ? { id: 'close', label: t('Закрыть игру'), icon: <IconClose />, run: () => (onClose(), onCloseGame()) }
       : notInstalled(game)
-        ? { id: 'play', label: t('Указать файл игры'), icon: <IconFolder />, run: () => (onClose(), onEdit(game)) }
+        ? game.platform === 'pc'
+          ? { id: 'play', label: t('Скачать'), icon: <IconDownload />, run: () => (onClose(), onLaunch(game)) }
+          : { id: 'play', label: t('Указать файл игры'), icon: <IconFolder />, run: () => (onClose(), onEdit(game)) }
         : { id: 'play', label: t('Играть'), icon: <IconPlay />, run: () => (onClose(), onLaunch(game)) },
+    ...(notInstalled(game) && game.platform === 'pc' ? [{ id: 'file', label: t('Указать файл игры'), icon: <IconFolder />, run: () => (onClose(), onEdit(game)) }] : []),
     { id: 'info', label: t('Об игре'), icon: <IconInfo />, run: () => onInfo(game) },
     { id: 'trophies', label: t('Трофеи'), icon: <IconTrophy />, run: () => onTrophies(game) },
     { id: 'edit', label: t('Изменить'), icon: <IconEdit />, group: true, run: () => (onClose(), onEdit(game)) },

@@ -6,7 +6,7 @@ import { accentOf, bytes, lastPlayed, media, playtime } from '../lib/format'
 import { useSpatialNav } from '../lib/nav'
 import { useNow } from '../lib/state'
 import { Hint } from './Glyph'
-import { IconClock, IconClose, IconCloud, IconEdit, IconFolder, IconPlay, IconSync, IconTrophy } from './Icons'
+import { IconClock, IconClose, IconCloud, IconDownload, IconEdit, IconFolder, IconPlay, IconSync, IconTrophy } from './Icons'
 import { SaveVersionsDialog, stateLabel, useGameCloud } from './Cloud'
 import { locale, plural, t } from '@shared/i18n'
 import { DotText } from './DotText'
@@ -25,12 +25,16 @@ interface Props {
   trophies?: AchievementSummaryItem
   onClose: () => void
   onLaunch: (g: Game) => void
+  /** PC-игры нет на этом ПК — скачать из источников */
+  onDownload: (g: Game) => void
+  /** …или указать файл, если она уже где-то на диске */
+  onPickFile: (g: Game) => void
   onTrophies: (g: Game) => void
   onEdit: (g: Game) => void
 }
 
 /** Страница игры: описание, время прохождения (HowLongToBeat), активность и история сессий. */
-export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophies, onEdit }: Props) {
+export function GamePage({ game, running, trophies, onClose, onLaunch, onDownload, onPickFile, onTrophies, onEdit }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [details, setDetails] = useState<GameDetails | null>(null)
   const [logoOk, setLogoOk] = useState(true)
@@ -132,12 +136,27 @@ export function GamePage({ game, running, trophies, onClose, onLaunch, onTrophie
         </header>
 
         <div className="gp-actions">
-          <button data-nav className="btn btn-primary" onClick={() => onLaunch(game)}>
-            <IconPlay /> {isRunning ? t('Вернуться в игру') : t('Играть')}
-          </button>
-          <button data-nav className="btn btn-glass" onClick={() => onTrophies(game)}>
-            <IconTrophy /> {trophies?.total ? t('Трофеи {earned} из {total}', { earned: trophies.earned, total: trophies.total }) : t('Трофеи')}
-          </button>
+          {/* Игры нет на этом ПК: PC-игру — скачать или указать файл, остальные — только указать файл */}
+          {!game.path && game.platform === 'pc' ? (
+            <>
+              <button data-nav className="btn btn-primary" onClick={() => onDownload(game)}>
+                <IconDownload /> {t('Скачать')}
+              </button>
+              <button data-nav className="btn btn-glass" onClick={() => onPickFile(game)}>
+                <IconFolder /> {t('Указать файл игры')}
+              </button>
+            </>
+          ) : (
+            <button data-nav className="btn btn-primary" onClick={() => onLaunch(game)}>
+              {game.path ? <IconPlay /> : <IconFolder />} {isRunning ? t('Вернуться в игру') : game.path ? t('Играть') : t('Указать файл игры')}
+            </button>
+          )}
+          {/* Трофеи — у игры, которая есть на этом ПК */}
+          {!!game.path && (
+            <button data-nav className="btn btn-glass" onClick={() => onTrophies(game)}>
+              <IconTrophy /> {trophies?.total ? t('Трофеи {earned} из {total}', { earned: trophies.earned, total: trophies.total }) : t('Трофеи')}
+            </button>
+          )}
           <button data-nav className="btn btn-glass" onClick={() => onEdit(game)}>
             <IconEdit /> {t('Изменить')}
           </button>

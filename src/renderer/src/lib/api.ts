@@ -4,6 +4,7 @@ import type {
   AppState,
   ArtCandidate,
   CloudStatus,
+  DownloadOption,
   Game,
   ImportProgress,
   PcsApi,
@@ -11,6 +12,7 @@ import type {
   SteamLibraryGame,
   StoreHome,
   StoreItem,
+  StoreSource,
   SystemState,
   WindowMode
 } from '@shared/types'
@@ -504,7 +506,8 @@ function createMockApi(): PcsApi {
     cloudRestoreChoice: async () => setCloud({ restore: undefined }),
     gameFiles: async (gameId) => {
       const g = state.games.find((x) => x.id === gameId)
-      if (!g) return null
+      // Как в main: у игры без файла на этом ПК локальных файлов нет
+      if (!g?.path) return null
       // Демо: правдоподобный вес — PC-игры десятки ГБ, образы PS2 несколько ГБ
       const gb = g.platform === 'pc' ? 20 + (Number(g.id) * 7.3) % 90 : g.platform === 'ps2' ? 2 + (Number(g.id) % 3) * 1.4 : 12 + Number(g.id) % 9
       return { path: g.path, isFile: g.platform === 'ps2', size: Math.round(gb * 2 ** 30) }
@@ -603,7 +606,7 @@ function createMockApi(): PcsApi {
       await new Promise((r) => setTimeout(r, 300))
       const all = demoStoreHome().rows.flatMap((r) => r.items)
       const seen = new Set<number>()
-      return all.filter((i) => i.title.toLowerCase().includes(q.trim().toLowerCase()) && !seen.has(i.appId) && seen.add(i.appId))
+      return demoDecorate(all.filter((i) => i.title.toLowerCase().includes(q.trim().toLowerCase()) && !seen.has(i.appId) && seen.add(i.appId)))
     },
     storePage: async (appId) => {
       await new Promise((r) => setTimeout(r, 500))
@@ -618,7 +621,7 @@ function createMockApi(): PcsApi {
         full: steam(appId, f)
       }))
       return {
-        ...item,
+        ...demoDecorate([item])[0],
         about: en
           ? [
               { kind: 'p', text: 'A demo description: in PlayOS the store shows the full text from the Steam page, split into headings, paragraphs and lists.' },
@@ -653,6 +656,50 @@ function createMockApi(): PcsApi {
     // Demo: Steam стоит, Counter-Strike 2 уже на диске (можно добавить в библиотеку)
     storeSteam: async () => ({ client: true, installed: [730] }),
     storeOpen: async () => {},
+    // Демо: игра магазина в библиотеку без файлов — арт прямо ссылками
+    storeAddToLibrary: async (appId, title) => {
+      await new Promise((r) => setTimeout(r, 600))
+      const have = state.games.find((g) => g.steamAppId === appId)
+      if (have) return have.id
+      const it = demoStoreRows()
+        .rows.flatMap((r) => r.items)
+        .find((i) => i.appId === appId)
+      const game: Game = { id: `store-${appId}`, title: it?.title ?? title, platform: 'pc', path: '', steamAppId: appId, cover: it?.cover, hero: it?.hero, logo: it?.logo, playtime: 0, addedAt: Date.now(), sessions: [] }
+      set({ games: [...state.games, game] })
+      return game.id
+    },
+    storeSources: async () => demoSources,
+    // Демо: любая ссылка становится источником с бесплатными играми; настоящие файлы не скачиваются
+    storeSourceAdd: async (url) => {
+      await new Promise((r) => setTimeout(r, 900))
+      if (!/^https?:\/\//i.test(url)) return { error: 'Нужна ссылка, которая начинается с http:// или https://' }
+      if (demoSources.some((s) => s.url === url)) return { error: 'Этот источник уже добавлен' }
+      const source: StoreSource = { id: String(Date.now()), url, name: new URL(url).hostname, addedAt: Date.now(), updatedAt: Date.now(), count: DEMO_FREE.length, games: 4 }
+      demoSources = [...demoSources, source]
+      return { source }
+    },
+    storeSourceRefresh: async (id) => {
+      await new Promise((r) => setTimeout(r, 700))
+      demoSources = demoSources.map((s) => (s.id === id ? { ...s, updatedAt: Date.now(), error: undefined } : s))
+      return demoSources
+    },
+    storeClipboardUrl: async () => 'https://example.invalid/my-source.json',
+    storeSourceRemove: async (id) => {
+      demoSources = demoSources.filter((s) => s.id !== id)
+    },
+    storeSourcesRefresh: async () => {
+      await new Promise((r) => setTimeout(r, 900))
+      demoSources = demoSources.map((s) => ({ ...s, updatedAt: Date.now() }))
+      return demoSources
+    },
+    storeOptions: async (appId) => {
+      await new Promise((r) => setTimeout(r, 250))
+      return demoOptionsFor(appId)
+    },
+    storeUnbind: async (appId, key) => {
+      demoUnbound.add(`${appId}:${key}`)
+    },
+    storeLink: async () => {},
     // VR: Quest 3S по Air Link, VR-компонент скачан
     vrStatus: async () => ({
       oc: { installed: true, installedAt: Date.now() - 3 * 86400000 },
@@ -667,8 +714,58 @@ function createMockApi(): PcsApi {
   }
 }
 
+/**
+ * Демо-источник загрузок: только бесплатные игры и ссылки-заглушки example.invalid. Настоящих источников
+ * в репозитории нет и не будет — PlayOS читает только те, что добавил пользователь
+ */
+let demoSources: StoreSource[] = new URLSearchParams(location.search).has('sources')
+  ? [{ id: 'demo', url: 'https://example.invalid/demo-source.json', name: 'Demo', addedAt: Date.now() - 86400000 * 9, updatedAt: Date.now() - 3600000 * 3, count: 5, games: 4 }]
+  : []
+const demoUnbound = new Set<string>()
+const DEMO_FREE: [number, string, string, string][] = [
+  [730, 'counter-strike 2', '33.5 GB', 'magnet'],
+  [730, 'counter-strike 2', '33.6 GB', 'http'],
+  [570, 'dota 2', '41.2 GB', 'magnet'],
+  [578080, 'pubg battlegrounds', '38.9 GB', 'torrent'],
+  [1172470, 'apex legends', '75 GB', 'http']
+]
+
+function demoOptionsFor(appId: number): DownloadOption[] {
+  const src = demoSources[0]
+  if (!src) return []
+  return DEMO_FREE.flatMap(([id, key, size, kind], i) =>
+    id !== appId || demoUnbound.has(`${id}:${key}`)
+      ? []
+      : [
+          {
+            key,
+            sourceId: src.id,
+            source: src.name,
+            title: `${key.replace(/(^|\s)\w/g, (c) => c.toUpperCase())} (demo ${i + 1})`,
+            uris: [kind === 'magnet' ? `magnet:?xt=urn:btih:${'0'.repeat(40)}&dn=demo` : `https://example.invalid/demo/${id}-${i}.${kind === 'torrent' ? 'torrent' : 'zip'}`],
+            kind: kind as DownloadOption['kind'],
+            size,
+            date: Date.now() - 86400000 * (i * 3 + 1)
+          }
+        ]
+  )
+}
+
+const demoDecorate = (items: StoreItem[]) =>
+  items.map((it) => {
+    const n = demoOptionsFor(it.appId).length
+    return n ? { ...it, options: n } : it
+  })
+
 /** Демо-витрина магазина: настоящие игры Steam, арт по старым путям CDN, метки и оценки — для вида */
 function demoStoreHome(): StoreHome {
+  const home = demoStoreRows()
+  const rows = home.rows.map((r) => ({ ...r, items: demoDecorate(r.items) }))
+  const fresh = [...new Set(DEMO_FREE.map(([id]) => id))].flatMap((id) => rows.flatMap((r) => r.items).find((i) => i.appId === id && i.options) ?? [])
+  return { ...home, rows: fresh.length ? [{ id: 'sources', items: fresh }, ...rows] : rows }
+}
+
+function demoStoreRows(): StoreHome {
   const en = getLang() === 'en'
   const cdn = (id: number, file: string) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/${file}`
   const review = (percent: number, count: number): StoreItem['reviews'] => ({

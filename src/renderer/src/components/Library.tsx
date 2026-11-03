@@ -41,8 +41,10 @@ export interface LibraryHintState {
   focus: LibraryFocus
   searching: boolean
   running: boolean
-  /** Игра в фокусе пришла из облака и не установлена: ✕ — указать файл */
+  /** Игра в фокусе не установлена на этом ПК: ✕ — указать файл */
   missing: boolean
+  /** …и это PC-игра: ✕ — скачать */
+  download: boolean
   empty: boolean
 }
 
@@ -208,7 +210,7 @@ export function Library(props: Props) {
   const idx = Math.min(index, Math.max(0, list.length - 1))
   const focused = list[idx] ?? null
   const chipIdx = Math.min(chip, chips.length - 1)
-  // Удержание ✕ на игре — её параметры
+  // Удержание ✕ на игре — её страница
   useConfirmHold(active && !dialog && zone === 'grid' && !!focused)
   const cur = chips[chipIdx]
 
@@ -221,10 +223,11 @@ export function Library(props: Props) {
   const focusRunning = !!focused && running?.gameId === focused.id
   const empty = list.length === 0
   const focusMissing = !!focused && notInstalled(focused)
+  const focusDownload = focusMissing && focused?.platform === 'pc'
   useEffect(() => {
-    if (active) onFocusKind({ focus: focusKind, searching, running: focusRunning, missing: focusMissing, empty })
+    if (active) onFocusKind({ focus: focusKind, searching, running: focusRunning, missing: focusMissing, download: focusDownload, empty })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusKind, active, searching, focusRunning, focusMissing, empty])
+  }, [focusKind, active, searching, focusRunning, focusMissing, focusDownload, empty])
 
   // Выбранный ряд держим в верхней трети: видно и его, и следующий ряд — понятно, куда листать дальше
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -378,13 +381,13 @@ export function Library(props: Props) {
           play('select')
           onAdd()
         }
-      } else if (a === 'menu' && focused) {
-        // △ — страница игры, ☰ и удержание ✕ — параметры
-        play('select')
-        onInfo(focused)
-      } else if (a === 'options' && focused) {
+      } else if ((a === 'menu' || a === 'options') && focused) {
+        // △ и ☰ — параметры игры, удержание ✕ — её страница
         play('select')
         onMenu(focused)
+      } else if (a === 'hold' && focused) {
+        play('select')
+        onInfo(focused)
       } else if (a === 'back' && searching) clearSearch()
       // ○ далеко внизу — сначала к первому ряду (та же колонка), второе ○ — к вкладкам, как на PS5
       else if (a === 'back' && idx >= COLS) {
@@ -552,6 +555,10 @@ export function Library(props: Props) {
                   onMenu={() => {
                     play('select')
                     onMenu(g)
+                  }}
+                  onHold={() => {
+                    play('select')
+                    onInfo(g)
                   }}
                 />
               )

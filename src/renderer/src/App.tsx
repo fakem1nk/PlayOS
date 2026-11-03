@@ -49,6 +49,7 @@ const Settings = deferred(() => import('./components/Settings').then((m) => m.Se
 const SteamImport = deferred(() => import('./components/SteamImport').then((m) => m.SteamImport))
 const Store = deferred(() => import('./components/Store').then((m) => m.Store))
 const StorePage = deferred(() => import('./components/StorePage').then((m) => m.StorePage))
+const DownloadFlow = deferred(() => import('./components/DownloadOptions').then((m) => m.DownloadFlow))
 const TrophyList = deferred(() => import('./components/TrophyList').then((m) => m.TrophyList))
 
 /** Цвета обложек последних игр — для сияния в интро */
@@ -99,11 +100,13 @@ export function App() {
   const [tab, setTab] = useState<Tab>(() => (REOPEN_SETTINGS ? 'settings' : 'home'))
   const [tabFocus, setTabFocus] = useState<number | null>(null)
   const [bgGame, setBgGame] = useState<Game | null>(null)
-  const [libFocus, setLibFocus] = useState<LibraryHintState>({ focus: 'grid', searching: false, running: false, missing: false, empty: false })
+  const [libFocus, setLibFocus] = useState<LibraryHintState>({ focus: 'grid', searching: false, running: false, missing: false, download: false, empty: false })
   const [homeFocus, setHomeFocus] = useState<HomeFocus>({ zone: 'row', item: 'game' })
   const [storeFocus, setStoreFocus] = useState<StoreFocus>({ zone: 'hero', searching: false })
   // Открытая страница игры из магазина
   const [storeItem, setStoreItem] = useState<StoreItem | null>(null)
+  /** Игра библиотеки без файлов, которую хотят скачать: варианты из источников или подсказка, что делать */
+  const [downloadFor, setDownloadFor] = useState<Game | null>(null)
   // В фокусе переключатель значений (data-adjust) — подсказываем, что его листают влево/вправо
   const [adjustFocus, setAdjustFocus] = useState(false)
   // Игра не запустилась, и понятно, что поправить: файл игры или путь к эмулятору
@@ -142,7 +145,7 @@ export function App() {
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
   const modal =
-    !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || installing
+    !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || !!downloadFor || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || installing
   const contentActive = !modal && tabFocus === null
 
   // Итог сессии не показываем: время игры и так видно на странице игры и в профиле
@@ -207,10 +210,10 @@ export function App() {
   }, [])
 
   const launch = async (g: Game, opts?: { skipSync?: boolean }) => {
-    // Игра пришла из облака без файла: вместо ошибки запуска — редактор с выбором файла
+    // Игры нет на этом ПК: PC-игру предлагаем скачать («Указать файл игры» — на её странице и в меню), эмуляторам — сразу выбрать файл
     if (notInstalled(g)) {
       play('select')
-      return setEditor({ game: g, pickFile: true })
+      return g.platform === 'pc' ? setDownloadFor(g) : setEditor({ game: g, pickFile: true })
     }
     if (running) {
       if (running.gameId === g.id) return api.resumeGame()
@@ -364,9 +367,9 @@ export function App() {
       </>
     ) : (
       <>
-        <Hint glyph="confirm" label={libFocus.running ? t('Вернуться в игру') : libFocus.missing ? t('Указать файл игры') : t('Играть')} />
-        <Hint glyph="menu" label={t('Об игре')} />
-        <HoldHint label={t('Параметры')} />
+        <Hint glyph="confirm" label={libFocus.running ? t('Вернуться в игру') : libFocus.missing ? (libFocus.download ? t('Скачать') : t('Указать файл игры')) : t('Играть')} />
+        <Hint glyph="menu" label={t('Параметры')} />
+        <HoldHint label={t('Об игре')} />
         {libFocus.searching ? <Hint glyph="back" label={t('Сбросить поиск')} /> : <Hint glyph="search" label={t('Добавить игру')} />}
         <Hint glyph="r2" label={t('Фильтр')} />
       </>
@@ -393,17 +396,17 @@ export function App() {
   ) : homeFocus.zone === 'actions' ? (
     <>
       <Hint glyph="confirm" label={t('Выбрать')} />
-      {(homeFocus.item === 'game' || homeFocus.item === 'running' || homeFocus.item === 'missing') && <Hint glyph="menu" label={t('Об игре')} />}
+      {(homeFocus.item === 'game' || homeFocus.item === 'running' || homeFocus.item === 'missing' || homeFocus.item === 'download') && <Hint glyph="menu" label={t('Параметры')} />}
       <Hint glyph="back" label={t('Назад')} />
     </>
-  ) : homeFocus.item === 'game' || homeFocus.item === 'running' || homeFocus.item === 'missing' ? (
+  ) : homeFocus.item === 'game' || homeFocus.item === 'running' || homeFocus.item === 'missing' || homeFocus.item === 'download' ? (
     <>
       <Hint
         glyph="confirm"
-        label={homeFocus.item === 'running' ? t('Вернуться в игру') : homeFocus.item === 'missing' ? t('Указать файл игры') : t('Играть')}
+        label={homeFocus.item === 'running' ? t('Вернуться в игру') : homeFocus.item === 'download' ? t('Скачать') : homeFocus.item === 'missing' ? t('Указать файл игры') : t('Играть')}
       />
-      <Hint glyph="menu" label={t('Об игре')} />
-      <HoldHint label={t('Параметры')} />
+      <Hint glyph="menu" label={t('Параметры')} />
+      <HoldHint label={t('Об игре')} />
       <Hint glyph="search" label={t('Добавить игру')} />
     </>
   ) : (
@@ -617,6 +620,15 @@ export function App() {
                 setPageGameId(null)
                 void launch(g)
               }}
+              onDownload={(g) => {
+                play('select')
+                setDownloadFor(g)
+              }}
+              onPickFile={(g) => {
+                play('select')
+                setPageGameId(null)
+                setEditor({ game: g, pickFile: true })
+              }}
               onTrophies={(g) => {
                 play('select')
                 setPageGameId(null)
@@ -642,6 +654,26 @@ export function App() {
               onOpenGame={(g) => {
                 setStoreItem(null)
                 setPageGameId(g.id)
+              }}
+              onDownload={setDownloadFor}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {downloadFor && (
+            <DownloadFlow
+              key={`dl-${downloadFor.id}`}
+              appId={downloadFor.steamAppId ?? 0}
+              title={downloadFor.title}
+              onClose={() => setDownloadFor(null)}
+              onOpenSources={() => {
+                setDownloadFor(null)
+                setStoreItem(null)
+                setPageGameId(null)
+                setSettingsSection('store')
+                setTab('settings')
+                setTabFocus(null)
               }}
             />
           )}

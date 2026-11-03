@@ -8,7 +8,7 @@ import { beginEdit, isEditing, openKeyboard, setKeyboardStatus } from '../lib/os
 import { ROW_TITLES, storeGame, tileNote, useStoreHome } from '../lib/shop'
 import { play } from '../lib/sound'
 import { Cover } from './Tile'
-import { IconCheck, IconClose, IconRestart, IconSearch } from './Icons'
+import { IconCheck, IconClose, IconDownload, IconRestart, IconSearch } from './Icons'
 import { t } from '@shared/i18n'
 import '../styles-store.css'
 
@@ -320,7 +320,7 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
       ? t('Ищем…')
       : t('Найдено: {n}', { n: results.length })
     : focusedItem
-      ? [focusedItem.title, tileNote(focusedItem)].filter(Boolean).join(' · ')
+      ? [focusedItem.title, focusedItem.options ? t('Можно скачать') : '', tileNote(focusedItem)].filter(Boolean).join(' · ')
       : ''
 
   return (
@@ -434,7 +434,7 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
   )
 }
 
-/** Плитка игры магазина: обложка, отметка «в библиотеке», подпись с названием и оценкой */
+/** Плитка игры магазина: обложка, отметки «можно скачать» и «в библиотеке», подпись с названием и оценкой */
 function StoreTile({
   item,
   focused,
@@ -453,9 +453,18 @@ function StoreTile({
     <div className={`tile store-tile ${focused ? 'is-focused' : ''}`} role="button" aria-label={item.title} onClick={onClick}>
       <div className="tile-art">
         <Cover game={game} />
-        {inLibrary && (
-          <span className="store-badge" title={t('Уже в библиотеке')}>
-            <IconCheck />
+        {(inLibrary || !!item.options) && (
+          <span className="store-badges">
+            {!!item.options && (
+              <span className="store-badge is-dl" title={t('Можно скачать')}>
+                <IconDownload />
+              </span>
+            )}
+            {inLibrary && (
+              <span className="store-badge" title={t('Уже в библиотеке')}>
+                <IconCheck />
+              </span>
+            )}
           </span>
         )}
       </div>

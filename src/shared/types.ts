@@ -480,6 +480,8 @@ export type PadAction =
   | 'view'
   /** Боковая кнопка мыши «вперёд»: обратное к «назад» — следующий шаг мастера, снова открыть закрытую страницу игры */
   | 'forward'
+  /** Удержание ✕ на игре (там, где включён useConfirmHold) — страница игры */
+  | 'hold'
 
 export interface SaveProgress {
   field: 'cover' | 'coverAnimated' | 'hero' | 'logo' | 'icon'
@@ -781,6 +783,22 @@ export interface PcsApi {
   storeSteam(): Promise<StoreSteam>
   /** Страница игры в клиенте Steam или в браузере */
   storeOpen(appId: number, how: 'store' | 'web'): Promise<void>
+  /** Добавить игру магазина в библиотеку (без файлов — её потом скачивают). Возвращает id игры или null */
+  storeAddToLibrary(appId: number, title: string): Promise<string | null>
+  storeSources(): Promise<StoreSource[]>
+  /** Добавить источник: скачивается и проверяется сразу; что не так — в error */
+  storeSourceAdd(url: string): Promise<{ source?: StoreSource; error?: string }>
+  storeSourceRemove(id: string): Promise<void>
+  storeSourcesRefresh(): Promise<StoreSource[]>
+  storeSourceRefresh(id: string): Promise<StoreSource[]>
+  /** Ссылка из буфера обмена, если там ссылка http(s); иначе пустая строка */
+  storeClipboardUrl(): Promise<string>
+  /** Варианты загрузки игры из всех источников, свежие первыми */
+  storeOptions(appId: number, title: string): Promise<DownloadOption[]>
+  /** «Не та игра»: варианты с этим ключом больше не показываются у этой игры */
+  storeUnbind(appId: number, key: string): Promise<void>
+  /** Ссылка варианта: скопировать (несколько — строками) или открыть в программе, которая её понимает */
+  storeLink(uris: string[], how: 'copy' | 'open'): Promise<void>
   // ── VR ──
   vrStatus(): Promise<VrStatus>
   /** Шлем для верхней панели; дальше изменения приходят в onVrQuest */
@@ -940,9 +958,12 @@ export interface StoreItem {
   short?: string
   tags?: string[]
   reviews?: { percent: number; count: number; label: string }
+  /** Сколько вариантов загрузки нашлось в источниках пользователя */
+  options?: number
 }
 
-export type StoreRowId = 'top' | 'new' | 'played' | 'soon'
+/** sources — «Вышедшие новинки»: свежие загрузки, по одной на игру */
+export type StoreRowId = 'sources' | 'top' | 'new' | 'played' | 'soon'
 
 export interface StoreRow {
   id: StoreRowId
@@ -976,6 +997,41 @@ export interface StorePage extends StoreItem {
 export interface StoreSteam {
   client: boolean
   installed: number[]
+}
+
+/** Источник загрузок: JSON по ссылке, которую добавил сам пользователь. PlayOS источников не поставляет */
+export interface StoreSource {
+  id: string
+  url: string
+  name: string
+  addedAt: number
+  /** Когда последний раз удалось скачать */
+  updatedAt?: number
+  /** Загрузок со ссылками */
+  count: number
+  /** Разных игр среди загрузок */
+  games?: number
+  /** Почему не обновился в последний раз */
+  error?: string
+}
+
+/** Ссылка загрузки: магнет, .torrent-файл или обычная ссылка (файл или страница файлообменника) */
+export type DownloadKind = 'magnet' | 'torrent' | 'http'
+
+/** Вариант загрузки игры из источника */
+export interface DownloadOption {
+  /** Ключ названия: по нему «Не та игра?» отвязывает вариант от игры */
+  key: string
+  sourceId: string
+  source: string
+  /** Название загрузки как в источнике */
+  title: string
+  uris: string[]
+  kind: DownloadKind
+  /** Размер как в источнике: «12.4 GB» */
+  size?: string
+  /** Дата публикации, мс */
+  date?: number
 }
 
 export interface AchievementNotice {

@@ -41,6 +41,7 @@ import { ACCENT_VERSION, fromHex, gameAccent, PLATFORM_COLOR } from './color'
 import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam, steamRoot } from './steam'
 import * as shop from './shop/catalog'
+import * as sources from './shop/sources'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
 import { endUpdateSplash, showUpdateSplash, updateFinished } from './splash'
@@ -1691,10 +1692,22 @@ function registerIpc() {
     return done
   })
   // Магазин: каталог Steam, витрина обновляется в фоне и приходит отдельным событием
-  shop.setHomeListener((h) => sendTo(win, 'store-home', h))
-  ipcMain.handle('store:home', (_e, refresh?: boolean) => shop.storeHome(refresh))
-  ipcMain.handle('store:search', (_e, q: string) => shop.storeSearch(q))
-  ipcMain.handle('store:page', (_e, appId: number) => shop.storePage(appId))
+  // Варианты загрузки из источников пользователя дописываются к играм перед отправкой; кэш Steam их не хранит
+  shop.setHomeListener((h) => sendTo(win, 'store-home', sources.decorateHome(h)))
+  sources.setSourcesListener(() => {
+    shop
+      .storeHome()
+      .then((h) => sendTo(win, 'store-home', sources.decorateHome(h)))
+      .catch(() => {
+        /* витрины ещё нет — придёт сама */
+      })
+  })
+  ipcMain.handle('store:home', (_e, refresh?: boolean) => shop.storeHome(refresh).then(sources.decorateHome))
+  ipcMain.handle('store:search', async (_e, q: string) => sources.mergeSearch(q, await shop.storeSearch(q)))
+  ipcMain.handle('store:page', async (_e, appId: number) => {
+    const page = await shop.storePage(appId)
+    return page && { ...page, options: sources.decorateItems([page])[0].options }
+  })
   ipcMain.handle('store:hltb', (_e, appId: number, title: string) => shop.storeHltb(appId, title))
   ipcMain.handle('store:steam', async (): Promise<StoreSteam> => {
     const client = !!(await steamRoot())
@@ -1707,6 +1720,50 @@ function registerIpc() {
     await shell.openExternal(`steam://store/${id}`)
     // Окно Steam открывается поверх полноэкранного PlayOS не всегда — уступаем ему место
     win?.minimize()
+  })
+  // Игра магазина в библиотеку: стоит в Steam на этом ПК — как импорт из Steam, иначе без файлов (её потом скачивают)
+  ipcMain.handle('store:addToLibrary', async (_e, appId: number, title: string): Promise<string | null> => {
+    const id = Math.trunc(Number(appId))
+    if (!id) return null
+    const have = getDb().games.find((g) => g.steamAppId === id)
+    if (have) return have.id
+    const installed = (await steamRoot()) ? (await scanSteam(getDb().games)).find((g) => g.appId === id) : undefined
+    const name = installed?.name ?? (await shop.storePage(id).catch(() => null))?.title ?? String(title || '').trim()
+    if (!name) return null
+    const a = (await media.steamArtFor([{ appId: id, name }])).get(id)
+    const v = a ? await media.verifyCandidate(a).catch(() => a) : undefined
+    const game = await saveGame(
+      {
+        title: name,
+        platform: 'pc',
+        path: installed?.dir ?? '',
+        ...(installed ? { launcher: 'steam' as const } : {}),
+        steamAppId: id,
+        cover: v?.cover,
+        hero: v?.hero,
+        logo: v?.logo
+      },
+      { quiet: true }
+    )
+    return game.id
+  })
+  ipcMain.handle('store:sources', () => sources.listSources())
+  ipcMain.handle('store:sourceAdd', (_e, url: string) => sources.addSource(String(url)))
+  ipcMain.handle('store:sourceRemove', (_e, id: string) => sources.removeSource(String(id)))
+  ipcMain.handle('store:sourcesRefresh', () => sources.refreshSources())
+  ipcMain.handle('store:sourceRefresh', (_e, id: string) => sources.refreshSources(String(id)))
+  ipcMain.handle('store:clipboardUrl', async () => {
+    const text = (await clipboard.readText().catch(() => '')).trim()
+    return /^https?:\/\/\S+$/i.test(text) && text.length <= 2000 ? text : ''
+  })
+  ipcMain.handle('store:options', (_e, appId: number, title: string) => sources.optionsFor(Number(appId), String(title)))
+  ipcMain.handle('store:unbind', (_e, appId: number, key: string) => sources.unbind(Number(appId), String(key)))
+  // Ссылки варианта: только магнеты и http(s) — источник чужой, другие схемы не открываем
+  ipcMain.handle('store:link', async (_e, uris: string[], how: 'copy' | 'open') => {
+    const list = (Array.isArray(uris) ? uris : []).filter((u) => typeof u === 'string' && /^(magnet:|https?:\/\/)/i.test(u))
+    if (!list.length) return
+    if (how === 'copy') clipboard.writeText(list.join('\n'))
+    else await shell.openExternal(list[0])
   })
   ipcMain.handle('update:state', () => updateState())
   ipcMain.handle('update:check', () => checkForUpdates())
@@ -2122,6 +2179,7 @@ app.whenReady().then(() => {
   // Игры, добавленные до 0.6.1, ещё без цвета обложки — считаем один раз, не задерживая старт
   setTimeout(backfillAccents, 1500)
   setTimeout(pruneThumbs, 60_000)
+  sources.startSources()
   vr.migrateStandalone()
   // Шлем в верхней панели: шлём только изменения (подключение, способ связи, заряд)
   let lastQuest = ''
