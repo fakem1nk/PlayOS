@@ -30,6 +30,7 @@ import type {
   UpdateSplash,
   SaveProgress,
   Settings,
+  StoreSteam,
   ArtSource,
   WindowAction,
   WindowMode
@@ -38,7 +39,8 @@ import { startGamepad } from './gamepad'
 import * as ach from './achievements'
 import { ACCENT_VERSION, fromHex, gameAccent, PLATFORM_COLOR } from './color'
 import { forgetDetails, gameDetails, liveBackground } from './details'
-import { scanSteam } from './steam'
+import { scanSteam, steamRoot } from './steam'
+import * as shop from './shop/catalog'
 import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
 import { endUpdateSplash, showUpdateSplash, updateFinished } from './splash'
@@ -1687,6 +1689,24 @@ function registerIpc() {
     }
     report('')
     return done
+  })
+  // Магазин: каталог Steam, витрина обновляется в фоне и приходит отдельным событием
+  shop.setHomeListener((h) => sendTo(win, 'store-home', h))
+  ipcMain.handle('store:home', (_e, refresh?: boolean) => shop.storeHome(refresh))
+  ipcMain.handle('store:search', (_e, q: string) => shop.storeSearch(q))
+  ipcMain.handle('store:page', (_e, appId: number) => shop.storePage(appId))
+  ipcMain.handle('store:hltb', (_e, appId: number, title: string) => shop.storeHltb(appId, title))
+  ipcMain.handle('store:steam', async (): Promise<StoreSteam> => {
+    const client = !!(await steamRoot())
+    return { client, installed: client ? (await scanSteam(getDb().games)).map((g) => g.appId) : [] }
+  })
+  ipcMain.handle('store:open', async (_e, appId: number, how: 'store' | 'web') => {
+    const id = Math.trunc(Number(appId))
+    if (!id) return
+    if (how === 'web') return void shell.openExternal(`https://store.steampowered.com/app/${id}/`)
+    await shell.openExternal(`steam://store/${id}`)
+    // Окно Steam открывается поверх полноэкранного PlayOS не всегда — уступаем ему место
+    win?.minimize()
   })
   ipcMain.handle('update:state', () => updateState())
   ipcMain.handle('update:check', () => checkForUpdates())

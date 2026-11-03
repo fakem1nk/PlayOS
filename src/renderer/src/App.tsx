@@ -1,6 +1,6 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
-import type { AchievementSummaryItem, Game, LaunchFix, PowerAction, SaveConflict, WindowMode } from '@shared/types'
+import type { AchievementSummaryItem, Game, LaunchFix, PowerAction, SaveConflict, StoreItem, WindowMode } from '@shared/types'
 import { Background } from './components/Background'
 import { RestoreDialog, SaveConflictDialog, useCloudStatus } from './components/Cloud'
 import { GamePage } from './components/GamePage'
@@ -12,6 +12,7 @@ import { OnScreenKeyboard } from './components/OnScreenKeyboard'
 import { padName } from './components/PadMapper'
 import { LaunchScreen, NoticeCenter, Toasts } from './components/Overlays'
 import { Screensaver } from './components/Screensaver'
+import type { StoreFocus } from './components/Store'
 import { AnimatedCoversContext } from './components/Tile'
 import { UpdateInstall } from './components/UpdateInstall'
 import { UpdateNotice } from './components/UpdateNotice'
@@ -26,6 +27,7 @@ import { toast, useAppState } from './lib/state'
 import { holdMusic, play, setMusic, setMusicVolume } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
 import { setInstalling, useFinished, useInstalling, useUpdate } from './lib/update'
+import { storeGame } from './lib/shop'
 import { t } from '@shared/i18n'
 
 /** Редко нужные части грузятся отдельным файлом при первом показе: старт быстрее, памяти меньше */
@@ -45,6 +47,8 @@ const Outro = deferred(() => import('./components/Outro').then((m) => m.Outro))
 const Profile = deferred(() => import('./components/Profile').then((m) => m.Profile))
 const Settings = deferred(() => import('./components/Settings').then((m) => m.Settings))
 const SteamImport = deferred(() => import('./components/SteamImport').then((m) => m.SteamImport))
+const Store = deferred(() => import('./components/Store').then((m) => m.Store))
+const StorePage = deferred(() => import('./components/StorePage').then((m) => m.StorePage))
 const TrophyList = deferred(() => import('./components/TrophyList').then((m) => m.TrophyList))
 
 /** Цвета обложек последних игр — для сияния в интро */
@@ -97,6 +101,9 @@ export function App() {
   const [bgGame, setBgGame] = useState<Game | null>(null)
   const [libFocus, setLibFocus] = useState<LibraryHintState>({ focus: 'grid', searching: false, running: false, missing: false, empty: false })
   const [homeFocus, setHomeFocus] = useState<HomeFocus>({ zone: 'row', item: 'game' })
+  const [storeFocus, setStoreFocus] = useState<StoreFocus>({ zone: 'hero', searching: false })
+  // Открытая страница игры из магазина
+  const [storeItem, setStoreItem] = useState<StoreItem | null>(null)
   // В фокусе переключатель значений (data-adjust) — подсказываем, что его листают влево/вправо
   const [adjustFocus, setAdjustFocus] = useState(false)
   // Игра не запустилась, и понятно, что поправить: файл игры или путь к эмулятору
@@ -134,7 +141,8 @@ export function App() {
   const trophyGame = trophyGameId ? games.find((g) => g.id === trophyGameId) : undefined
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
-  const modal = !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || installing
+  const modal =
+    !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || installing
   const contentActive = !modal && tabFocus === null
 
   // Итог сессии не показываем: время игры и так видно на странице игры и в профиле
@@ -363,6 +371,25 @@ export function App() {
         <Hint glyph="r2" label={t('Фильтр')} />
       </>
     )
+  ) : tab === 'store' ? (
+    storeFocus.zone === 'search' ? (
+      <>
+        <Hint glyph="confirm" label={t('Ввести название')} />
+        <Hint glyph="back" label={storeFocus.searching ? t('Сбросить поиск') : t('Назад')} />
+      </>
+    ) : storeFocus.zone === 'retry' ? (
+      <>
+        <Hint glyph="confirm" label={t('Повторить')} />
+        <Hint glyph="back" label={t('Назад')} />
+      </>
+    ) : (
+      <>
+        <Hint glyph="confirm" label={t('Подробнее')} />
+        {storeFocus.zone === 'hero' && <Hint glyph="adjust" label={t('Листать')} />}
+        <Hint glyph="back" label={storeFocus.searching ? t('Сбросить поиск') : t('Назад')} />
+        <Hint glyph="search" label={t('Поиск')} />
+      </>
+    )
   ) : homeFocus.zone === 'actions' ? (
     <>
       <Hint glyph="confirm" label={t('Выбрать')} />
@@ -481,6 +508,16 @@ export function App() {
                     onAdd={() => setEditor({})}
                   />
                 )}
+                {tab === 'store' && (
+                  <Store
+                    games={games}
+                    active={contentActive}
+                    onFocusItem={(item) => setBgGame(item ? storeGame(item) : null)}
+                    onFocusKind={setStoreFocus}
+                    onExitTop={exitTop}
+                    onOpen={setStoreItem}
+                  />
+                )}
                 {tab === 'profile' && (
                   <Profile
                     state={state}
@@ -590,6 +627,21 @@ export function App() {
                 play('select')
                 setPageGameId(null)
                 setEditor({ game: g })
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {storeItem && (
+            <StorePage
+              key={`store-${storeItem.appId}`}
+              item={storeItem}
+              games={games}
+              onClose={() => setStoreItem(null)}
+              onOpenGame={(g) => {
+                setStoreItem(null)
+                setPageGameId(g.id)
               }}
             />
           )}

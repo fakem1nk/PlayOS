@@ -202,7 +202,7 @@ interface HltbGame {
   comp_100: number
 }
 
-async function howLongToBeat(title: string): Promise<GameDetails['hltb']> {
+export async function howLongToBeat(title: string): Promise<GameDetails['hltb']> {
   // Поиск HLTB путается в подзаголовках вроде «Remastered» и в знаках препинания
   const clean = title.replace(/[™®©]/g, '').replace(/[:–—-]/g, ' ').replace(/\s+/g, ' ').trim()
   const init = (await hltbFetch(`https://howlongtobeat.com/api/search/site/init?t=${Date.now()}`).then((r) => r.json())) as { token?: string }

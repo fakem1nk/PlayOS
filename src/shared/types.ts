@@ -770,6 +770,17 @@ export interface PcsApi {
   scanSteam(): Promise<SteamLibraryGame[]>
   importSteam(appIds: number[]): Promise<number>
   onImportProgress(cb: (p: ImportProgress) => void): () => void
+  // ── Магазин ──
+  /** Витрина: из кэша сразу, свежая версия потом приходит в onStoreHome */
+  storeHome(refresh?: boolean): Promise<StoreHome>
+  onStoreHome(cb: (h: StoreHome) => void): () => void
+  storeSearch(query: string): Promise<StoreItem[]>
+  storePage(appId: number): Promise<StorePage | null>
+  /** Время прохождения по HowLongToBeat */
+  storeHltb(appId: number, title: string): Promise<GameDetails['hltb']>
+  storeSteam(): Promise<StoreSteam>
+  /** Страница игры в клиенте Steam или в браузере */
+  storeOpen(appId: number, how: 'store' | 'web'): Promise<void>
   // ── VR ──
   vrStatus(): Promise<VrStatus>
   /** Шлем для верхней панели; дальше изменения приходят в onVrQuest */
@@ -904,6 +915,67 @@ export interface ImportProgress {
   done: number
   total: number
   title: string
+}
+
+// ───────────────────────── Магазин ─────────────────────────
+
+/** Когда выходит игра, которой ещё нет: точная дата, месяц, квартал, год, «скоро» или «не объявлена» */
+export type StoreUpcoming = 'date' | 'month' | 'quarter' | 'year' | 'soon' | 'tba'
+
+/** Игра в магазине (каталог Steam, всегда регион US — региональные запреты ничего не прячут) */
+export interface StoreItem {
+  appId: number
+  title: string
+  /** Вертикальная обложка 600×900 */
+  cover?: string
+  /** Широкий арт для фона и баннера */
+  hero?: string
+  logo?: string
+  /** Горизонтальная шапка 460×215 — запасная картинка, если обложки нет */
+  header?: string
+  /** Дата выхода, мс */
+  released?: number
+  /** Ещё не вышла — насколько известна дата */
+  upcoming?: StoreUpcoming
+  short?: string
+  tags?: string[]
+  reviews?: { percent: number; count: number; label: string }
+}
+
+export type StoreRowId = 'top' | 'new' | 'played' | 'soon'
+
+export interface StoreRow {
+  id: StoreRowId
+  items: StoreItem[]
+}
+
+export interface StoreHome {
+  rows: StoreRow[]
+  fetchedAt: number
+}
+
+/** Кусок описания: заголовок, абзац или пункт списка */
+export interface StoreBlock {
+  kind: 'h' | 'p' | 'li'
+  text: string
+}
+
+/** Страница игры в магазине */
+export interface StorePage extends StoreItem {
+  about: StoreBlock[]
+  developers: string[]
+  publishers: string[]
+  franchise?: string
+  /** Скриншоты: превью и полный размер */
+  screenshots: { thumb: string; full: string }[]
+  /** Короткий беззвучный ролик для шапки */
+  trailer?: string
+}
+
+/** Steam на этом ПК: стоит ли клиент и какие игры установлены */
+export interface StoreSteam {
+  client: boolean
+  installed: number[]
 }
 
 export interface AchievementNotice {

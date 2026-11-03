@@ -1,4 +1,19 @@
-import type { AchievementSet, ApiKeyKind, AppState, ArtCandidate, CloudStatus, Game, ImportProgress, PcsApi, SaveProgress, SteamLibraryGame, SystemState, WindowMode } from '@shared/types'
+import type {
+  AchievementSet,
+  ApiKeyKind,
+  AppState,
+  ArtCandidate,
+  CloudStatus,
+  Game,
+  ImportProgress,
+  PcsApi,
+  SaveProgress,
+  SteamLibraryGame,
+  StoreHome,
+  StoreItem,
+  SystemState,
+  WindowMode
+} from '@shared/types'
 import { getLang } from '@shared/i18n'
 
 declare global {
@@ -577,6 +592,67 @@ function createMockApi(): PcsApi {
       importSubs.add(cb)
       return () => importSubs.delete(cb)
     },
+    // Магазин: витрина из известных игр Steam (арт по старым путям CDN), ?store=offline — Steam не ответил
+    storeHome: async () => {
+      await new Promise((r) => setTimeout(r, 400))
+      if (new URLSearchParams(location.search).get('store') === 'offline') throw new Error('offline')
+      return demoStoreHome()
+    },
+    onStoreHome: noop,
+    storeSearch: async (q) => {
+      await new Promise((r) => setTimeout(r, 300))
+      const all = demoStoreHome().rows.flatMap((r) => r.items)
+      const seen = new Set<number>()
+      return all.filter((i) => i.title.toLowerCase().includes(q.trim().toLowerCase()) && !seen.has(i.appId) && seen.add(i.appId))
+    },
+    storePage: async (appId) => {
+      await new Promise((r) => setTimeout(r, 500))
+      const item = demoStoreHome()
+        .rows.flatMap((r) => r.items)
+        .find((i) => i.appId === appId)
+      if (!item) return null
+      const en = getLang() === 'en'
+      // Демо: превью — маленькая шапка, полный размер — широкий арт, чтобы было видно ленивую подгрузку
+      const shots = ['library_hero.jpg', 'header.jpg', 'capsule_616x353.jpg', 'page_bg_generated_v6b.jpg', 'library_hero.jpg', 'header.jpg'].map((f, i) => ({
+        thumb: steam(appId, i % 2 ? f : 'capsule_231x87.jpg'),
+        full: steam(appId, f)
+      }))
+      return {
+        ...item,
+        about: en
+          ? [
+              { kind: 'p', text: 'A demo description: in PlayOS the store shows the full text from the Steam page, split into headings, paragraphs and lists.' },
+              { kind: 'h', text: 'A huge world' },
+              { kind: 'p', text: 'Explore dozens of places, meet characters and choose how the story goes.' },
+              { kind: 'h', text: 'Your way to play' },
+              { kind: 'li', text: 'Story campaign for one player' },
+              { kind: 'li', text: 'Co-op with friends' },
+              { kind: 'li', text: 'Photo mode' },
+              { kind: 'p', text: 'Read on with the pad: every paragraph gets focus, the page scrolls by itself.' }
+            ]
+          : [
+              { kind: 'p', text: 'Демо-описание: в PlayOS магазин показывает полный текст со страницы Steam — с заголовками, абзацами и списками.' },
+              { kind: 'h', text: 'Огромный мир' },
+              { kind: 'p', text: 'Исследуйте десятки мест, знакомьтесь с персонажами и решайте, как пойдёт история.' },
+              { kind: 'h', text: 'Играйте по-своему' },
+              { kind: 'li', text: 'Сюжетная кампания для одного игрока' },
+              { kind: 'li', text: 'Кооператив с друзьями' },
+              { kind: 'li', text: 'Фоторежим' },
+              { kind: 'p', text: 'Дальше читается геймпадом: каждый абзац получает фокус, страница прокручивается сама.' }
+            ],
+        developers: ['Demo Studio'],
+        publishers: ['Demo Publisher'],
+        franchise: item.title.split(/[:\s]/)[0],
+        screenshots: shots
+      }
+    },
+    storeHltb: async (_appId, title) => {
+      await new Promise((r) => setTimeout(r, 700))
+      return { main: 52718, plus: 69031, full: 99768, title }
+    },
+    // Demo: Steam стоит, Counter-Strike 2 уже на диске (можно добавить в библиотеку)
+    storeSteam: async () => ({ client: true, installed: [730] }),
+    storeOpen: async () => {},
     // VR: Quest 3S по Air Link, VR-компонент скачан
     vrStatus: async () => ({
       oc: { installed: true, installedAt: Date.now() - 3 * 86400000 },
@@ -588,6 +664,91 @@ function createMockApi(): PcsApi {
     vrInstallOc: async () => ({ ok: true }),
     vrCheckOc: async () => ({ update: false }),
     onVrProgress: () => () => {}
+  }
+}
+
+/** Демо-витрина магазина: настоящие игры Steam, арт по старым путям CDN, метки и оценки — для вида */
+function demoStoreHome(): StoreHome {
+  const en = getLang() === 'en'
+  const cdn = (id: number, file: string) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/${file}`
+  const review = (percent: number, count: number): StoreItem['reviews'] => ({
+    percent,
+    count,
+    label: percent >= 95 ? (en ? 'Overwhelmingly Positive' : 'Крайне положительные') : percent >= 80 ? (en ? 'Very Positive' : 'Очень положительные') : en ? 'Mostly Positive' : 'В основном положительные'
+  })
+  const tags = (ru: string[], eng: string[]) => (en ? eng : ru)
+  const item = (appId: number, title: string, year: number, extra: Partial<StoreItem> = {}): StoreItem => ({
+    appId,
+    title,
+    cover: cdn(appId, 'library_600x900.jpg'),
+    hero: cdn(appId, 'library_hero.jpg'),
+    logo: cdn(appId, 'logo.png'),
+    header: cdn(appId, 'header.jpg'),
+    released: Date.UTC(year, (appId % 12), 1 + (appId % 27)),
+    short: en
+      ? 'A demo store entry. In PlayOS this is the short description from the Steam page.'
+      : 'Демо-карточка магазина. В PlayOS здесь краткое описание со страницы Steam.',
+    tags: tags(['Экшен', 'Приключение', 'Открытый мир', 'Сюжетная'], ['Action', 'Adventure', 'Open World', 'Story Rich']),
+    reviews: review(70 + (appId % 29), 1000 + (appId % 900) * 311),
+    ...extra
+  })
+  const soon = (appId: number, title: string, upcoming: StoreItem['upcoming'], date?: number): StoreItem =>
+    item(appId, title, 2027, { upcoming, released: date, reviews: undefined })
+  return {
+    fetchedAt: Date.now(),
+    rows: [
+      {
+        id: 'top',
+        items: [
+          item(1091500, 'Cyberpunk 2077', 2020),
+          item(1086940, 'Baldur’s Gate 3', 2023),
+          item(1245620, 'ELDEN RING', 2022),
+          item(1174180, 'Red Dead Redemption 2', 2019),
+          item(990080, 'Hogwarts Legacy', 2023),
+          item(1551360, 'Forza Horizon 5', 2021),
+          item(814380, 'Sekiro: Shadows Die Twice', 2019),
+          item(1145360, 'Hades', 2020),
+          item(413150, 'Stardew Valley', 2016),
+          item(292030, 'The Witcher 3: Wild Hunt', 2015)
+        ]
+      },
+      {
+        id: 'new',
+        items: [
+          item(2358720, 'Black Myth: Wukong', 2024),
+          item(553850, 'HELLDIVERS 2', 2024),
+          item(1627720, 'Lies of P', 2023),
+          item(1888160, 'ARMORED CORE VI FIRES OF RUBICON', 2023),
+          item(1868140, 'DAVE THE DIVER', 2023),
+          item(1244090, 'Sea of Stars', 2023),
+          item(2215430, 'Ghost of Tsushima DIRECTOR’S CUT', 2024),
+          item(1593500, 'God of War', 2022)
+        ]
+      },
+      {
+        id: 'played',
+        items: [
+          item(730, 'Counter-Strike 2', 2012),
+          item(570, 'Dota 2', 2013),
+          item(578080, 'PUBG: BATTLEGROUNDS', 2017),
+          item(1172470, 'Apex Legends', 2020),
+          item(252490, 'Rust', 2018),
+          item(271590, 'Grand Theft Auto V', 2015),
+          item(892970, 'Valheim', 2021),
+          item(105600, 'Terraria', 2011)
+        ]
+      },
+      {
+        id: 'soon',
+        items: [
+          soon(1030300, 'Hollow Knight: Silksong', 'date', Date.UTC(2027, 1, 12)),
+          soon(1716740, 'Starfield', 'quarter', Date.UTC(2027, 3, 1)),
+          soon(1190460, 'DEATH STRANDING DIRECTOR’S CUT', 'year', Date.UTC(2027, 0, 1)),
+          soon(1817070, 'Marvel’s Spider-Man Remastered', 'soon'),
+          soon(1888930, 'The Last of Us Part I', 'tba')
+        ]
+      }
+    ]
   }
 }
 
