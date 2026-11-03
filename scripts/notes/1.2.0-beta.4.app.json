@@ -1,0 +1,27 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Окно вариантов загрузки стало проще и понятнее",
+      "Уведомления о загрузках открывают «Загрузки» по нажатию",
+      "Поиск в магазине показывает, что он идёт"
+    ],
+    "fixed": [
+      "«Установить» запускает установщики из папок со скобками в названии",
+      "Удаление игр из таких папок тоже работает",
+      "Без битых символов в названиях загрузок"
+    ]
+  },
+  "en": {
+    "new": [
+      "A simpler, clearer download variants window",
+      "Download notifications open Downloads when pressed",
+      "The store search shows that it is running"
+    ],
+    "fixed": [
+      "Install starts installers from folders with brackets in the name",
+      "Uninstalling games from such folders works too",
+      "No broken characters in download names"
+    ]
+  }
+}
