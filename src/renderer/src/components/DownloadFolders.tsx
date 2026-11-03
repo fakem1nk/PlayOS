@@ -11,7 +11,7 @@ import { IconEdit, IconFolder, IconPlus, IconSearch } from './Icons'
 import { t } from '@shared/i18n'
 
 /** Полоска диска: занято, сколько займёт загрузка (светлее) и свободно */
-function Capacity({ free, total, need = 0 }: { free: number; total: number; need?: number }) {
+export function Capacity({ free, total, need = 0 }: { free: number; total: number; need?: number }) {
   if (!total) return null
   const used = Math.min(1, (total - free) / total)
   const add = Math.min(1 - used, need / total)

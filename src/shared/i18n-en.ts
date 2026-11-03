@@ -1297,6 +1297,9 @@ export const EN: Record<string, string> = {
   'Пароль': 'Password',
   'Распаковать': 'Unpack',
   'Распаковано': 'Unpacked',
+  'Скорость загрузки': 'Download speed',
+  'Скорость распаковки': 'Unpack speed',
+  'пик {v}/с': 'peak {v}/s',
   'Ищем варианты…': 'Looking for variants…',
   'Ждёт распаковки': 'Waiting to unpack',
   'Удалять архивы после распаковки': 'Delete archives after unpacking',
@@ -1318,5 +1321,15 @@ export const EN: Record<string, string> = {
   'Установить': 'Install',
   'Удалить установщик': 'Delete installer',
   'Удалить установщик «{title}»?': 'Delete the installer of “{title}”?',
-  'Скачанные файлы установщика удалятся с диска. Установленная игра останется.': 'The downloaded installer files will be deleted from the disk. The installed game stays.'
+  'Скачанные файлы установщика удалятся с диска. Установленная игра останется.': 'The downloaded installer files will be deleted from the disk. The installed game stays.',
+  'Идёт установка': 'Installing',
+  'Распаковка · {p}%': 'Unpacking · {p}%',
+  '{p}% · {v}/с': '{p}% · {v}/s',
+  'Пауза · {p}%': 'Paused · {p}%',
+  'Нужен пароль': 'Password needed',
+  'Ошибка': 'Error',
+  '№{n} в очереди': '#{n} in queue',
+  'Завершено': 'Finished',
+  'Свободно на {d}': 'Free on {d}',
+  'Занято {a} из {b}': '{a} of {b} used'
 }

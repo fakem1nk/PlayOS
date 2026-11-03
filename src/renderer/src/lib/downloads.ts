@@ -13,13 +13,35 @@ void api
   .catch(() => {})
 export const canDownload = (kind: DownloadKind) => kinds.includes(kind)
 
+/** Сколько секунд скорости помнит график в «Загрузках» */
+export const SPEED_SPAN = 120_000
+/** Скорость активной загрузки (и отдельно — распаковки) по секундам; копится, даже пока раздел закрыт */
+const speedLog = new Map<string, [number, number][]>()
+const speedKey = (j: DownloadJob) => `${j.id}:${j.phase === 'extracting' ? 'unpack' : 'get'}`
+
+function logSpeed(list: DownloadJob[]) {
+  const now = Date.now()
+  for (const j of list) {
+    if (j.status !== 'active') continue
+    const log = speedLog.get(speedKey(j)) ?? []
+    if (log.length && now - log[log.length - 1][0] < 900) continue
+    log.push([now, j.speed ?? 0])
+    while (log.length && now - log[0][0] > SPEED_SPAN) log.shift()
+    speedLog.set(speedKey(j), log)
+  }
+}
+export const speedHistory = (j: DownloadJob) => speedLog.get(speedKey(j)) ?? []
+
 /** Очередь загрузок: сразу список, дальше изменения из main */
 export function useDownloads(): DownloadJob[] {
   const [jobs, setJobs] = useState<DownloadJob[]>([])
   useEffect(() => {
     let alive = true
     void api.downloads().then((l) => alive && setJobs(l))
-    const off = api.onDownloads((l) => setJobs(l))
+    const off = api.onDownloads((l) => {
+      logSpeed(l)
+      setJobs(l)
+    })
     return () => {
       alive = false
       off()
@@ -90,10 +112,10 @@ export function jobLine(j: DownloadJob): string {
       if (j.install === 'running') return t('Идёт установка — закончите её в окне установщика')
       if (j.install === 'ready') return [j.installError ?? t('Можно установить'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
       if (j.install === 'manual') return j.installError ?? t('Не нашли игру — укажите её файл')
-      if (j.install === 'installed') return [t('Можно играть'), j.doneAt ? finished(j.doneAt) : ''].filter(Boolean).join(' · ')
-      return [j.doneAt ? t('Завершено {when}', { when: finished(j.doneAt) }) : t('Скачано'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
+      if (j.install === 'installed') return [t('Можно играть'), j.doneAt ? finishedAt(j.doneAt) : ''].filter(Boolean).join(' · ')
+      return [j.doneAt ? t('Завершено {when}', { when: finishedAt(j.doneAt) }) : t('Скачано'), j.size ? bytes(j.size) : ''].filter(Boolean).join(' · ')
   }
 }
 
 /** Когда скачалось, как в Steam: «сегодня, 10:55» */
-const finished = (ts: number) => `${lastPlayed(ts).toLowerCase()}, ${new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}`
+export const finishedAt = (ts: number) => `${lastPlayed(ts).toLowerCase()}, ${new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}`

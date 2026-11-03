@@ -655,6 +655,10 @@ export function App() {
                 setDownloadsOpen(false)
                 setEditor({ game: g, pickFile: true })
               }}
+              onGo={(to) => {
+                setDownloadsOpen(false)
+                goTab(to)
+              }}
             />
           )}
         </AnimatePresence>

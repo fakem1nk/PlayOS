@@ -12,7 +12,7 @@ import { play } from '../lib/sound'
 import { toast } from '../lib/state'
 import { Hint } from './Glyph'
 import { WhereTo } from './DownloadFolders'
-import { IconDownload, IconGlobe, IconMagnet, IconPlus } from './Icons'
+import { IconClose, IconDownload, IconGlobe, IconMagnet, IconPlus } from './Icons'
 import { locale, t } from '@shared/i18n'
 
 interface Props {
@@ -107,15 +107,18 @@ function NoOptions({ title, sources, onClose, onOpenSources }: { title: string; 
   )
 }
 
-/** Шапка окна: обложка игры, заголовок и строка под ним */
-function Head({ cover, title, sub }: { cover?: string; title: string; sub: string }) {
+/** Шапка окна: обложка игры, заголовок и строка под ним; справа крестик — закрыть мышью */
+function Head({ cover, title, sub, onClose }: { cover?: string; title: string; sub: string; onClose: () => void }) {
   return (
     <header className="dl-head">
       {cover && <img className="dl-head-cover" src={media(cover, 'tile')} alt="" />}
-      <div>
+      <div className="dl-head-text">
         <h2 className="dialog-title">{title}</h2>
         <p className="dl-sub">{sub}</p>
       </div>
+      <button tabIndex={-1} className="btn btn-round dl-head-close" onClick={onClose} aria-label={t('Закрыть')} title={t('Закрыть')}>
+        <IconClose />
+      </button>
     </header>
   )
 }
@@ -190,7 +193,7 @@ function OptionsList({ title, gameId, cover, hero, list, onClose }: {
     const need = sizeBytes(target.size)
     return (
       <Dialog className="dl-dialog" dref={ref}>
-        <Head cover={cover} title={t('Куда скачать?')} sub={[title, release(target.title).by, need ? bytes(need) : ''].filter(Boolean).join(' · ')} />
+        <Head cover={cover} onClose={close} title={t('Куда скачать?')} sub={[title, release(target.title).by, need ? bytes(need) : ''].filter(Boolean).join(' · ')} />
         <WhereTo need={need} onPick={(folder) => void start(target, folder)} />
         <footer className="dl-hints">
           <Hint glyph="confirm" label={t('Выбрать')} />
@@ -202,7 +205,7 @@ function OptionsList({ title, gameId, cover, hero, list, onClose }: {
 
   return (
     <Dialog className="dl-dialog" dref={ref}>
-      <Head cover={cover} title={t('Скачать «{title}»', { title })} sub={list ? optionsCount(list.length) : t('Ищем варианты…')} />
+      <Head cover={cover} onClose={close} title={t('Скачать «{title}»', { title })} sub={list ? optionsCount(list.length) : t('Ищем варианты…')} />
       <div className="dl-list">
         {list === null ? (
           <div className="gp-skeleton">
