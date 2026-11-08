@@ -1,0 +1,33 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Стопка и полка в профиле: игры, которые хотите пройти, и пройденные по годам",
+      "Фигурки Тиви за пройденные игры",
+      "Календарь активности за год с сериями",
+      "Новый Тиви: светящиеся уши вместо антенн, они подыгрывают каждой эмоции",
+      "Можно запускать PlayOS свёрнутым в трей вместе с Windows",
+      "Установленные игры в библиотеке теперь первыми"
+    ],
+    "fixed": [
+      "Магазин быстрее грузится при нестабильной связи со Steam",
+      "Запускаются игры, которым нужны права администратора",
+      "Выключение компьютера больше не считается сбоем PlayOS"
+    ]
+  },
+  "en": {
+    "new": [
+      "Stack and Shelf in the profile: games you want to finish and cleared games by year",
+      "Tivi figures for cleared games",
+      "Year activity calendar with streaks",
+      "New Tivi: glowing ears instead of antennas that play along with every emotion",
+      "Start PlayOS minimized to the tray with Windows",
+      "Installed games now come first in the Library"
+    ],
+    "fixed": [
+      "The Store loads faster on unstable connections to Steam",
+      "Games that need administrator rights now start",
+      "A PC shutdown is no longer reported as a PlayOS crash"
+    ]
+  }
+}
