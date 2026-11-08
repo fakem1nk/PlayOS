@@ -33,8 +33,8 @@ export class AuthError extends Error {}
 export type TokenSource = (force?: boolean) => Promise<string>
 
 const API_MS = 30_000
-/** Загрузка файла: минута плюс время на медленном канале (~50 КБ/с) */
-const uploadMs = (bytes: number) => 60_000 + bytes / 50
+/** Загрузка файла: минута плюс время на медленном канале (~50 КБ/с); целое — AbortSignal.timeout дробь не принимает */
+const uploadMs = (bytes: number) => 60_000 + Math.ceil(bytes / 50)
 
 /** Запрос с таймаутом: без него один подвисший запрос навсегда останавливал бы очередь синхронизации */
 async function request(url: string, init: RequestInit, ms: number, who: string) {
