@@ -64,6 +64,9 @@ const dbFile = () => path.join(dataDir(), 'library.json')
 
 let db: DB
 
+/** Сколько последних сессий хранить у игры: хватает на год календаря активности в профиле */
+export const MAX_SESSIONS = 600
+
 export function loadDb(): DB {
   try {
     const raw = JSON.parse(fs.readFileSync(dbFile(), 'utf8')) as Partial<DB>
@@ -123,7 +126,7 @@ export function commitSession(gameId: string, start: number, end: number) {
       by[device] = (by[device] ?? 0) + duration
     }
     game.lastPlayed = end
-    game.sessions = [...game.sessions, { start, duration }].slice(-100)
+    game.sessions = [...game.sessions, { start, duration }].slice(-MAX_SESSIONS)
   }
   db.activeSession = undefined
   saveDbNow()

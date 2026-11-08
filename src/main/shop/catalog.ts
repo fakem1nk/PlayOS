@@ -82,39 +82,64 @@ const PAGE_REQUEST = {
   include_full_description: true
 }
 
+/** Попыток на один вызов Steam и через сколько, не дождавшись ответа, отправлять следующую параллельно */
+const ATTEMPTS = 3
+const HEDGE_MS = 2500
+
 /**
- * Вызов сервиса Steam Web API (input_json). Обычно ответ за секунду, но через прокси запрос иногда
- * повисает насовсем — поэтому короткий таймаут и до трёх попыток, а не одно долгое ожидание
+ * Вызов сервиса Steam Web API (input_json). Обычно ответ за секунду, но через прокси и у части провайдеров
+ * соединение с серверами Steam повисает насовсем. Поэтому повисший запрос не ждём до таймаута: через HEDGE_MS
+ * рядом уходит следующая попытка (новое соединение), берём первый ответ. Упала сразу — следующая без паузы
  */
-async function call<T>(iface: string, input: unknown, timeout = 8000): Promise<T> {
+function call<T>(iface: string, input: unknown, timeout = 8000): Promise<T> {
   const url = `${API}/${iface}/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`
-  let last: unknown
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const r = await httpFetch(url, { signal: AbortSignal.timeout(timeout) })
-      if (!r.ok) throw new Error(`Steam ${r.status}`)
-      const j = (await r.json()) as { response?: T }
-      if (!j.response) throw new Error('Steam: пустой ответ')
-      return j.response
-    } catch (e) {
-      last = e
-    }
+  const once = async () => {
+    const r = await httpFetch(url, { signal: AbortSignal.timeout(timeout) })
+    if (!r.ok) throw new Error(`Steam ${r.status}`)
+    const j = (await r.json()) as { response?: T }
+    if (!j.response) throw new Error('Steam: пустой ответ')
+    return j.response
   }
-  throw last
+  return new Promise<T>((resolve, reject) => {
+    let started = 0
+    let failed = 0
+    let done = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const start = () => {
+      if (done || started >= ATTEMPTS) return
+      started++
+      clearTimeout(timer)
+      if (started < ATTEMPTS) timer = setTimeout(start, HEDGE_MS)
+      once().then(
+        (v) => {
+          if (done) return
+          done = true
+          clearTimeout(timer)
+          resolve(v)
+        },
+        (e) => {
+          if (done) return
+          failed++
+          if (failed >= ATTEMPTS) {
+            done = true
+            reject(e)
+          } else if (failed >= started) start()
+        }
+      )
+    }
+    start()
+  })
 }
 
 // ───────────────────────── Метки ─────────────────────────
 
 let tagNames: { lang: string; names: Map<number, string> } | null = null
+let tagsLoading: Promise<Map<number, string>> | null = null
 
-/** Названия меток Steam на языке интерфейса: список целиком, раз в неделю */
-async function tags(): Promise<Map<number, string>> {
-  const lang = steamLang()
-  if (tagNames?.lang === lang) return tagNames.names
-  const file = path.join(cacheDir(), `tags-${lang}.json`)
-  const disk = readJson<{ at: number; list: { tagid: number; name: string }[] }>(file)
-  let list = disk?.list
-  if (!disk || Date.now() - disk.at > TAGS_TTL) {
+/** Свежий список меток из Steam (на диск); не вышло — то, что было */
+function fetchTags(lang: string, file: string, prev?: { tagid: number; name: string }[]): Promise<Map<number, string>> {
+  tagsLoading ??= (async () => {
+    let list = prev
     try {
       const r = await httpFetch(`${API}/IStoreService/GetTagList/v1/?language=${lang}`, { signal: AbortSignal.timeout(8000) })
       const j = (await r.json()) as { response?: { tags?: { tagid: number; name: string }[] } }
@@ -125,9 +150,26 @@ async function tags(): Promise<Map<number, string>> {
     } catch {
       /* обойдёмся тем, что на диске */
     }
-  }
-  const names = new Map((list ?? []).map((t) => [t.tagid, t.name]))
-  if (names.size) tagNames = { lang, names }
+    const names = new Map((list ?? []).map((t) => [t.tagid, t.name]))
+    if (names.size) tagNames = { lang, names }
+    return names
+  })().finally(() => (tagsLoading = null))
+  return tagsLoading
+}
+
+/**
+ * Названия меток Steam на языке интерфейса: список целиком, раз в неделю. Устаревший список с диска отдаётся
+ * сразу и обновляется в фоне — страница игры не ждёт из-за меток медленную сеть
+ */
+async function tags(): Promise<Map<number, string>> {
+  const lang = steamLang()
+  if (tagNames?.lang === lang) return tagNames.names
+  const file = path.join(cacheDir(), `tags-${lang}.json`)
+  const disk = readJson<{ at: number; list: { tagid: number; name: string }[] }>(file)
+  if (!disk?.list?.length) return fetchTags(lang, file)
+  const names = new Map(disk.list.map((t) => [t.tagid, t.name]))
+  tagNames = { lang, names }
+  if (Date.now() - disk.at > TAGS_TTL) void fetchTags(lang, file, disk.list)
   return names
 }
 
@@ -396,34 +438,59 @@ const pageFile = (appId: number) => path.join(cacheDir(), 'apps', `${appId}-${st
 /** Скриншот поменьше для ленты: у Steam рядом лежит копия 600×338 */
 const thumbOf = (url: string) => url.replace(/\.jpg(\?|$)/, '.600x338.jpg$1')
 
+/** Страница прямо из Steam (и на диск); null — Steam не знает такую игру */
+async function fetchPage(appId: number): Promise<StorePage | null> {
+  const [names, raws] = await Promise.all([tags(), itemsByIds([appId], PAGE_REQUEST)])
+  const raw = raws[0]
+  const item = raw ? toItem({ ...raw, type: 0 }, names, 12) : null
+  if (!raw || !item) return null
+  const shots = [...(raw.screenshots?.all_ages_screenshots ?? [])].map((s) => ASSETS + s.filename)
+  const trailers = [...(raw.trailers?.highlights ?? []), ...(raw.trailers?.other_trailers ?? [])]
+  const micro = trailers.flatMap((t) => t.microtrailer ?? []).find((m) => m.type === 'video/mp4')
+  const info = raw.basic_info
+  const page: StorePage = {
+    ...item,
+    about: raw.full_description_bbcode ? parseAbout(raw.full_description_bbcode) : [],
+    developers: info?.developers?.map((d) => d.name) ?? [],
+    publishers: info?.publishers?.map((p) => p.name) ?? [],
+    franchise: info?.franchises?.[0]?.name,
+    screenshots: shots.slice(0, 16).map((full) => ({ full, thumb: thumbOf(full) })),
+    trailer: micro ? VIDEO + micro.filename : undefined
+  }
+  writeJson(pageFile(appId), { ...page, at: Date.now(), v: ITEM_V })
+  return page
+}
+
+/** Запросы страниц, которые уже идут: открытие карточки подхватывает запрос, начатый предзагрузкой */
+const pageLoading = new Map<string, Promise<StorePage | null>>()
+
+function loadPage(appId: number): Promise<StorePage | null> {
+  const key = `${appId}-${steamLang()}`
+  let p = pageLoading.get(key)
+  if (!p) {
+    p = fetchPage(appId).finally(() => pageLoading.delete(key))
+    pageLoading.set(key, p)
+  }
+  return p
+}
+
+/**
+ * Страница игры в магазине. С диска — сразу, даже устаревшая: описание и скриншоты за сутки почти не меняются,
+ * а свежая догружается в фоне к следующему открытию. Без кэша ждём Steam
+ */
 export async function storePage(appId: number): Promise<StorePage | null> {
-  const file = pageFile(appId)
-  const disk = readJson<StorePage & { at: number; v?: number }>(file)
-  if (disk && disk.v === ITEM_V && Date.now() - disk.at < PAGE_TTL) return disk
-  try {
-    const [names, raws] = await Promise.all([tags(), itemsByIds([appId], PAGE_REQUEST)])
-    const raw = raws[0]
-    const item = raw ? toItem({ ...raw, type: 0 }, names, 12) : null
-    if (!raw || !item) return disk
-    const shots = [...(raw.screenshots?.all_ages_screenshots ?? [])].map((s) => ASSETS + s.filename)
-    const trailers = [...(raw.trailers?.highlights ?? []), ...(raw.trailers?.other_trailers ?? [])]
-    const micro = trailers.flatMap((t) => t.microtrailer ?? []).find((m) => m.type === 'video/mp4')
-    const info = raw.basic_info
-    const page: StorePage = {
-      ...item,
-      about: raw.full_description_bbcode ? parseAbout(raw.full_description_bbcode) : [],
-      developers: info?.developers?.map((d) => d.name) ?? [],
-      publishers: info?.publishers?.map((p) => p.name) ?? [],
-      franchise: info?.franchises?.[0]?.name,
-      screenshots: shots.slice(0, 16).map((full) => ({ full, thumb: thumbOf(full) })),
-      trailer: micro ? VIDEO + micro.filename : undefined
-    }
-    writeJson(file, { ...page, at: Date.now(), v: ITEM_V })
-    return page
-  } catch {
-    // Без сети — пусть и старая, но страница
+  const disk = readJson<StorePage & { at: number; v?: number }>(pageFile(appId))
+  if (disk && disk.v === ITEM_V) {
+    if (Date.now() - disk.at > PAGE_TTL)
+      void loadPage(appId).catch(() => {
+        /* без сети остаёмся на кэше */
+      })
     return disk
   }
+  // Без сети — пусть и старого формата, но страница
+  return loadPage(appId)
+    .then((p) => p ?? disk)
+    .catch(() => disk)
 }
 
 const hltbCache = new Map<number, Promise<GameDetails['hltb']>>()

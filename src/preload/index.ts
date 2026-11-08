@@ -18,6 +18,7 @@ const api: PcsApi = {
   uninstallInfo: (id) => ipcRenderer.invoke('game:uninstallInfo', id),
   uninstallGame: (id, opts) => ipcRenderer.invoke('game:uninstall', id, opts),
   setFavorite: (id, value) => ipcRenderer.invoke('game:favorite', id, value),
+  shelfPatch: (changes) => ipcRenderer.invoke('game:shelf', changes),
   resetPlaytime: (id) => ipcRenderer.invoke('game:resetPlaytime', id),
   saveSettings: (patch) => ipcRenderer.invoke('settings:save', patch),
   launch: (id, opts) => ipcRenderer.invoke('game:launch', id, opts),
@@ -117,6 +118,7 @@ const api: PcsApi = {
   onStoreHome: listen('store-home'),
   storeSearch: (q) => ipcRenderer.invoke('store:search', q),
   storePage: (appId) => ipcRenderer.invoke('store:page', appId),
+  storeOptionCount: (appId, title) => ipcRenderer.invoke('store:optionCount', appId, title),
   storeHltb: (appId, title) => ipcRenderer.invoke('store:hltb', appId, title),
   storeSteam: () => ipcRenderer.invoke('store:steam'),
   storeOpen: (appId, how) => ipcRenderer.invoke('store:open', appId, how),
@@ -159,3 +161,5 @@ contextBridge.exposeInMainWorld('pcsLang', ipcRenderer.sendSync('lang:get'))
 contextBridge.exposeInMainWorld('pcsTheme', ipcRenderer.sendSync('theme:get'))
 // Запустились из установщика обновления — версия (до интро играет экран «готово»), иначе null
 contextBridge.exposeInMainWorld('pcsUpdated', ipcRenderer.sendSync('update:finished'))
+// Запустились вместе с Windows сразу в трей — интро не играем: окно увидят позже, когда откроют
+contextBridge.exposeInMainWorld('pcsHidden', ipcRenderer.sendSync('start:hidden'))

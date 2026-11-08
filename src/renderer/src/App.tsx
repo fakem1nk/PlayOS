@@ -29,6 +29,8 @@ import { holdMusic, play, setMusic, setMusicVolume } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
 import { setInstalling, useFinished, useInstalling, useUpdate } from './lib/update'
 import { storeGame } from './lib/shop'
+import { activeBuild, figureName, moodOf, newFigures, pileOf, shelf, shelfOf } from './lib/shelf'
+import { tivi } from './lib/tivi'
 import { t } from '@shared/i18n'
 
 /** Редко нужные части грузятся отдельным файлом при первом показе: старт быстрее, памяти меньше */
@@ -52,6 +54,7 @@ const Store = deferred(() => import('./components/Store').then((m) => m.Store))
 const StorePage = deferred(() => import('./components/StorePage').then((m) => m.StorePage))
 const DownloadFlow = deferred(() => import('./components/DownloadOptions').then((m) => m.DownloadFlow))
 const DownloadsPage = deferred(() => import('./components/Downloads').then((m) => m.DownloadsPage))
+const CompletedDialog = deferred(() => import('./components/ShelfDialogs').then((m) => m.CompletedDialog))
 const TrophyList = deferred(() => import('./components/TrophyList').then((m) => m.TrophyList))
 
 /** Цвета обложек последних игр — для сияния в интро */
@@ -88,6 +91,8 @@ export function App() {
   // После смены языка окно перезагружается — интро второй раз не показываем
   const [booting, setBooting] = useState(() => {
     if (RESUME) return false
+    // Запустились вместе с Windows сразу в трей: окно откроют позже — сразу главный экран
+    if ((window as { pcsHidden?: boolean }).pcsHidden) return false
     try {
       if (sessionStorage.getItem('playos-skip-intro')) {
         sessionStorage.removeItem('playos-skip-intro')
@@ -115,6 +120,8 @@ export function App() {
   const [launchError, setLaunchError] = useState<{ game: Game; error: string; fix: LaunchFix } | null>(null)
   const [editor, setEditor] = useState<{ game?: Game; pickFile?: boolean } | null>(null)
   const [menuGameId, setMenuGameId] = useState<string | null>(null)
+  // Окно «Пройдено» из меню игры (в профиле у него своё — с перелётом коробки на полку)
+  const [doneGameId, setDoneGameId] = useState<string | null>(null)
   const [trophyGameId, setTrophyGameId] = useState<string | null>(null)
   const [conflict, setConflict] = useState<{ conflict: SaveConflict; game: Game } | null>(null)
   const cloudOffer = useCloudStatus()?.restore
@@ -156,11 +163,12 @@ export function App() {
   const running = state?.running ?? null
   const runningGame = running ? games.find((g) => g.id === running.gameId) : undefined
   const menuGame = menuGameId ? games.find((g) => g.id === menuGameId) : undefined
+  const doneGame = doneGameId ? games.find((g) => g.id === doneGameId) : undefined
   const trophyGame = trophyGameId ? games.find((g) => g.id === trophyGameId) : undefined
   const pageGame = pageGameId ? games.find((g) => g.id === pageGameId) : undefined
   const wizard = !!state && !booting && !state.settings.onboarded
   const modal =
-    !!editor || !!menuGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || !!downloadFor || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || downloadsOpen || installing
+    !!editor || !!menuGame || !!doneGame || power || booting || !!trophyGame || !!pageGame || !!storeItem || !!downloadFor || steamImport || !!outro || wizard || !!conflict || !!cloudOffer || !!launchError || notices || downloadsOpen || installing
   const contentActive = !modal && tabFocus === null
 
   // Итог сессии не показываем: время игры и так видно на странице игры и в профиле
@@ -552,12 +560,7 @@ export function App() {
                     state={state}
                     active={contentActive}
                     onExitTop={exitTop}
-                    onOpenGame={focusGame}
-                    trophies={trophySummary}
-                    onOpenTrophies={(g) => {
-                      trophyFromPage.current = false
-                      setTrophyGameId(g.id)
-                    }}
+                    onLaunch={launch}
                   />
                 )}
                 {tab === 'settings' && (
@@ -630,11 +633,42 @@ export function App() {
                 setMenuGameId(null)
                 setDownloadFor(g)
               }}
+              onDone={(g) => {
+                setMenuGameId(null)
+                setDoneGameId(g.id)
+              }}
               collections={state.settings.collections ?? []}
+              pile={{ build: activeBuild(state.settings), list: pileOf(games, activeBuild(state.settings).id) }}
             />
           )}
           {notices && <NoticeCenter key="notices" settings={state.settings} onClose={() => setNotices(false)} />}
           {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {doneGame && (
+            <CompletedDialog
+              key="done"
+              game={doneGame}
+              onCancel={() => {
+                play('back')
+                setDoneGameId(null)
+              }}
+              onConfirm={(mood, full) => {
+                // Не в профиле полки не видно — коротко скажем, куда делась игра, и про новую фигурку
+                const figures = newFigures(shelfOf(games), full).filter((f) => !state.settings.figuresSeen?.includes(f.id))
+                void shelf.complete(doneGame, mood, full)
+                setDoneGameId(null)
+                play('toggleOn')
+                tivi({ act: moodOf(mood)?.act ?? 'happy', ms: 2600, priority: 5 })
+                toast({ title: t('На полке'), message: doneGame.title, image: doneGame.cover, tone: 'success', history: false })
+                if (figures.length) {
+                  toast({ title: t('Новая фигурка Тиви'), message: figures.map((f) => figureName(f.id)).join(', '), tone: 'success' })
+                  void api.saveSettings({ figuresSeen: [...(state.settings.figuresSeen ?? []), ...figures.map((f) => f.id)] })
+                }
+              }}
+            />
+          )}
         </AnimatePresence>
 
         <AnimatePresence>

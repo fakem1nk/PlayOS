@@ -213,68 +213,12 @@
   color: var(--mist);
 }
 
-.activity-bars {
-  display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
-  gap: 0.8rem;
-  height: 17rem;
-}
-
-.activity-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  min-height: 0;
-}
-
-.activity-track {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.activity-bar {
-  width: 64%;
-  max-width: 3.4rem;
-  border-radius: 0.5rem 0.5rem 0 0;
-  background: var(--accent);
-  transition: background-color 0.15s ease;
-}
-
-.activity-col.is-hover .activity-bar {
-  background: #7fb0ff;
-}
-
-.activity-empty {
-  width: 64%;
-  max-width: 3.4rem;
-  height: 0.3rem;
-  border-radius: 0.2rem 0.2rem 0 0;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.activity-day {
-  font-size: 1.6rem;
-  color: var(--faint);
-}
-
-.activity-col.is-today .activity-day,
-.activity-col.is-hover .activity-day {
-  color: var(--ink);
-}
-
 /* Сегодня — тот же день недели, только ярче и с точкой под ним: ширина подписей одинаковая */
-.activity-col.is-today .activity-day,
 .gp-bar.is-today .gp-bar-day {
   position: relative;
   font-weight: 600;
 }
 
-.activity-col.is-today .activity-day::after,
 .gp-bar.is-today .gp-bar-day::after {
   content: '';
   position: absolute;
@@ -296,6 +240,149 @@
 .activity-caption strong {
   color: var(--ink);
   font-weight: 500;
+}
+
+/* ── Активность за год: день — клетка-пиксель, как полосы Тиви; ярче — дольше играли ── */
+.cal {
+  display: grid;
+  grid-template-columns: 3.6rem repeat(var(--weeks), minmax(0, 1fr));
+  gap: 0.4rem;
+  outline: none;
+}
+
+.cal-month {
+  margin-bottom: 0.4rem;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.cal-wday {
+  align-self: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--faint);
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.cal-cell.is-l1 {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.cal-cell.is-l2 {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.cal-cell.is-l3 {
+  background: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.cal-cell.is-l4 {
+  background: var(--accent);
+}
+
+/* Сегодня — тонкая светлая рамка внутри клетки, выбранный день — кольцо вокруг */
+.cal-cell.is-today {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.cal-cell.is-sel {
+  box-shadow: 0 0 0 0.2rem #fff;
+}
+
+/* При открытии клетки загораются волной слева направо — ступенькой, как пиксели экрана, без плавности */
+.cal .cal-cell {
+  animation: cal-on 0s step-end both;
+  animation-delay: calc(var(--w, 0) * 14ms + 120ms);
+}
+
+@keyframes cal-on {
+  from {
+    background: rgba(255, 255, 255, 0.07);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal .cal-cell {
+    animation: none;
+  }
+}
+
+.cal-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 3rem;
+  margin-top: 1.8rem;
+}
+
+.cal-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 2rem;
+  min-width: 0;
+  margin: 0;
+}
+
+/* Игры дня: квадратик цвета обложки — тот же пиксель, что и клетки */
+.cal-game {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--ink);
+}
+
+.cal-game i {
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 0.2rem;
+}
+
+.cal-game-time,
+.cal-game-more {
+  color: var(--faint);
+}
+
+.cal-legend {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.4rem;
+  line-height: 1.7;
+  color: var(--faint);
+}
+
+.cal-legend .cal-cell {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.cal-legend .cal-cell:first-of-type {
+  margin-left: 0.6rem;
+}
+
+.cal-legend .cal-cell:last-of-type {
+  margin-right: 0.6rem;
+}
+
+.cal-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 2.4rem;
+}
+
+.cal-meta .dot-text {
+  margin-left: 0.4rem;
+  color: var(--ink);
 }
 
 .top-list {

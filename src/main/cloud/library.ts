@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { CloudRestoreOffer, Game, Session, Settings } from '@shared/types'
+import type { CloudRestoreOffer, Game, GameDone, Session, Settings } from '@shared/types'
 import { log } from '../log'
-import { artDir, dataDir, getDb, saveDb } from '../store'
+import { artDir, dataDir, getDb, MAX_SESSIONS, saveDb } from '../store'
 import { normTitle } from './ludusavi'
 import { OfflineError, type Remote } from './remote'
 
@@ -33,6 +33,7 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'fullscreen',
   'trayHintShown',
   'launchOnStartup',
+  'startInTray',
   'uiScale',
   'noticeSize',
   'tiviSize',
@@ -69,6 +70,9 @@ export interface CloudGame {
   cloudSaves?: boolean
   accent?: string
   accentV?: number
+  /** Полка и стопка профиля */
+  done?: GameDone
+  pile?: Record<string, number>
   addedAt: number
   updatedAt: number
   lastPlayed?: number
@@ -111,7 +115,7 @@ export function libraryKey(g: Pick<Game, 'platform' | 'launcher' | 'steamAppId' 
   return `${g.platform}:t:${normTitle(g.title)}`
 }
 
-const LWW = ['title', 'launcher', 'serial', 'steamAppId', 'raGameId', 'args', 'trackProcess', 'favorite', 'overlay', 'cloudSaves', 'accent', 'accentV'] as const
+const LWW = ['title', 'launcher', 'serial', 'steamAppId', 'raGameId', 'args', 'trackProcess', 'favorite', 'overlay', 'cloudSaves', 'accent', 'accentV', 'done', 'pile'] as const
 const sum = (by: Record<string, number>) => Object.values(by).reduce((a, b) => a + b, 0)
 const baseOf = (g: Game) => g.playtimeBase ?? Math.max(0, g.playtime - sum(g.playtimeBy ?? {}))
 const changedAt = (g: Game) => g.updatedAt ?? g.addedAt
@@ -210,7 +214,7 @@ export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: num
       g.playtimeBy = by
       const starts = new Map(g.sessions.map((s) => [s.start, s]))
       for (const s of r.sessions) if (!starts.has(s.start)) starts.set(s.start, s)
-      g.sessions = [...starts.values()].sort((a, b) => a.start - b.start).slice(-100)
+      g.sessions = [...starts.values()].sort((a, b) => a.start - b.start).slice(-MAX_SESSIONS)
     }
     g.playtime = (g.playtimeBase ?? 0) + sum(g.playtimeBy ?? {})
     g.lastPlayed = Math.max(g.lastPlayed ?? 0, r.lastPlayed ?? 0) || undefined

@@ -466,6 +466,13 @@ async function installDownload(job: DownloadJob) {
   }
 }
 
+/** Игру удалили с компьютера: её законченные загрузки уходят со списка — «Играть» там больше нечего */
+export function gameGone(id: string) {
+  const before = jobs.length
+  jobs = jobs.filter((j) => !(j.gameId === id && j.status === 'done' && j.install === 'installed'))
+  if (jobs.length !== before) changed()
+}
+
 /** Игру поправили в библиотеке (указали файл сами): загрузка этой игры больше не ждёт ни установки, ни файла */
 export function gameUpdated(id: string, hasPath: boolean) {
   let hit = false

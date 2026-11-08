@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { platformName, type Game, type GameCollection, type PowerAction, type RunningGame, type UninstallInfo } from '@shared/types'
+import { platformName, type Game, type GameCollection, type PileBuild, type PowerAction, type RunningGame, type UninstallInfo } from '@shared/types'
 import { api } from '../lib/api'
 import { createCollection, deleteCollection, renameCollection, toggleInCollection } from '../lib/collections'
 import { lastInputDevice } from '../lib/input'
 import { beginEdit, openKeyboard } from '../lib/osk'
 import { bytes, notInstalled, playtime } from '../lib/format'
 import { optionsCount, useEmuDownloads } from '../lib/shop'
+import { shelf } from '../lib/shelf'
 import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { rumble } from '../lib/haptics'
@@ -305,10 +306,14 @@ interface GameMenuProps {
   onInfo: (g: Game) => void
   /** Варианты загрузки — у игр эмуляторов без файла, если в источниках что-то нашлось */
   onDownload: (g: Game) => void
+  /** Отметить пройденной — окно «Пройдено» */
+  onDone: (g: Game) => void
   collections: GameCollection[]
+  /** Открытая в профиле стопка прохождения: «В стопку» кладёт игру вниз неё */
+  pile: { build: PileBuild; list: Game[] }
 }
 
-export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit, onTrophies, onInfo, onDownload, collections }: GameMenuProps) {
+export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit, onTrophies, onInfo, onDownload, onDone, collections, pile }: GameMenuProps) {
   const [picking, setPicking] = useState(false)
   const [uninstalling, setUninstalling] = useState(false)
   const emuDownloads = useEmuDownloads(game)
@@ -339,6 +344,24 @@ export function GameMenu({ game, running, onClose, onLaunch, onCloseGame, onEdit
       icon: <IconGrid />,
       run: () => setPicking(true)
     },
+    // Полка и стопка профиля
+    ...(game.done
+      ? [
+          { id: 'replay', label: t('Пройти заново'), icon: <IconRestart />, run: () => (onClose(), void shelf.uncomplete(game, { list: pile.list, build: pile.build.id })) },
+          {
+            id: 'unshelf',
+            label: t('Снять с полки'),
+            icon: <IconClose />,
+            confirm: { title: t('Снять с полки?'), text: t('Отметка «Пройдено» и оценка пропадут. Время игры и трофеи останутся.'), button: t('Снять') },
+            run: () => void shelf.uncomplete(game)
+          }
+        ]
+      : [
+          { id: 'done', label: t('Пройдено…'), icon: <IconCheck />, run: () => (onClose(), onDone(game)) },
+          pile.list.includes(game)
+            ? { id: 'unpile', label: t('Убрать из стопки «{name}»', { name: pile.build.name }), icon: <IconClose />, run: () => void shelf.remove(game, pile.build.id) }
+            : { id: 'pile', label: t('В стопку «{name}»', { name: pile.build.name }), icon: <IconPlus />, run: () => void shelf.add(pile.list, pile.build.id, [game]) }
+        ]),
     ...(game.path ? [{ id: 'folder', label: t('Открыть папку игры'), icon: <IconFolder />, group: true, run: () => api.openFolder(game.path) }] : []),
     {
       id: 'reset',

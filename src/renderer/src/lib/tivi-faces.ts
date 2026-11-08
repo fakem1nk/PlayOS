@@ -1,12 +1,13 @@
 /**
- * Кадры Тиви: лица на светодиодной матрице 15×8 и пиксельные значки вокруг корпуса (zZ, «?», сердечки, искры).
+ * Кадры Тиви: лица на светодиодной матрице 15×8 и пиксельные значки вокруг корпуса (zZ, «?», сердечки, искры),
+ * а ещё уши — капсулы со светящейся «жидкостью» (программы ушей ниже, у каждой сценки своя).
  * Символы: # белый, h притушенный (сон), d тусклый, p розовый, b голубой, r красный, y жёлтый, v фиолетовый (как искра логотипа), w он же тусклый,
- * g серый металл (как антенны).
+ * g серый металл.
  * Строки 0–3 — глаза, 5–7 — рот. Движений-переходов нет: экран просто сменяет кадры.
  */
 
-/** Рывок всем телом: вздрогнуть, подпрыгнуть, потянуться вверх, искра на антенне блеснёт, помахать антенной с шариком */
-export type TiviMove = 'shake' | 'hop' | 'stretch' | 'twinkle' | 'wave'
+/** Рывок всем телом: вздрогнуть, подпрыгнуть, потянуться вверх, помахать левым ухом */
+export type TiviMove = 'shake' | 'hop' | 'stretch' | 'wave'
 export type Grid = readonly string[]
 export interface Gaze {
   x: number
@@ -19,13 +20,31 @@ export interface Fx {
 }
 /**
  * Положение тела прямо в кадре — для экрана установки, который потом рисуется в картинки (CSS-движения туда не попадут):
- * сдвиг корпуса в единицах образца, шаг вспышки искры (как в tivi-twinkle) и наклон левой антенны в градусах
+ * сдвиг корпуса в единицах образца
  */
 export interface Pose {
   x?: number
   y?: number
-  spark?: number
-  ant?: number
+}
+/**
+ * Ухо — окошко капсулы с «жидкостью»: v — уровень снизу (0…1), c — цвет, o — яркость; tilt — наклон поверхности (−1…1),
+ * wave — рябь, over — второй слой поверх (румянец снизу вверх), bands — светящиеся полоски [низ, верх, цвет],
+ * bubbles — пузырьки, drops — капли (x — сдвиг от середины, −1…1)
+ */
+export interface Ear {
+  v: number
+  c: string
+  o: number
+  tilt?: number
+  wave?: number
+  over?: { v: number; c: string }
+  bands?: [number, number, string?][]
+  bubbles?: { x: number; y: number; r: number }[]
+  drops?: { x?: number; y: number; r?: number; c?: string }[]
+}
+export interface Ears {
+  l: Ear
+  r: Ear
 }
 export interface Frame {
   face: Grid
@@ -36,6 +55,8 @@ export interface Frame {
   gaze?: Gaze
   move?: TiviMove
   pose?: Pose
+  /** Уши прямо в кадре — у экранов обновления, которые рисуются в картинки; у остальных уши ведёт программа сценки */
+  ears?: Ears
 }
 /** Сценка: вступление, петля (повторяется до срока) и концовка */
 export interface Script {
@@ -331,8 +352,7 @@ export const SPRITES = {
   spark: ['..y..', '.yyy.', 'yyyyy', '.yyy.', '..y..'],
   sparkS: ['.y.', 'yyy', '.y.'],
   note: ['..v.', '..vv', '..v.', 'vvv.', 'vv..'],
-  // Установка: кусочек обновления ползёт по антенне, шестерёнки крутятся — зубцы то прямо, то наискось
-  bit: ['vv', 'vv'],
+  // Установка: шестерёнки крутятся — зубцы то прямо, то наискось
   gearA: ['..g..', '.ggg.', 'gg.gg', '.ggg.', '..g..'],
   gearB: ['g...g', '.ggg.', '.g.g.', '.ggg.', 'g...g'],
   // Ночной колпак между антеннами: кончик с помпоном свисает вправо
@@ -378,11 +398,11 @@ const ask = (face: Grid): Frame[] => [
 
 export const SCRIPTS = {
   // Ответы на клик
-  wink: { intro: [f(winkHalf, 40), f(wink, 320, { move: 'twinkle' }), f(winkHalf, 40)] },
+  wink: { intro: [f(winkHalf, 40), f(wink, 320), f(winkHalf, 40)] },
   laugh: { intro: [f(laugh, 140, { move: 'hop' }), f(laughShut, 110), f(laugh, 140), f(laughShut, 110), f(laugh, 180)] },
   tongue: { intro: [f(laugh, 80), f(tongue, 260), f(tongueR, 150), f(tongue, 150), f(tongueR, 150), f(tongue, 320)] },
   blush: { intro: [f(happy, 120)], loop: [f(blush, 1300)] },
-  heart: { intro: [f(love, 120, { move: 'twinkle' })], loop: hearts(love) },
+  heart: { intro: [f(love, 120)], loop: hearts(love) },
   cool: { intro: [f(coolHalf, 70), f(cool, 1500)], outro: [f(coolHalf, 70)] },
   wow: { intro: [f(wow, 650, { move: 'hop' })] },
   sparkle: { intro: [f(happy, 80, { move: 'hop' })], loop: SPARKLE },
@@ -397,14 +417,14 @@ export const SCRIPTS = {
   // Система
   happy: { intro: [f(happy, 900, { move: 'hop' })] },
   news: { intro: [f(wow, 500, { move: 'hop' })], loop: SPARKLE },
-  love: { intro: [f(lovePink, 150, { move: 'twinkle' })], loop: hearts(lovePink) },
+  love: { intro: [f(lovePink, 150)], loop: hearts(lovePink) },
   sad: { intro: [f(sad, 300)], loop: [f(tear(4), 200), f(tear(5), 200), f(tear(6), 200), f(tear(7), 200), f(sad, 500)] },
   cry: { intro: [f(cry, 100, { move: 'shake' })], loop: [f(stream(4), 170), f(stream(5), 170)] },
   gloom: {
     intro: [f(gloom, 150, { fx: [fx('gloomS', 226, 56)] })],
     loop: [f(gloom, 1600, { fx: [fx('gloom', 226, 46)] })]
   },
-  vr: { intro: [f(coolHalf, 80), f(cool, 1600, { move: 'twinkle' })], outro: [f(coolHalf, 80)] },
+  vr: { intro: [f(coolHalf, 80), f(cool, 1600)], outro: [f(coolHalf, 80)] },
   wake: { intro: [f(wow, 450), f(idle, 60)] },
   // Приветствие: первый запуск за день — машет антенной, утром сперва потягивается; не виделись три дня — бурно радуется
   wave: { intro: WAVE },
@@ -421,7 +441,8 @@ export const SCRIPTS = {
   glance: {
     intro: [f(idle, 800, { gaze: LEFT_UP }), f(idle, 450, { gaze: AHEAD }), f(idle, 800, { gaze: { x: 1, y: -1 } }), f(idle, 350, { gaze: AHEAD })]
   },
-  antenna: { intro: [f(idle, 450, { gaze: { x: 2, y: -1 } }), f(idle, 700, { gaze: { x: 2, y: -1 }, move: 'twinkle' }), f(happy, 650)] },
+  // Смотрит на правое ухо: там поднимается пузырь и вспыхивает
+  antenna: { intro: [f(idle, 450, { gaze: { x: 2, y: -1 } }), f(idle, 1000, { gaze: { x: 2, y: -1 } }), f(happy, 650)] },
   hum: { loop: notes(hum, humShut) },
   shades: { intro: [f(coolHalf, 80), f(cool, 2400)], outro: [f(coolHalf, 80)] },
   think: { intro: [f(neutral, 500, { gaze: LEFT_UP })], loop: [f(DOTS[0], 260), f(DOTS[1], 260), f(DOTS[2], 520)], outro: [f(idle, 80)] },
@@ -434,7 +455,13 @@ export const SCRIPTS = {
   },
   glitch: { intro: [f(STATIC[0], 50), f(shift(idle, 2), 70), f(STATIC[2], 40), f(shift(idle, -1), 60), f(idle, 60)] },
   nod: { intro: [f(sleep, 1700), f(wow, 220, { move: 'shake' })] },
-  drool: { intro: [f(drool, 700), f(dots(drool, [[6, 6, 'b']]), 500), f(dots(drool, [[6, 6, 'b'], [6, 7, 'b']]), 1500), f(wow, 220)] }
+  drool: { intro: [f(drool, 700), f(dots(drool, [[6, 6, 'b']]), 500), f(dots(drool, [[6, 6, 'b'], [6, 7, 'b']]), 1500), f(wow, 220)] },
+  // Переливает из уха в ухо и смотрит, куда течёт; газировка в ушах
+  pour: { intro: [f(idle, 900, { gaze: { x: -2, y: 0 } }), f(idle, 900, { gaze: { x: 2, y: 0 } }), f(idle, 900, { gaze: { x: -2, y: 0 } }), f(idle, 500, { gaze: AHEAD })] },
+  fizz: { intro: [f(happy, 2600)] },
+  // Пришло уведомление: глянул вверх, уши мигнули; у геймпада садится заряд
+  notice: { intro: [f(idle, 1000, { gaze: { x: 2, y: -1 } }), f(happy, 500)] },
+  lowbat: { intro: [f(sad, 300)], loop: [f(sad, 1200, { fx: [fx('gloomS', 226, 56)] })] }
 } satisfies Record<string, Script>
 export type ScriptName = keyof typeof SCRIPTS
 
@@ -466,7 +493,9 @@ export const IDLE_ACTS: [ScriptName, number][] = [
   ['yawn', 2],
   ['tongue', 1],
   ['pong', 2],
-  ['glitch', 1]
+  ['glitch', 1],
+  ['pour', 2],
+  ['fizz', 2]
 ]
 /** Утром к своим делам добавляется потягивание */
 export const MORNING_ACTS: [ScriptName, number][] = [['stretch', 3]]
@@ -478,23 +507,194 @@ export const DROWSY_ACTS: [ScriptName, number][] = [
 /** На клик: каждый раз другое, без повторов подряд */
 export const CLICK_ACTS: ScriptName[] = ['wink', 'laugh', 'tongue', 'blush', 'heart', 'cool', 'wow', 'sparkle']
 
-// Экран прорисовывается заново: сверху вниз бежит тусклая строка развёртки, за ней — спокойное лицо
-const SCAN_IN = Array.from({ length: ROWS }, (_, k) => f(idle.map((r, y) => (y < k ? r : y === k ? 'd'.repeat(COLS) : BLANK[0])), 45))
-const BLINK_IDLE = [f(rows(idle, { 1: BLANK[0] }), 40), f(rows(idle, { 1: BLANK[0], 2: BLANK[0] }), 90), f(rows(idle, { 1: BLANK[0] }), 40)]
+// ---------- Уши: программы по сценкам ----------
+const W = '#ffffff'
+const V = '#a891ff'
+const PINK = '#ff8ac6'
+const BLUE = '#5aa9ff'
+const RED = '#ff4b5c'
+const YEL = '#ffd35c'
+/** Такт ушей; плеск после рывка тела длится столько тактов */
+export const EAR_TICK_MS = 60
+export const SLOSH_TICKS = 12
 
-/** Удивился и подпрыгнул: прыжок как в tivi-hop, левая антенна машет как в tivi-wave (для экранов обновления) */
+const E = (v: number, c: string, more: Partial<Ear> = {}): Ear => ({ v, c, o: 1, ...more })
+/** Покой: оба уха залиты полностью — левое белое (как был шарик антенны), правое фиолетовое (как искра) */
+export const EARS_IDLE: Ears = { l: E(1, W), r: E(1, V) }
+const both = (e: Ear): Ears => ({ l: e, r: { ...e } })
+const lr = (v: number, more: Partial<Ear> = {}): Ears => ({ l: E(v, W, more), r: E(v, V, more) })
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+const band = (pos: number, h = 0.2, c?: string): [number, number, string?] => [clamp01(pos), clamp01(pos + h), c]
+const at = (list: number[], t: number) => list[Math.min(t, list.length - 1)]
+/** 0…1 по косинусу: подъём и спад за period тактов */
+const osc = (t: number, period: number) => 0.5 - 0.5 * Math.cos((2 * Math.PI * t) / period)
+const ripple = (t: number, a = 1.5) => (t % 2 ? a : -a)
+// Сердцебиение: покой, удар, провал, второй удар, затухание (14 тактов)
+const BEAT = [0.62, 1, 0.82, 0.97, 0.86, 0.78, 0.72, 0.68, 0.65, 0.63, 0.62, 0.62, 0.62, 0.62]
+const beat = (t: number): Ears => both(E(BEAT[t % BEAT.length], PINK, { wave: t % BEAT.length < 5 ? ripple(t, 1.6) : 0 }))
+/** Пузырьки поднимаются со дна, каждый по своей дорожке */
+const bubbles = (t: number, n = 5, speed = 0.035) =>
+  Array.from({ length: n }, (_, k) => ({ x: [-0.5, 0.35, -0.1, 0.55, -0.4, 0.15][k], y: (t * speed + k / n) % 1, r: [1.5, 2.1, 1.3, 1.8, 2.3, 1.6][k] }))
+/** Загрузка через оба уха: сначала наливается левое, потом правое, поверхность рябит */
+function progress(p: number, t: number): Ears {
+  const a = Math.min(1, p / 50)
+  const b = clamp01((p - 50) / 50)
+  return { l: E(a, W, { wave: a < 1 ? ripple(t, 1.2) : 0 }), r: E(b, V, { wave: b > 0 && b < 1 ? ripple(t, 1.2) : 0 }) }
+}
+/** Очки: уши тонированы, раз в 2,4 с снизу вверх пробегает блик */
+const glint = (t: number) => {
+  const k = t % 40
+  return lr(1, { c: V, o: 0.22, bands: k < 12 ? [band(-0.12 + (k / 12) * 1.05, 0.16, W)] : [] })
+}
+/** Жидкость перекатывается из уха в ухо */
+const sway = (t: number, c1 = W, c2 = V): Ears => {
+  const s = Math.sin(t * 0.5)
+  return { l: E(0.62 + 0.38 * s, c1, { tilt: s * 0.8, wave: 1.2 }), r: E(0.62 - 0.38 * s, c2, { tilt: s * 0.8, wave: 1.2 }) }
+}
+const sleepy = (t: number) => lr(0.36 + 0.1 * osc(t, 50), { o: 0.7, wave: 0.5 })
+const asleep = (t: number) => lr(0.22 + 0.1 * osc(t, 70), { o: 0.35 })
+
+type EarProgram = (t: number, ctx: { loading: number | null }) => Ears
+/** Уши каждой сценки; t — такт EAR_TICK_MS с начала сценки. Без своей программы — покой */
+const EAR_PROGRAMS: Partial<Record<ScriptName | 'idle' | 'sleepy' | 'sleep' | 'load', EarProgram>> = {
+  idle: () => EARS_IDLE,
+  wink: (t) => ({ l: E(1, W), r: E(at([1, 0.7, 0.4, 0.15, 0.15, 0.15, 0.15, 0.4, 0.7, 1], t), V, { wave: t > 6 && t < 10 ? ripple(t) : 0 }) }),
+  laugh: (t) => ({ l: E(0.8 + 0.12 * Math.sin(t * 0.9), W, { wave: ripple(t, 2.5) }), r: E(0.8 - 0.12 * Math.sin(t * 0.9), V, { wave: ripple(t + 1, 2.5) }) }),
+  tongue: (t) => ({ l: E(1, W), r: E(1, V, { over: { v: 0.3 + 0.7 * osc(t, 12), c: PINK } }) }),
+  blush: (t) => {
+    const p = Math.min(1, t / 16)
+    const more = { over: { v: p, c: PINK }, wave: p < 1 ? ripple(t, 1) : 0 }
+    return { l: E(1, W, more), r: E(1, V, more) }
+  },
+  heart: beat,
+  love: beat,
+  pet: beat,
+  cool: glint,
+  vr: glint,
+  shades: glint,
+  wow: (t) => (t < 8 ? lr(t % 4 < 2 ? 1 : 0) : t < 14 ? lr(at([0.7, 0.85, 1], t - 8), { wave: ripple(t, 2) }) : EARS_IDLE),
+  news: (t) => both(E(1, V, { bubbles: bubbles(t, 6, 0.045) })),
+  sparkle: (t) => {
+    const k = t % 16
+    return k < 12 ? both(E((k + 1) / 12, YEL, { wave: ripple(k, 1.6) })) : both(E(1, k === 12 ? W : YEL))
+  },
+  dizzy: (t) => {
+    const swap = Math.floor(t / 8) % 2
+    const s = Math.sin(t * 0.7)
+    return { l: E(0.7, swap ? V : W, { tilt: s, wave: 2 }), r: E(0.7, swap ? W : V, { tilt: -s, wave: 2 }) }
+  },
+  angry: (t) => both(E(0.86, RED, { o: t % 6 < 3 ? 1 : 0.65, wave: ripple(t, 3), bubbles: bubbles(t, 5, 0.08) })),
+  frustrated: (t) => both(E(0.9, RED, { o: t % 4 < 2 ? 1 : 0.5, wave: ripple(t, 3.5), bubbles: bubbles(t, 6, 0.1) })),
+  ko: (t) => {
+    if (t < 10) return both(E(Math.max(0, 1 - t / 8), RED, { wave: ripple(t, 2) }))
+    const p = (((t - 10) % 16) / 16) * 0.8
+    return { l: E(0, V, { bands: [band(p)] }), r: E(0, V, { bands: [band(0.8 - p)] }) }
+  },
+  happy: (t) => {
+    const v = at([0.7, 0.8, 0.92, 1, 1, 0.9, 0.84, 0.9, 1], t)
+    return { l: E(v, W, { wave: t < 9 ? ripple(t, 2) : 0 }), r: E(v, V, { wave: t < 9 ? ripple(t + 1, 2) : 0 }) }
+  },
+  sad: (t) => both(E(Math.max(0.28, 1 - t / 28), BLUE, { wave: t % 4 < 2 ? 0.8 : -0.8 })),
+  // Слёзы капают сверху и понемногу наполняют уши
+  cry: (t) => {
+    const lvl = Math.min(0.8, 0.2 + t / 90)
+    const k = t % 12
+    const y = 1 - (k / 12) * (1 - lvl)
+    return both(E(lvl, BLUE, { wave: k === 0 ? 2 : k === 1 ? -1.5 : 0.6, drops: y > lvl + 0.05 ? [{ y }] : [] }))
+  },
+  gloom: (t) => ({ l: E(0.16, t % 20 < 10 ? RED : W, { o: 0.85 }), r: E(0.16, t % 20 < 10 ? RED : V, { o: 0.85 }) }),
+  lowbat: (t) => {
+    const c = t % 12 < 6 ? RED : '#4a1a20'
+    return { l: E(0, W, { bands: [band(0, 0.15, c)] }), r: E(0, V, { bands: [band(0, 0.15, c)] }) }
+  },
+  wake: (t) => lr(at([0.15, 0.35, 0.6, 0.85, 1], t), { wave: t < 7 ? ripple(t, 2) : 0 }),
+  wave: (t) => sway(t),
+  morning: (t) => (t < 24 ? lr(Math.min(1, (t + 1) / 22), { wave: ripple(t, 1.2) }) : sway(t - 24)),
+  missed: (t) => (t < 24 ? sway(t, PINK, PINK) : beat(t)),
+  off: (t) => lr(Math.max(0, 1 - t / 5), { wave: ripple(t, 1.5) }),
+  // Пузырь поднимается в правом ухе и вспыхивает
+  antenna: (t) => ({ l: E(1, W), r: E(1, V, { bubbles: t < 20 ? [{ x: 0, y: t / 20, r: 3 }] : [], bands: t >= 20 && t < 24 ? [band(0, 1, W)] : [] }) }),
+  hum: (t) => ({
+    l: E(clamp01(0.55 + 0.25 * Math.sin(t * 0.55) + 0.18 * Math.sin(t * 1.3)), W, { wave: ripple(t) }),
+    r: E(clamp01(0.55 + 0.25 * Math.sin(t * 0.55 + 2) + 0.18 * Math.sin(t * 1.1 + 1)), V, { wave: ripple(t + 1) })
+  }),
+  think: (t) => {
+    const p = osc(t, 24) * 0.82
+    return { l: E(0, W, { bands: [band(p, 0.18)] }), r: E(0, V, { bands: [band(0.82 - p, 0.18)] }) }
+  },
+  wonder: (t) => ({ l: E(0.15, W), r: E(t % 16 < 8 ? 1 : 0.15, V, { wave: t % 8 === 0 ? 2 : 0 }) }),
+  yawn: (t) => lr(1 - 0.6 * Math.sin(Math.min(Math.PI, (t / 28) * Math.PI)), { wave: 0.6 }),
+  stretch: (t) => lr(Math.min(1, 0.2 + t / 24), { wave: ripple(t, 1) }),
+  pong: () => lr(1, { o: 0.35 }),
+  glitch: (t) => {
+    const k = t % 8
+    return {
+      l: k % 3 === 0 ? E(0, W, { bands: [band(0.4, 0.3)] }) : E(1, k % 2 ? V : W),
+      r: k % 3 === 1 ? E(0, V, { bands: [band(0.1, 0.4)] }) : E(1, k % 2 ? W : V)
+    }
+  },
+  nod: sleepy,
+  sleepy,
+  sleep: asleep,
+  drool: (t) => {
+    const ears = asleep(t)
+    const k = t % 30
+    ears.r.drops = k < 20 ? [{ y: 1 - (k / 20) * 0.7, r: 2.2, c: BLUE }] : []
+    return ears
+  },
+  load: (t, ctx) => progress(ctx.loading ?? 0, t),
+  pour: (t) => {
+    const l = 0.5 + 0.5 * Math.cos((Math.PI * t) / 15)
+    const tilt = Math.sin((Math.PI * t) / 15) * 0.9
+    return { l: E(l, W, { tilt, wave: 1 }), r: E(1 - l, V, { tilt, wave: 1 }) }
+  },
+  fizz: (t) => ({ l: E(1, W, { bubbles: bubbles(t, 5, 0.04) }), r: E(1, V, { bubbles: bubbles(t + 7, 5, 0.04) }) }),
+  notice: (t) => lr(1, { o: 0.3, bands: t < 16 && t % 8 < 3 ? [band(0.78, 0.22, W)] : [] })
+}
+export type EarProgramName = keyof typeof EAR_PROGRAMS
+/** Программы, которым такт не нужен — уши стоят */
+export const STATIC_EARS = new Set<EarProgramName>(['idle', 'glance', 'pong'])
+
+/** Какая программа ушей идёт: у сценки своя (если есть), иначе по состоянию — загрузка, дрёма, сон или покой */
+export function earProgramOf(act: ScriptName | null, stage: 'awake' | 'drowsy' | 'sleep', loading: number | null): EarProgramName {
+  if (act) return act in EAR_PROGRAMS ? act : 'idle'
+  if (loading !== null) return 'load'
+  return stage === 'sleep' ? 'sleep' : stage === 'drowsy' ? 'sleepy' : 'idle'
+}
+export const earsOf = (name: EarProgramName, t: number, ctx: { loading: number | null }) => (EAR_PROGRAMS[name] ?? EAR_PROGRAMS.idle!)(t, ctx)
+
+/** Встряхнули (прыжок, рывок, потягивание, взмах): жидкость плещется и успокаивается; k — такт с рывка */
+export function sloshed(ears: Ears, k: number, kind: TiviMove): Ears {
+  const amp = 1 - k / SLOSH_TICKS
+  const sgn = k % 2 ? 1 : -1
+  const s = kind === 'shake' ? 1 : 0.6
+  const wob = (e: Ear): Ear =>
+    e.v > 0 && !e.bands?.length ? { ...e, v: Math.min(e.v, 1 - 0.16 * amp), tilt: (e.tilt ?? 0) + sgn * amp * s, wave: (e.wave ?? 0) + sgn * amp * 2 } : e
+  return { l: wob(ears.l), r: wob(ears.r) }
+}
+
+// Экран прорисовывается заново: сверху вниз бежит тусклая строка развёртки, за ней — спокойное лицо; уши наливаются вместе с ней
+const SCAN_IN = Array.from({ length: ROWS }, (_, k) =>
+  f(idle.map((r, y) => (y < k ? r : y === k ? 'd'.repeat(COLS) : BLANK[0])), 45, { ears: lr((k + 1) / ROWS) })
+)
+const BLINK_IDLE = [f(rows(idle, { 1: BLANK[0] }), 40), f(rows(idle, { 1: BLANK[0], 2: BLANK[0] }), 90), f(rows(idle, { 1: BLANK[0] }), 40)]
+/** Перезагрузка: по ушам бегает светлая полоска — в левом вверх, в правом вниз */
+const spinEars = (k: number): Ears => ({ l: E(0, V, { bands: [band((k % 5) / 5)] }), r: E(0, V, { bands: [band((4 - (k % 5)) / 5)] }) })
+const withEars = (frames: Frame[], ears: Ears) => frames.map((fr) => ({ ...fr, ears }))
+
+/** Удивился и подпрыгнул: прыжок как в tivi-hop (для экранов обновления) */
 const HOORAY: Frame[] = [
-  f(wow, 80, { pose: { y: -2.2, ant: -24 } }),
-  f(wow, 120, { pose: { y: -4.4, ant: 10 } }),
-  f(wow, 80, { pose: { y: -2.2, ant: -24 } }),
-  f(wow, 80, { pose: { y: 0.65, ant: 10 } }),
+  f(wow, 80, { pose: { y: -2.2 } }),
+  f(wow, 120, { pose: { y: -4.4 } }),
+  f(wow, 80, { pose: { y: -2.2 } }),
+  f(wow, 80, { pose: { y: 0.65 } }),
   f(wow, 160)
 ]
 
 /**
- * Экран установки обновления — сценка по кругу (~8 с), всё движение задано в кадрах:
- * искра на антенне вспыхивает, по антенне в корпус сползают фиолетовые кусочки, и полоска во рту заполняется;
- * потом Тиви, зажмурившись и дрожа, втягивает её, крутятся шестерёнки, капает пот — хлоп! — подпрыгивает от радости;
+ * Экран установки обновления — сценка по кругу (~8 с), всё движение задано в кадрах (уши тоже):
+ * по правому уху сверху сползает светлая полоска, и полоска во рту вместе с ушами наливается фиолетовым;
+ * потом Тиви, зажмурившись и дрожа, втягивает её, уши пустеют, крутятся шестерёнки, капает пот — хлоп! — подпрыгивает от радости;
  * перезагружается спиннером, экран прорисовывается строка за строкой, моргает — и ловит следующий кусок
  */
 export const INSTALL: Frame[] = (() => {
@@ -505,21 +705,14 @@ export const INSTALL: Frame[] = (() => {
     const top = shift(BLANK.slice(0, 5).map((r, y) => (y >= 1 + dy && y <= 3 + dy ? EYE : r)), dx)
     return [...top, bar, bar, BLANK[0]]
   }
-  // Кусочек сползает по правой антенне от искры к корпусу
-  const DROP: [number, number][] = [
-    [165, 47],
-    [156, 58],
-    [147, 68]
-  ]
+  const level = (n: number) => E(n / 11, V)
+  // Кусочек сползает по правому уху, левое держит то, что уже набралось
   const part = (from: number, to: number): Frame[] => [
-    f(face(1, -1, from), 90, { pose: { spark: 1 } }),
-    f(face(1, -1, from), 90, { pose: { spark: 2 }, fx: [fx('bit', ...DROP[0])] }),
-    f(face(1, -1, from), 90, { pose: { spark: 3 }, fx: [fx('bit', ...DROP[1])] }),
-    f(face(1, 0, from), 90, { fx: [fx('bit', ...DROP[2])] }),
-    f(face(0, 0, to, to - from), 110),
-    f(face(0, 0, to), 300)
+    ...[4, 3, 2, 1].map((k, i) => f(face(1, i < 3 ? -1 : 0, from), 90, { ears: { l: level(from), r: E(0, V, { bands: [band(k / 5)] }) } })),
+    f(face(0, 0, to, to - from), 110, { ears: both(level(to)) }),
+    f(face(0, 0, to), 300, { ears: both(level(to)) })
   ]
-  // Втягивает полоску к середине; пот стекает по краю экрана, корпус дрожит, шестерёнки крутятся навстречу
+  // Втягивает полоску к середине — уши пустеют; пот стекает по краю экрана, корпус дрожит, шестерёнки крутятся навстречу
   const squeeze = (w: number, sweat: number): Grid => {
     const pad = '.'.repeat((COLS - w) / 2)
     const row = pad + 'v'.repeat(w) + pad
@@ -529,12 +722,13 @@ export const INSTALL: Frame[] = (() => {
     [0, 1].map((j) =>
       f(squeeze(w, i), 80, {
         pose: { x: j ? 1.5 : -1.5 },
+        ears: both(E(w / 11, W)),
         fx: [fx(j ? 'gearB' : 'gearA', 40, 48), fx(j ? 'gearA' : 'gearB', 230, 54)]
       })
     )
   )
   const flare = dots([...SQUINT_EYES, ...BLANK.slice(4)], [[7, 5, '#'], [7, 6, '#']])
-  // Хлоп: от рта расходится кольцо
+  // Хлоп: от рта расходится кольцо, уши вспыхивают
   const burst = (r: number): Grid =>
     BLANK.map((row, y) =>
       [...row]
@@ -544,54 +738,52 @@ export const INSTALL: Frame[] = (() => {
         })
         .join('')
     )
-  // Экран прорисовывается заново: сверху вниз бежит тусклая строка развёртки
   return [
     ...part(0, 4),
     ...part(4, 8),
     ...part(8, 11).slice(0, -1),
-    f(face(0, 0, 11, 11), 120),
-    f(face(0, 0, 11), 220),
+    f(face(0, 0, 11, 11), 120, { ears: both(level(11)) }),
+    f(face(0, 0, 11), 220, { ears: both(level(11)) }),
     ...work,
-    f(flare, 120),
-    ...[1, 2, 3, 4].map((r) => f(burst(r), 50)),
-    ...HOORAY,
-    ...SPARKLE,
-    f(happy, 300),
-    f(STATIC[0], 50),
-    f(STATIC[2], 50),
-    f(BLANK, 160),
-    ...[1, 2].flatMap(() => SPIN.map((s) => f(s, SPIN_MS))),
-    ...SPIN_END,
+    f(flare, 120, { ears: both(E(0, W)) }),
+    ...[1, 2, 3, 4].map((r) => f(burst(r), 50, { ears: both(E(1, W)) })),
+    ...withEars(HOORAY, EARS_IDLE),
+    ...withEars(SPARKLE, both(E(1, YEL))),
+    f(happy, 300, { ears: EARS_IDLE }),
+    f(STATIC[0], 50, { ears: lr(0.5) }),
+    f(STATIC[2], 50, { ears: lr(0) }),
+    f(BLANK, 160, { ears: lr(0) }),
+    ...[1, 2].flatMap(() => SPIN.map((s, k) => f(s, SPIN_MS, { ears: spinEars(k) }))),
+    ...SPIN_END.map((fr) => ({ ...fr, ears: lr(fr.face === BLANK ? 0 : 1) })),
     ...SCAN_IN,
-    f(idle, 350),
-    ...BLINK_IDLE,
-    f(idle, 600)
+    f(idle, 350, { ears: EARS_IDLE }),
+    ...withEars(BLINK_IDLE, EARS_IDLE),
+    f(idle, 600, { ears: EARS_IDLE })
   ]
 })()
 
 /**
  * Первый запуск после обновления, до интро: тот же экран, что держала заставка установки. Помеха — бублик доделывает
  * круг и мигает, экран спокойно прорисовывает лицо, Тиви моргает, улыбается (тут надпись сменяется на «установлен»),
- * радостно подпрыгивает, жмурится и гаснет, как кинескоп, — дальше интро. INSTALLED_AT — с какого кадра «готово»
+ * радостно подпрыгивает, жмурится и гаснет, как кинескоп, — уши пустеют вместе с экраном, дальше интро.
+ * INSTALLED_AT — с какого кадра «готово»
  */
-const happyHop: Frame[] = HOORAY.map((h) => ({ ...h, face: happyOpen }))
 const happyShut = rows(happy, { 1: BLANK[0], 2: BLANK[0] })
 export const INSTALLED: Frame[] = [
-  f(STATIC[0], 50),
-  f(STATIC[2], 50),
-  ...SPIN.map((s) => f(s, SPIN_MS)),
-  ...SPIN_END,
+  f(STATIC[0], 50, { ears: lr(0.5) }),
+  f(STATIC[2], 50, { ears: lr(0) }),
+  ...SPIN.map((s, k) => f(s, SPIN_MS, { ears: spinEars(k) })),
+  ...SPIN_END.map((fr) => ({ ...fr, ears: lr(fr.face === BLANK ? 0 : 1) })),
   ...SCAN_IN,
-  f(idle, 450),
-  ...BLINK_IDLE,
-  f(idle, 250),
-  f(happy, 500),
-  ...happyHop,
-  ...SPARKLE,
-  ...SPARKLE,
-  f(happy, 600),
-  f(happyShut, 400),
-  ...CRT.map((c, i) => f(c, i ? 70 : 60)),
-  f(BLANK, 350)
+  f(idle, 450, { ears: EARS_IDLE }),
+  ...withEars(BLINK_IDLE, EARS_IDLE),
+  f(idle, 250, { ears: EARS_IDLE }),
+  f(happy, 500, { ears: EARS_IDLE }),
+  ...HOORAY.map((h) => ({ ...h, face: happyOpen, ears: EARS_IDLE })),
+  ...withEars([...SPARKLE, ...SPARKLE], both(E(1, YEL))),
+  f(happy, 600, { ears: EARS_IDLE }),
+  f(happyShut, 400, { ears: EARS_IDLE }),
+  ...CRT.map((c, i) => f(c, i ? 70 : 60, { ears: lr([0.7, 0.4, 0.15, 0][i]) })),
+  f(BLANK, 350, { ears: lr(0) })
 ]
 export const INSTALLED_AT = INSTALLED.findIndex((fr) => fr.face === happy)

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Game, StoreItem } from '@shared/types'
 import { api } from '../lib/api'
+import { useDragScroll, useSwipe } from '../lib/drag'
 import { lastInputDevice, useInputLayer } from '../lib/input'
 import { nudge } from '../lib/nav'
 import { beginEdit, isEditing, openKeyboard, setKeyboardStatus } from '../lib/osk'
@@ -113,6 +114,19 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
 
   useEffect(() => {
     if (active) onFocusItem(focusedItem)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedItem?.appId, active])
+  // Задержались на игре — её страница грузится заранее: к открытию карточки она уже на диске или в пути
+  useEffect(() => {
+    if (!active || !focusedItem) return
+    const id = setTimeout(
+      () =>
+        void api.storePage(focusedItem.appId).catch(() => {
+          /* откроют — попробуем снова */
+        }),
+      600
+    )
+    return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedItem?.appId, active])
   useEffect(() => {
@@ -416,7 +430,7 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           {rows.map((row, r) => (
             <section key={row.id} className="store-row" ref={(el) => void (sectionRefs.current[r] = el)}>
               <h2 className="store-row-title">{ROW_TITLES[row.id]}</h2>
-              <div className="store-strip" ref={(el) => void (stripRefs.current[r] = el)}>
+              <StoreStrip onRef={(el) => void (stripRefs.current[r] = el)}>
                 {row.items.map((item, i) => {
                   const focused = active && zone.kind === 'row' && zone.row === r && i === rowPos(r)
                   return (
@@ -430,11 +444,28 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
                     />
                   )
                 })}
-              </div>
+              </StoreStrip>
             </section>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Ряд плиток: листается и мышью — зажать и вести, после отпускания докатывается по инерции */
+function StoreStrip({ onRef, children }: { onRef: (el: HTMLDivElement | null) => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useDragScroll(ref)
+  return (
+    <div
+      className="store-strip"
+      ref={(el) => {
+        ref.current = el
+        onRef(el)
+      }}
+    >
+      {children}
     </div>
   )
 }
@@ -492,8 +523,15 @@ function StoreHero({ items, index, focused, onPick, onOpen }: { items: StoreItem
   const item = items[index]
   const [logoFailed, setLogoFailed] = useState<Record<number, boolean>>({})
   const pills = [...(item.tags ?? []).slice(0, 3), ...(item.reviews?.label ? [item.reviews.label] : [])]
+  // Мышью баннер листается, как на телефоне: зажать и провести
+  const ref = useRef<HTMLDivElement>(null)
+  useSwipe(ref, (dir) => {
+    if (items.length < 2) return
+    play('move')
+    onPick((index + dir + items.length) % items.length)
+  })
   return (
-    <div className={`store-hero ${focused ? 'is-focused' : ''}`} role="button" aria-label={item.title} onClick={onOpen}>
+    <div ref={ref} className={`store-hero ${focused ? 'is-focused' : ''}`} role="button" aria-label={item.title} onClick={onOpen}>
       <div className="store-hero-clip">
         <AnimatePresence initial={false}>
           <motion.img

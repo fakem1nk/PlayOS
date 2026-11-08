@@ -53,11 +53,15 @@ export function tiviSound(kind: string) {
   }
 }
 
-/** Реакция на уведомление: ошибки, успехи, трофеи и обновления приходят и из main */
-export function tiviToast(n: { tone?: string; kind?: string }) {
+/**
+ * Реакция на уведомление: ошибки, успехи, трофеи и обновления приходят и из main. Обычное уведомление, которое
+ * попадёт в центр уведомлений, — уши мигают; ответы на действия пользователя (history: false) он пропускает
+ */
+export function tiviToast(n: { tone?: string; kind?: string; history?: false }) {
   if (!listeners.size) return
   if (n.kind === 'trophy') return tivi({ act: 'love', ms: 3200, priority: 4 })
   if (n.kind === 'update') return tivi({ act: 'news', ms: 1600, priority: 3 })
   if (n.tone === 'error') return sorrow(2200)
   if (n.tone === 'success') return tivi({ act: 'happy', priority: 2 })
+  if (n.history !== false) tivi({ act: 'notice', priority: 2 })
 }

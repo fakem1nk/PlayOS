@@ -7,6 +7,8 @@ import type {
   DownloadJob,
   DownloadOption,
   Game,
+  GameDone,
+  GameMood,
   ImportProgress,
   PcsApi,
   SaveProgress,
@@ -80,6 +82,69 @@ function createMockApi(): PcsApi {
     // Демо-сессии за последние две недели для графика активности
     sessions: hours > 1 ? Array.from({ length: 4 }, (_, i) => ({ start: Date.now() - ((i * 3 + Number(id)) % 14) * 86400000, duration: 1800 + ((Number(id) * 977 * (i + 1)) % 7200) })) : []
   })
+  // Полка и стопка профиля: пройденные за три года, три сборки и игры для них (их нет на главной — в них не играли)
+  const yr = new Date().getFullYear()
+  const day = (y: number, m: number, d: number) => new Date(y, m - 1, d, 21, 30).getTime()
+  const done = (at: number, hours: number, days: number, mood: GameMood, full?: boolean): GameDone => ({ at, playtime: Math.round(hours * 3600), days, mood, full })
+  const extra = (id: string, title: string, platform: Game['platform'], appid: number | null, hours: number, more: Partial<Game> = {}): Game => ({
+    ...demo(id, title, platform, appid ?? 0, hours),
+    ...(appid ? {} : { cover: undefined, hero: undefined, logo: undefined }),
+    lastPlayed: undefined,
+    addedAt: Date.now() - 400 * 86400000,
+    sessions: [],
+    ...more
+  })
+  const PILES: Record<string, Record<string, number>> = {
+    '5': { main: 1, souls: 3 },
+    '4': { main: 2 },
+    '1': { main: 3 },
+    'hk': { main: 4 },
+    '7': { main: 5 },
+    'er': { main: 6, souls: 4 },
+    '9': { main: 7, souls: 1 },
+    'de': { main: 8 },
+    'ds3': { souls: 2 },
+    'sh2': { ps2: 1 },
+    'ok': { ps2: 2 },
+    'ico': { ps2: 3 },
+    'sotc': { ps2: 4 }
+  }
+  const DONE: Record<string, GameDone> = {
+    '2': done(day(yr - 1, 12, 20), 14.5, 11, 'happy'),
+    '3': done(day(yr, 3, 29), 86.3, 63, 'love'),
+    '6': done(day(yr - 1, 6, 7), 120, 58, 'happy', true),
+    '8': done(day(yr, 1, 24), 31, 19, 'love')
+  }
+  const shelfDemo: Game[] = [
+    extra('p2', 'Portal 2', 'pc', 620, 9, { done: done(day(yr - 2, 3, 14), 9, 5, 'love') }),
+    extra('ins', 'Inside', 'pc', 304430, 4, { done: done(day(yr - 2, 6, 2), 4, 1, 'happy') }),
+    extra('cel', 'Celeste', 'pc', 504230, 31, { done: done(day(yr - 2, 9, 21), 31, 40, 'love', true) }),
+    extra('hl2', 'Half-Life 2', 'pc', 220, 14, { done: done(day(yr - 2, 11, 30), 14, 12, 'happy') }),
+    extra('w3', 'The Witcher 3: Wild Hunt', 'pc', 292030, 104, { done: done(day(yr - 1, 2, 9), 104, 71, 'love') }),
+    extra('had', 'Hades', 'pc', 1145360, 61, { done: done(day(yr - 1, 4, 18), 61, 33, 'love', true) }),
+    extra('ow', 'Outer Wilds', 'pc', 753640, 19, { done: done(day(yr - 1, 8, 3), 19, 9, 'love') }),
+    extra('cp', 'Cyberpunk 2077', 'pc', 1091500, 58, { done: done(day(yr - 1, 10, 26), 58, 44, 'ok') }),
+    extra('bg3', 'Baldur’s Gate 3', 'pc', 1086940, 132, { done: done(day(yr, 6, 14), 132, 77, 'happy') }),
+    extra('str', 'Stray', 'pc', 1332010, 6, { done: done(day(yr, 9, 6), 6, 2, 'meh') }),
+    extra('er', 'Elden Ring', 'pc', 1245620, 0),
+    extra('hk', 'Hollow Knight', 'pc', 367520, 3.5),
+    extra('de', 'Disco Elysium', 'pc', 632470, 0),
+    extra('ds3', 'Dark Souls III', 'pc', 374320, 0),
+    extra('ok', 'Okami', 'ps2', 587620, 0),
+    extra('sh2', 'Silent Hill 2', 'ps2', 2124490, 1.2),
+    extra('ico', 'ICO', 'ps2', null, 0),
+    extra('sotc', 'Shadow of the Colossus', 'ps2', null, 0)
+  ]
+  // Сюжет по HowLongToBeat, часов — демо для стопки и страницы игры
+  const DEMO_HLTB: Record<string, number> = {
+    'Death Stranding': 42, Bully: 17, 'Red Dead Redemption 2': 50, 'Ghost of Tsushima': 25, 'Sekiro: Shadows Die Twice': 30,
+    'Grand Theft Auto: San Andreas': 32, 'Hellblade: Senua’s Sacrifice': 8, 'God of War': 21, 'The Last of Us': 15, 'Demon’s Souls': 16,
+    'Elden Ring': 59, 'Hollow Knight': 27, 'Disco Elysium': 22, 'Dark Souls III': 32, Okami: 33, 'Silent Hill 2': 16, ICO: 7, 'Shadow of the Colossus': 8
+  }
+  const demoHltb = (g?: Game) => {
+    const h = (g && DEMO_HLTB[g.title]) || 14.6
+    return { main: h * 3600, plus: h * 5040, full: h * 7200, title: g?.title ?? 'Bully' }
+  }
   let state: AppState = {
     games: [
       demo('1', 'Death Stranding', 'pc', 1190460, 2.02, 0),
@@ -92,8 +157,9 @@ function createMockApi(): PcsApi {
       demo('8', 'God of War', 'pc', 1593500, 31, 60),
       // PS3 с обложкой — чтобы в превью был виден логотип PS3 на плитке
       demo('10', 'The Last of Us', 'ps3', 1888930, 18.2, 12),
-      { ...demo('9', 'Demon’s Souls', 'ps3', 0, 7, 100), cover: undefined, hero: undefined, logo: undefined }
-    ],
+      { ...demo('9', 'Demon’s Souls', 'ps3', 0, 7, 100), cover: undefined, hero: undefined, logo: undefined },
+      ...shelfDemo
+    ].map((g) => ({ ...g, ...(DONE[g.id] ? { done: DONE[g.id] } : {}), ...(PILES[g.id] ? { pile: PILES[g.id] } : {}) })),
     settings: {
       userName: getLang() === 'en' ? 'Player' : 'Игрок',
       pcsx2Path: 'C:\\Program Files\\PCSX2\\pcsx2-qt.exe',
@@ -129,7 +195,14 @@ function createMockApi(): PcsApi {
       displayId: 0,
       displayLabel: '',
       onboarded: new URLSearchParams(location.search).has('welcome') ? false : true,
-      betaUpdates: location.search.includes('beta')
+      betaUpdates: location.search.includes('beta'),
+      builds: [
+        { id: 'main', name: getLang() === 'en' ? 'Main' : 'Основная' },
+        { id: 'souls', name: getLang() === 'en' ? 'Souls marathon' : 'Souls-марафон' },
+        { id: 'ps2', name: getLang() === 'en' ? 'Retro PS2' : 'Ретро PS2' }
+      ],
+      build: 'main',
+      figuresSeen: ['finisher', 'perfect', 'explorer', 'astro']
     },
     running: null,
     dataDir: 'C:\\Users\\demo\\AppData\\Roaming\\PlayOS',
@@ -192,6 +265,23 @@ function createMockApi(): PcsApi {
       return { ok: true }
     },
     setFavorite: async (id, value) => set({ games: state.games.map((g) => (g.id === id ? { ...g, favorite: value } : g)) }),
+    shelfPatch: async (changes) =>
+      set({
+        games: state.games.map((g) => {
+          const c = changes.find((x) => x.id === g.id)
+          if (!c) return g
+          const next = { ...g }
+          if (c.done !== undefined) {
+            if (c.done) next.done = c.done
+            else delete next.done
+          }
+          if (c.pile !== undefined) {
+            if (c.pile) next.pile = c.pile
+            else delete next.pile
+          }
+          return next
+        })
+      }),
     resetPlaytime: async (id) => set({ games: state.games.map((g) => (g.id === id ? { ...g, playtime: 0 } : g)) }),
     saveSettings: async (patch) => {
       set({ settings: { ...state.settings, ...patch } })
@@ -557,7 +647,7 @@ function createMockApi(): PcsApi {
           released: 'Oct 24, 2008',
           genres: ['Action', 'Adventure'],
           source: 'steam',
-          hltb: { main: 52718, plus: 69031, full: 99768, title: g?.title ?? 'Bully' }
+          hltb: demoHltb(g)
         }
       }
       return {
@@ -568,7 +658,7 @@ function createMockApi(): PcsApi {
         released: '24 окт. 2008 г.',
         genres: ['Экшены', 'Приключенческие игры'],
         source: 'steam',
-        hltb: { main: 52718, plus: 69031, full: 99768, title: g?.title ?? 'Bully' }
+        hltb: demoHltb(g)
       }
     },
     liveBackground: async () => null,
@@ -649,6 +739,10 @@ function createMockApi(): PcsApi {
         franchise: item.title.split(/[:\s]/)[0],
         screenshots: shots
       }
+    },
+    storeOptionCount: async (appId) => {
+      await new Promise((r) => setTimeout(r, 900))
+      return demoOptionsFor(appId).length
     },
     storeHltb: async (_appId, title) => {
       await new Promise((r) => setTimeout(r, 700))

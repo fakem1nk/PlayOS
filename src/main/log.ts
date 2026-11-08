@@ -44,12 +44,17 @@ export function initLog() {
   crashReporter.start({ uploadToServer: false, compress: true })
 
   lockFile = path.join(app.getPath('userData'), 'running.lock')
-  previousCrashed = fs.existsSync(lockFile)
-  fs.writeFileSync(lockFile, String(process.pid))
-  app.on('will-quit', () => fs.rmSync(lockFile, { force: true }))
+  const left = readLock()
+  // Маркер остался от прошлой загрузки Windows: компьютер выключили или перезагрузили, пока PlayOS работал
+  // (Windows завершает процессы, не дожидаясь выхода, или пропало питание) — это не сбой PlayOS
+  const rebooted = !!left && (!left.boot || Math.abs(left.boot - bootTime()) > BOOT_SLACK)
+  previousCrashed = !!left && !rebooted
+  armLock()
+  app.on('will-quit', endedCleanly)
 
   log('INFO', `PlayOS ${app.getVersion()} запущен (Electron ${process.versions.electron}, ${os.version()} ${os.release()})`)
   if (previousCrashed) log('WARN', 'Прошлый запуск завершился аварийно (остался running.lock)')
+  else if (left) log('INFO', 'Прошлый запуск прервало выключение или перезагрузка компьютера')
 
   // Всё, что main пишет в консоль как предупреждение или ошибку, попадает и в журнал
   const origWarn = console.warn.bind(console)
@@ -63,6 +68,45 @@ export function initLog() {
 }
 
 export const lastRunCrashed = () => previousCrashed
+
+/** Время загрузки Windows: uptime в секундах, поэтому сравниваем с запасом */
+const bootTime = () => Date.now() - os.uptime() * 1000
+const BOOT_SLACK = 2 * 60_000
+
+/** Маркер: старый формат — просто pid, новый — pid и время загрузки Windows */
+function readLock(): { pid: number; boot?: number } | null {
+  let text: string
+  try {
+    text = fs.readFileSync(lockFile, 'utf8')
+  } catch {
+    return null
+  }
+  try {
+    const j = JSON.parse(text) as { pid?: number; boot?: number }
+    if (j && typeof j === 'object') return { pid: Number(j.pid) || 0, boot: typeof j.boot === 'number' ? j.boot : undefined }
+  } catch {
+    /* старый формат */
+  }
+  return { pid: Number(text) || 0 }
+}
+
+/** PlayOS работает: маркер на месте до чистого выхода */
+export function armLock() {
+  if (!lockFile) return
+  try {
+    fs.writeFileSync(lockFile, JSON.stringify({ pid: process.pid, boot: Math.round(bootTime()) }))
+  } catch {
+    /* диск недоступен — без маркера */
+  }
+}
+
+/**
+ * Выход штатный: маркер убираем сразу. Зовётся и при завершении сеанса Windows — после него процесс могут
+ * снять в любой момент, и will-quit до него уже не дойдёт
+ */
+export function endedCleanly() {
+  if (lockFile) fs.rmSync(lockFile, { force: true })
+}
 
 /** Ошибки и падения окна — в журнал */
 export function watchWindow(win: BrowserWindow, name: string) {

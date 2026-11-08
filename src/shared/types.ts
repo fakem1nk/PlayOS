@@ -71,6 +71,40 @@ export interface Game {
   artSrc?: Partial<Record<'cover' | 'coverAnimated' | 'hero' | 'logo' | 'icon', string>>
   /** Есть — это VR-игра: перед запуском PlayOS ставит рантайм и пишет opencomposite.ini */
   vr?: GameVr
+  /** Пройдена — стоит на полке профиля */
+  done?: GameDone
+  /**
+   * Место в стопках прохождения: id сборки → ранг (меньше — выше). Ранг дробный — вставка между соседями без
+   * перенумерации, поэтому порядок живёт в самих играх и синхронизируется между ПК вместе с ними
+   */
+  pile?: Record<string, number>
+}
+
+/** Оценка пройденной игры — лицом Тиви: шедевр, понравилось, нормально, так себе, не моё */
+export type GameMood = 'love' | 'happy' | 'ok' | 'meh' | 'bad'
+
+/** Игра пройдена: когда, на 100 % ли и как понравилась; наиграно и дней в пути — на момент отметки */
+export interface GameDone {
+  at: number
+  full?: boolean
+  mood?: GameMood
+  /** Наиграно к финалу, секунды */
+  playtime: number
+  /** Дней от первой сессии до финала */
+  days: number
+}
+
+/** Сборка стопки прохождения (например, марафон): название; порядок игр — в самих играх (Game.pile) */
+export interface PileBuild {
+  id: string
+  name: string
+}
+
+/** Правка полки и стопки одной игры: null — убрать поле */
+export interface ShelfChange {
+  id: string
+  done?: GameDone | null
+  pile?: Record<string, number> | null
 }
 
 // ── VR ──
@@ -204,6 +238,8 @@ export interface Settings {
   /** Подсказку «PlayOS работает в трее» уже показали: при первом закрытии окна */
   trayHintShown?: boolean
   launchOnStartup: boolean
+  /** При запуске вместе с Windows — без окна и интро, сразу в трей (открыть значком или кнопкой PS) */
+  startInTray?: boolean
   /** Полученные трофеи PlayOS: id → время получения */
   trophies: Record<string, number>
   /** Горячая клавиша сохранения состояния в RPCS3 (например, Ctrl+S) */
@@ -281,6 +317,12 @@ export interface Settings {
   collections?: GameCollection[]
   /** Сортировка библиотеки; по умолчанию — недавние */
   librarySort?: LibrarySort
+  /** Сборки стопки прохождения в профиле; нет — одна «Основная» */
+  builds?: PileBuild[]
+  /** Какая сборка открыта в профиле */
+  build?: string
+  /** Фигурки Тиви, о которых уже сказали уведомлением */
+  figuresSeen?: string[]
 }
 
 /** Подборка: название и игры в порядке добавления */
@@ -662,6 +704,8 @@ export interface PcsApi {
   /** Удалить игру с компьютера. keep — оставить в библиотеке неустановленной; permanent — мимо корзины */
   uninstallGame(id: string, opts: { keep: boolean; permanent?: boolean }): Promise<UninstallResult>
   setFavorite(id: string, value: boolean): Promise<void>
+  /** Полка и стопка: отметка «Пройдено» и место в сборках, сразу у нескольких игр */
+  shelfPatch(changes: ShelfChange[]): Promise<void>
   resetPlaytime(id: string): Promise<void>
   saveSettings(patch: Partial<Settings>): Promise<Settings>
   /** skipSync — запустить без проверки облака (после «Позже» в диалоге конфликта) */
@@ -784,6 +828,8 @@ export interface PcsApi {
   onStoreHome(cb: (h: StoreHome) => void): () => void
   storeSearch(query: string): Promise<StoreItem[]>
   storePage(appId: number): Promise<StorePage | null>
+  /** Сколько вариантов загрузки у игры, с уточнением одноимённых у Steam (дольше, чем страница) */
+  storeOptionCount(appId: number, title: string): Promise<number>
   /** Время прохождения по HowLongToBeat */
   storeHltb(appId: number, title: string): Promise<GameDetails['hltb']>
   storeSteam(): Promise<StoreSteam>

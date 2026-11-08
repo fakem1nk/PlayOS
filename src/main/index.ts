@@ -30,6 +30,7 @@ import type {
   UpdateSplash,
   SaveProgress,
   Settings,
+  ShelfChange,
   DownloadControl,
   DownloadRequest,
   StoreHome,
@@ -47,7 +48,7 @@ import * as shop from './shop/catalog'
 import * as sources from './shop/sources'
 import * as downloads from './downloads'
 import { libraryMatch } from '@shared/match'
-import { initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
+import { armLock, endedCleanly, initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
 import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateState } from './updater'
 import { endUpdateSplash, showUpdateSplash, updateFinished } from './splash'
 import { exportData, importData, inspectBackup } from './backup'
@@ -63,6 +64,7 @@ import { hidControllers, hidStatus, rescanHid, rumbleDualSense, startHid } from 
 import * as launcher from './launcher'
 import * as keys from './keys'
 import * as media from './media'
+import * as presence from './presence'
 import * as uninstall from './uninstall'
 import * as vr from './vr'
 import { enablePineInIni, listSlots, pcsx2Config, slotTime, type Pcsx2Config } from './pcsx2'
@@ -131,6 +133,14 @@ function migrateLegacyData() {
 }
 
 if (!app.requestSingleInstanceLock()) app.quit()
+
+/** Метка запуска вместе с Windows: с ней в автозапуск записан PlayOS.exe */
+const AUTOSTART_ARG = '--autostart'
+/** Запустились вместе с Windows и окно не показываем — PlayOS ждёт в трее, пока его не откроют */
+let startHidden = false
+
+/** Автозапуск с меткой: по ней новый запуск понимает, что его открыла Windows, а не человек */
+const setAutostart = (on: boolean) => app.setLoginItemSettings({ openAtLogin: on, args: [AUTOSTART_ARG] })
 
 let win: BrowserWindow | null = null
 /** Запустились из установщика — до какой версии: сначала экран «готово» (он же продолжение заставки), потом интро */
@@ -566,6 +576,52 @@ async function adoptSteamInstalls(force = false): Promise<void> {
   broadcast()
 }
 
+// ───────────────────────── Игры, удалённые мимо PlayOS ─────────────────────────
+
+/** Файлов игры на этом ПК больше нет: она остаётся в библиотеке неустановленной — время, трофеи и подборки на месте */
+function forgetFiles(g: Game) {
+  g.path = ''
+  delete g.installDir
+  delete g.workDir
+  downloads.gameGone(g.id)
+}
+
+let presenceAt = 0
+let presenceBusy = false
+
+/**
+ * Не удалили ли игры проводником или в Steam: на старте и при возврате в окно PlayOS, не чаще раза в 10 секунд.
+ * Такие игры становятся неустановленными, а не ждут «Файл игры не найден» при запуске
+ */
+async function checkPresence(force = false) {
+  if (presenceBusy || (!force && Date.now() - presenceAt < 10_000)) return
+  presenceBusy = true
+  presenceAt = Date.now()
+  try {
+    const found = await presence.missingGames(getDb().games, launcher.running()?.gameId)
+    // За время проверки игру могли поправить в редакторе (указать новый файл) — такую не трогаем
+    const gone = found.flatMap((m) => {
+      const g = findGame(m.game.id)
+      return g && g.path === m.path && launcher.running()?.gameId !== g.id ? [g] : []
+    })
+    if (!gone.length) return
+    for (const g of gone) forgetFiles(g)
+    saveDb()
+    broadcast()
+    log('INFO', 'Файлов игр больше нет на диске:', found.map((m) => `${m.game.title} (${m.path})`).join('; '))
+    // Steam-игру могли перенести в другую библиотеку Steam — тогда она сразу найдётся там
+    void adoptSteamInstalls(true)
+    if (gone.length === 1) toast(t('Игра удалена с компьютера'), t('«{title}» осталась в библиотеке — время игры и трофеи сохранены', { title: gone[0].title }))
+    else {
+      const names = gone.slice(0, 3).map((g) => `«${g.title}»`).join(', ')
+      const more = gone.length > 3 ? t(' и ещё {n}', { n: gone.length - 3 }) : ''
+      toast(t('Игры удалены с компьютера'), t('Остались в библиотеке неустановленными: {list}', { list: names + more }))
+    }
+  } finally {
+    presenceBusy = false
+  }
+}
+
 /**
  * Арт для игры из облака: сам арт в облаке не хранится, только ссылки, откуда он скачан.
  * Скачиваем по ним; если ссылок нет (на том ПК арт выбирали с диска) — подбираем в сети:
@@ -629,6 +685,7 @@ function onHotkey() {
 /** Выход разрешён: питание в PlayOS (после аутро), «Выйти» в трее или установка обновления. Иначе закрытие окна прячет его в трей */
 let allowQuit = false
 let sessionEnding = false
+let sessionTimer: ReturnType<typeof setTimeout> | undefined
 
 // ───────────────────────── Экран для PlayOS ─────────────────────────
 
@@ -798,7 +855,7 @@ function createWindow() {
   win.hookWindowMessage(WM_DEVICECHANGE, rescanHid)
   win.once('ready-to-show', () => {
     if (!justUpdated) {
-      win?.show()
+      if (!startHidden) win?.show()
       endUpdateSplash()
       return
     }
@@ -812,11 +869,16 @@ function createWindow() {
     if (updatedShown) afterShown()
   })
   win.on('minimize', scheduleUnload)
+  // Открыли из трея — дальше окно живёт как обычно (перезагрузка интерфейса снова покажет интро по своим правилам)
+  win.on('show', () => (startHidden = false))
   // Вернулись в PlayOS (Alt+Tab, «На главную» в оверлее, конец игры) — интерфейс снова нужен. Только по
   // разворачиванию: свёрнутое окно Windows может на миг сделать активным, когда прячется оверлей, — это не возврат
   win.on('restore', () => restoreUi())
   // Вернулись в PlayOS, например из Steam, где поставили игру из магазина
-  win.on('focus', () => void adoptSteamInstalls())
+  win.on('focus', () => {
+    void adoptSteamInstalls()
+    void checkPresence()
+  })
   win.on('blur', () => {
     // Окно игры перехватило фокус — значит, она запустилась. Сворачиваемся.
     const r = launcher.running()
@@ -843,9 +905,24 @@ function createWindow() {
     e.preventDefault()
     hideToTray()
   })
-  // Windows завершает сеанс — не задерживаем выключение анимацией
+  // Windows завершает сеанс — не задерживаем выключение анимацией. Процесс могут снять сразу после ответа,
+  // до will-quit: библиотеку сохраняем и маркер работы убираем уже сейчас, иначе после перезагрузки
+  // PlayOS скажет, что в прошлый раз закрылся с ошибкой
   win.on('query-session-end', () => {
     sessionEnding = true
+    saveDbNow()
+    endedCleanly()
+    // Выключение отменили (другая программа не дала) — PlayOS работает дальше как обычно
+    clearTimeout(sessionTimer)
+    sessionTimer = setTimeout(() => {
+      sessionEnding = false
+      armLock()
+    }, 5 * 60_000)
+  })
+  win.on('session-end', () => {
+    clearTimeout(sessionTimer)
+    saveDbNow()
+    endedCleanly()
   })
   win.on('closed', () => {
     win = null
@@ -1243,9 +1320,7 @@ function serveVideo(file: string, range: string | null) {
 
 function applySettings(prev: Settings, next: Settings) {
   if (prev.fullscreen !== next.fullscreen) win?.setFullScreen(next.fullscreen)
-  if (app.isPackaged && prev.launchOnStartup !== next.launchOnStartup) {
-    app.setLoginItemSettings({ openAtLogin: next.launchOnStartup })
-  }
+  if (app.isPackaged && prev.launchOnStartup !== next.launchOnStartup) setAutostart(next.launchOnStartup)
   if (prev.betaUpdates !== next.betaUpdates) setBetaUpdates(next.betaUpdates)
   // Сменили язык — перезагружаем окна: тексты собираются при загрузке интерфейса
   if (prev.language !== next.language) {
@@ -1589,9 +1664,7 @@ function registerIpc() {
       if (!g) return
       // Игра остаётся в библиотеке неустановленной: время, трофеи и подборки на месте, файл можно указать снова
       if (opts.keep) {
-        g.path = ''
-        delete g.installDir
-        delete g.workDir
+        forgetFiles(g)
         saveDb()
         broadcast()
       } else removeGame(id)
@@ -1607,6 +1680,24 @@ function registerIpc() {
     const g = findGame(id)
     if (g) {
       g.favorite = value
+      g.updatedAt = stamp(g.updatedAt)
+    }
+    saveDb()
+    broadcast()
+  })
+  // Полка и стопка профиля: «Пройдено» и место в сборках — правка игры, уходит в облако как остальные её поля
+  ipcMain.handle('game:shelf', (_e, changes: ShelfChange[]) => {
+    for (const c of changes) {
+      const g = findGame(c.id)
+      if (!g) continue
+      if (c.done !== undefined) {
+        if (c.done) g.done = c.done
+        else delete g.done
+      }
+      if (c.pile !== undefined) {
+        if (c.pile && Object.keys(c.pile).length) g.pile = c.pile
+        else delete g.pile
+      }
       g.updatedAt = stamp(g.updatedAt)
     }
     saveDb()
@@ -1640,6 +1731,14 @@ function registerIpc() {
     const game = findGame(id)
     if (!game) return { ok: false, error: t('Игра не найдена') }
     launchCancelled = null
+    // Файлы удалили мимо PlayOS — игра становится неустановленной, а не падает с «Файл игры не найден»
+    if (game.path && !launcher.running() && (await presence.missingGames([game])).some((m) => m.path === game.path)) {
+      log('INFO', `Файлов «${game.title}» больше нет на диске: ${game.path}`)
+      forgetFiles(game)
+      saveDb()
+      broadcast()
+      return { ok: false, error: t('Её файлы удалены с компьютера. Игра осталась в библиотеке — скачайте её снова или укажите файл.'), fix: 'game' as const }
+    }
     // Сначала свежие сохранения из облака; разошлись — решает пользователь, игра пока не запускается
     if (!opts?.skipSync && !launcher.running()) {
       const conflict = await sync.beforeLaunch(game)
@@ -1743,9 +1842,15 @@ function registerIpc() {
   })
   ipcMain.handle('store:home', async (_e, refresh?: boolean) => shop.viewerHome(await sources.decorateHome(await shop.storeHome(refresh))))
   ipcMain.handle('store:search', async (_e, q: string) => shop.viewerItems(await sources.mergeSearch(q, await shop.storeSearch(q))))
+  // Страница — сразу с тем, что известно по источникам; одноимённые варианты уточняются у Steam отдельно (store:optionCount),
+  // чтобы описание и скриншоты не ждали этих поисков
   ipcMain.handle('store:page', async (_e, appId: number) => {
     const page = await shop.storePage(appId)
-    return page && { ...page, options: (await sources.decorateItems([page], true))[0].options }
+    return page && (await sources.decorateItems([page]))[0]
+  })
+  ipcMain.handle('store:optionCount', async (_e, appId: number, title: string) => {
+    const [item] = await sources.decorateItems([{ appId, title }], true)
+    return item.options ?? 0
   })
   ipcMain.handle('store:hltb', (_e, appId: number, title: string) => shop.storeHltb(appId, title))
   ipcMain.handle('store:steam', async (): Promise<StoreSteam> => {
@@ -2215,6 +2320,7 @@ ipcMain.on('lang:get', (e) => (e.returnValue = getLang()))
 ipcMain.on('pad:rumble', (_e, fx) => rumbleDualSense(fx))
 ipcMain.on('theme:get', (e) => (e.returnValue = getDb().settings.theme ?? 'dark'))
 ipcMain.on('update:finished', (e) => (e.returnValue = justUpdated))
+ipcMain.on('start:hidden', (e) => (e.returnValue = startHidden))
 ipcMain.on('update:shown', () => {
   updatedShown = true
   afterShown?.()
@@ -2224,6 +2330,12 @@ app.whenReady().then(() => {
   loadDb()
   // Первый запуск: английский, сменить можно на первом шаге стартовой настройки (у старых установок язык уже записан)
   if (!getDb().settings.language) getDb().settings.language = 'en'
+  {
+    const s = getDb().settings
+    // После обновления окно нужно сразу: экран «готово» продолжает заставку установщика
+    startHidden = process.argv.includes(AUTOSTART_ARG) && s.launchOnStartup && s.startInTray === true && !justUpdated
+    if (startHidden) log('INFO', 'Запуск вместе с Windows: окно в трее')
+  }
   setLang(getDb().settings.language)
   launcher.recoverSession()
 
@@ -2254,12 +2366,14 @@ app.whenReady().then(() => {
   screen.on('display-added', () => setTimeout(moveToTargetDisplay, 800))
   if (app.isPackaged) {
     // Путь к exe мог смениться (установка в новую папку) — обновляем автозапуск и ярлык в «Пуске»
-    if (getDb().settings.launchOnStartup) app.setLoginItemSettings({ openAtLogin: true })
+    // Заодно старые записи автозапуска (без метки) получают метку --autostart
+    if (getDb().settings.launchOnStartup) setAutostart(true)
     ensureStartMenuShortcut()
   }
   // Игры, добавленные до 0.6.1, ещё без цвета обложки — считаем один раз, не задерживая старт
   setTimeout(backfillAccents, 1500)
   setTimeout(pruneThumbs, 60_000)
+  setTimeout(() => void checkPresence(true), 4000)
   setTimeout(() => void adoptSteamInstalls(true), 5000)
   downloads.startDownloads((list) => send('downloads', list), {
     library: broadcast,

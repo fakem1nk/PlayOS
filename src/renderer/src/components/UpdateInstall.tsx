@@ -13,7 +13,7 @@ import { t } from '@shared/i18n'
 
 /**
  * Экран установки обновления. PlayOS закрывается, установщик работает молча, и без этого экрана всё выглядело бы
- * как внезапное выключение. Тиви по кругу ловит антенной кусочки обновления, втягивает их и перезагружается
+ * как внезапное выключение. Тиви по кругу набирает обновление в уши и полоску во рту, втягивает его и перезагружается
  * (сценка INSTALL в tivi-faces.ts). Когда окно закроется, заставка-помощник (main/splash.ts) держит снимок этого
  * экрана и крутит ту же сценку картинками, пока не откроется новая версия. Двигается только Тиви на сплошном фоне:
  * всё остальное на снимке замрёт, и подмены не видно.
@@ -21,7 +21,7 @@ import { t } from '@shared/i18n'
 
 /** Сценка по кругу; кадр считается от общих часов — заставка продолжит с того же места */
 const LOOP_MS = INSTALL.reduce((sum, frame) => sum + frame.ms, 0)
-/** Кусок вокруг Тиви в координатах рисунка — с запасом на прыжок, вспышку искры и значки вокруг корпуса */
+/** Кусок вокруг Тиви в координатах рисунка — с запасом на прыжок, уши и значки вокруг корпуса */
 const AREA = { x: 0, y: -12, width: 256, height: 252 }
 
 /** Кадр сценки в момент t и сколько ему ещё держаться */
@@ -75,11 +75,11 @@ export function UpdateInstall({ version, onFail }: { version?: string; onFail: (
     }
   }, [t0])
 
-  const { face, fx, pose } = INSTALL[frame]
+  const { face, fx, pose, ears } = INSTALL[frame]
   return (
     <motion.div className="upd-install" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
       <div className="upd-install-tivi" ref={art}>
-        <TiviArt face={face} fx={fx} pose={pose} />
+        <TiviArt face={face} fx={fx} pose={pose} ears={ears} />
       </div>
       <div className="upd-install-title">{version ? t('Устанавливаем PlayOS {v}', { v: version }) : t('Устанавливаем обновление')}</div>
       <div className="upd-install-status">{t('PlayOS запустится сам. Не выключайте компьютер')}</div>
@@ -127,11 +127,11 @@ function UpdateDone({ version }: { version: string }) {
     }
   }, [])
 
-  const { face, fx, pose } = INSTALLED[frame]
+  const { face, fx, pose, ears } = INSTALLED[frame]
   return (
     <motion.div className="upd-install is-done" exit={{ opacity: 0 }} transition={{ duration: 0.6 }}>
       <div className="upd-install-tivi">
-        <TiviArt face={face} fx={fx} pose={pose} />
+        <TiviArt face={face} fx={fx} pose={pose} ears={ears} />
       </div>
       {/* Надпись перетекает: старая уходит вверх и гаснет, новая проявляется снизу */}
       <AnimatePresence mode="wait" initial={false}>
@@ -176,8 +176,8 @@ async function splashOf(svg: SVGSVGElement | null | undefined, t0: number): Prom
   const frames: Uint8Array[] = []
   const steps: [number, number][] = []
   try {
-    for (const { face, fx, pose, ms } of INSTALL) {
-      flushSync(() => root.render(<TiviArt face={face} fx={fx} pose={pose} />))
+    for (const { face, fx, pose, ears, ms } of INSTALL) {
+      flushSync(() => root.render(<TiviArt face={face} fx={fx} pose={pose} ears={ears} />))
       const markup = new XMLSerializer().serializeToString(host.firstElementChild!)
       let k = known.get(markup)
       if (k === undefined) {

@@ -191,6 +191,17 @@
   display: none;
 }
 
+/* Перелистывание мышью: пока тянут ряд, баннер или скриншот — «хватающая» рука, плитки не реагируют на наведение */
+.store-strip.is-dragging,
+.store-hero.is-dragging,
+.store-viewer.is-dragging {
+  cursor: grabbing;
+}
+
+.store-strip.is-dragging .store-cell {
+  pointer-events: none;
+}
+
 .store-cell {
   flex: none;
   width: 16.5rem;
@@ -487,6 +498,58 @@
 
 .shot-prog.is-ready .shot-full {
   opacity: 1;
+}
+
+/* Полный размер не загрузился — остаётся превью, уже без размытия */
+.shot-prog.is-thumb-only .shot-thumb {
+  filter: none;
+  transform: none;
+}
+
+/* Пока страница или картинка грузится — мерцание, как у текста */
+.store-shots.is-wait .store-shot,
+.shot-prog.is-loading {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.11) 50%, rgba(255, 255, 255, 0.05) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.store-shots.is-wait .store-shot {
+  display: block;
+  cursor: default;
+}
+
+/* Не загрузилась ни с одного адреса — тихий значок вместо пустоты */
+.shot-broken {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  font-size: 3.2rem;
+  color: var(--faint);
+}
+
+/* Стрелки по бокам просмотра — для мыши; на первом и последнем скриншоте лишняя стрелка гаснет */
+.store-viewer-arrow {
+  position: absolute;
+  top: 50%;
+  width: 6.4rem;
+  height: 6.4rem;
+  font-size: 2.8rem;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease;
+}
+
+.store-viewer-arrow.is-prev {
+  left: 3.2rem;
+}
+
+.store-viewer-arrow.is-next {
+  right: 3.2rem;
+}
+
+.store-viewer-arrow.is-off {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .store-shot:focus {

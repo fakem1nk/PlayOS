@@ -190,16 +190,20 @@ export function Library(props: Props) {
       const byId = new Map(games.map((g) => [g.id, g]))
       pool = collection.games.map((id) => byId.get(id)).filter((g): g is Game => !!g)
     } else pool = games.filter((g) => (filter === 'all' ? true : filter === 'favorite' ? g.favorite : filter === 'vr' ? !!g.vr : g.platform === filter))
+    // Свой порядок подборки не трогаем: его расставили руками
     if (sortId === 'manual' && !searching) return pool
     const collator = new Intl.Collator(locale())
-    return [...pool].sort((a, b) =>
-      sortId === 'name'
-        ? collator.compare(a.title, b.title)
-        : sortId === 'time'
-          ? b.playtime - a.playtime
-          : sortId === 'added'
-            ? b.addedAt - a.addedAt
-            : (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || b.addedAt - a.addedAt
+    // Установленные на этом ПК — всегда первыми, внутри каждой группы — выбранная сортировка
+    return [...pool].sort(
+      (a, b) =>
+        Number(notInstalled(a)) - Number(notInstalled(b)) ||
+        (sortId === 'name'
+          ? collator.compare(a.title, b.title)
+          : sortId === 'time'
+            ? b.playtime - a.playtime
+            : sortId === 'added'
+              ? b.addedAt - a.addedAt
+              : (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || b.addedAt - a.addedAt)
     )
   }, [games, filter, collection, sortId, query, searching])
 

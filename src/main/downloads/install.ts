@@ -1,10 +1,10 @@
-import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { DownloadJob, Platform } from '@shared/types'
 import { trackableDir } from '../launcher'
 import { log } from '../log'
 import { findGameExe } from '../media'
+import { shellRun, type ShellRun } from '../shellrun'
 import { exeOf, iconFile, registryEntries, type RegEntry } from '../uninstall'
 
 /**
@@ -124,50 +124,13 @@ export function findImage(roots: string[], platform: Platform): string | null {
 
 // ───────────────────────── Установщик ─────────────────────────
 
-/** Строка для PowerShell в одинарных кавычках: там ничего не подставляется, кавычка удваивается */
-const psQuote = (s: string) => `'${s.replace(/'/g, "''")}'`
-
-export interface InstallerRun {
-  /** Код выхода установщика */
-  code?: number
-  /** Права администратора не дали (UAC «Нет») */
-  cancelled?: boolean
-  error?: string
-}
+export type InstallerRun = ShellRun
 
 /**
- * Запуск установщика через ShellExecute (.NET Process.Start из PowerShell): права администратора Windows спросит
- * сама, если они нужны установщику. Ждём, пока он закроется — установка идёт столько, сколько нужно.
- * Не Start-Process: он читает [ ] в пути как шаблон и не находит «[Сборка] Игра\Setup.exe»
+ * Запуск установщика через ShellExecute: права администратора Windows спросит сама, если они нужны установщику.
+ * Ждём, пока он закроется — установка идёт столько, сколько нужно
  */
-export function runInstaller(file: string, onStart: (pid: number) => void): Promise<InstallerRun> {
-  const ps =
-    "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.Encoding]::UTF8;" +
-    `$si = New-Object System.Diagnostics.ProcessStartInfo; $si.FileName = ${psQuote(file)}; $si.WorkingDirectory = ${psQuote(path.dirname(file))}; $si.UseShellExecute = $true; ` +
-    'try { $p = [System.Diagnostics.Process]::Start($si) } ' +
-    'catch { $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }; [Console]::Out.WriteLine("fail " + $e.NativeErrorCode + " " + $e.Message); exit } ' +
-    "if (-not $p) { [Console]::Out.WriteLine('fail 0 no process'); exit }; " +
-    "[Console]::Out.WriteLine('pid ' + $p.Id); $p.WaitForExit(); [Console]::Out.WriteLine('exit ' + $p.ExitCode)"
-  return new Promise((resolve) => {
-    const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
-    let buf = ''
-    let res: InstallerRun = { error: 'no result' }
-    p.stdout.on('data', (d) => {
-      buf += d.toString('utf8')
-      let i: number
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i).trim()
-        buf = buf.slice(i + 1)
-        let m: RegExpMatchArray | null
-        if ((m = line.match(/^pid (\d+)/))) onStart(Number(m[1]))
-        else if ((m = line.match(/^exit (-?\d+)/))) res = { code: Number(m[1]) }
-        else if ((m = line.match(/^fail (\d*)\s*(.*)$/))) res = m[1] === '1223' || /cancel|отмен/i.test(m[2]) ? { cancelled: true } : { error: m[2] }
-      }
-    })
-    p.on('error', (e) => resolve({ error: e.message }))
-    p.on('close', () => resolve(res))
-  })
-}
+export const runInstaller = (file: string, onStart: (pid: number) => void): Promise<InstallerRun> => shellRun(file, { wait: true, onStart })
 
 /** Снимок «Программ и компонентов» до установки: по нему видно, что установщик добавил */
 export async function uninstallSnapshot(): Promise<Map<string, RegEntry>> {

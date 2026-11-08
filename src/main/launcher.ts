@@ -5,6 +5,7 @@ import path from 'node:path'
 import { shell } from 'electron'
 import type { Game, LaunchFix, RunningGame, Settings } from '@shared/types'
 import { commitSession, getDb, saveDb } from './store'
+import { quoteArg, shellRun } from './shellrun'
 import { listProcesses, processAlive } from './win32'
 import { t } from '@shared/i18n'
 
@@ -165,7 +166,14 @@ export async function launchGame(game: Game, settings: Settings): Promise<{ ok: 
         child.once('exit', (code) => events.emit('child-exit', { gameId: game.id, code, ms: Date.now() - spawnedAt }))
       })
     } catch (e) {
-      return { ok: false, error: t('Не удалось запустить: {v}', { v: (e as Error).message }) }
+      // Игре нужны права администратора (её манифест или флаг «Запускать от имени администратора», который ставят
+      // установщики сборок): так Windows её не запустит — запускаем через ShellExecute, Windows сама спросит права.
+      // Процесс игры потом находится по её папке, как у игр Steam
+      if ((e as NodeJS.ErrnoException).code !== 'EACCES') return { ok: false, error: t('Не удалось запустить: {v}', { v: (e as Error).message }) }
+      const r = await shellRun(spec.exe, { args: spec.args.map(quoteArg).join(' '), cwd: spec.cwd })
+      if (r.cancelled) return { ok: false, error: t('Игре нужны права администратора — без них Windows её не запускает') }
+      if (!r.pid) return { ok: false, error: t('Не удалось запустить: {v}', { v: r.error ?? (e as Error).message }) }
+      pid = r.pid
     }
   }
 

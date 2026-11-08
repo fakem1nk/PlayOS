@@ -501,6 +501,14 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 value={s.launchOnStartup}
                 onChange={(v) => save({ launchOnStartup: v })}
               />
+              {s.launchOnStartup && (
+                <Toggle
+                  label={t('Запускать свёрнутым в трей')}
+                  hint={t('Без окна и интро: PlayOS ждёт в трее. Открыть — щелчок по значку или кнопка PS на геймпаде')}
+                  value={s.startInTray === true}
+                  onChange={(v) => save({ startInTray: v })}
+                />
+              )}
               <h2 className="panel-title">
                 <IconGamepad /> {t('Во время игры')}
               </h2>

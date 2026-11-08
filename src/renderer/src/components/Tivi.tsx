@@ -9,13 +9,23 @@ import {
   COLORS,
   COLS,
   DROWSY_ACTS,
+  EAR_TICK_MS,
+  EARS_IDLE,
   FREE,
   IDLE_ACTS,
   MORNING_ACTS,
   ROWS,
   SCRIPTS,
+  SLOSH_TICKS,
   SPRITES,
+  STATIC_EARS,
+  earProgramOf,
+  earsOf,
   loadFace,
+  sloshed,
+  type Ear,
+  type EarProgramName,
+  type Ears,
   type Frame,
   type Fx,
   type Gaze,
@@ -32,8 +42,11 @@ import { t } from '@shared/i18n'
 import '../styles-tivi.css'
 
 /**
- * Тиви — маскот PlayOS (как на значке приложения) в правом нижнем углу.
+ * Тиви — маскот PlayOS в правом нижнем углу.
  * Лицо — светодиодная матрица 15×8, как цифры часов: кадры сменяются мгновенно, без плавных переходов.
+ * Над и под матрицей — полосы по 14 точек со сдвигом на полшага: нижняя показывает загрузку обновления.
+ * Вместо антенн — уши-капсулы со светящейся «жидкостью»: у каждой сценки своя программа (tivi-faces.ts),
+ * в покое оба уха залиты полностью, от прыжков и рывков жидкость плещется.
  * Следит глазами за фокусом, а пока двигается мышь — за ней; моргает; в покое сам себя развлекает (сценки в tivi-faces.ts).
  * На клик подмигивает и каждый раз отвечает по-новому, если кликать без конца — ему становится дурно.
  * Радуется запуску игры, грустит от ошибок, влюбляется в трофеи, засыпает при бездействии.
@@ -43,12 +56,20 @@ import '../styles-tivi.css'
 
 const PITCH = 11.5
 const DOT = 4.4
-// Центр экрана в координатах образца 256 (корпус 16,70 224×160, экран с отступом 18)
+// Центр экрана в координатах образца 256 (корпус 22,76 212×148, экран с рамкой 12)
 const CX = 128
 const CY = 150
 /** Пиксель значков вокруг корпуса (zZ, сердечки) */
 const PX = 7
-const SPARK = 'M0 -20C3.25 -3.25 3.25 -3.25 20 0C3.25 3.25 3.25 3.25 0 20C-3.25 3.25 -3.25 3.25 -20 0C-3.25 -3.25 -3.25 -3.25 0 -20Z'
+const BODY = '#1a1e27'
+const INSET = '#05070c'
+/** Окошко уха до поворота капсулы: 16×42, от y 32 до 74 */
+const WIN_TOP = 32
+const WIN_H = 42
+const WIN_BOT = WIN_TOP + WIN_H
+/** Полосы над и под матрицей: на 0,9 шага от крайних рядов, по 14 точек */
+const STRIP_GAP = PITCH * 0.9
+const STRIP_DOTS = COLS - 1
 
 const DROWSY_MS = 75_000
 const SLEEP_MS = 240_000
@@ -234,6 +255,66 @@ function createPlayer(show: (frame: Frame, act: ScriptName | null) => void) {
     },
     stop: () => clearTimeout(timer)
   }
+}
+
+/** Уши с точностью до пикселя окошка: соседние такты с одинаковой картинкой не перерисовываются */
+const earKey = (e: Ears) => JSON.stringify(e, (_, v) => (typeof v === 'number' ? Math.round(v * WIN_H) : v))
+
+/**
+ * Уши живут своим тактом: программа сценки по номеру такта (сначала — с её началом) плюс плеск после рывка тела.
+ * В покое и в свёрнутом окне таймер не идёт
+ */
+function useEars(prog: EarProgramName, loading: number | null, move: { kind: TiviMove | null; n: number }): Ears {
+  const [ears, setEars] = useState<Ears>(EARS_IDLE)
+  const loadingRef = useRef(loading)
+  loadingRef.current = loading
+  const st = useRef({ t: 0, k: SLOSH_TICKS, kind: 'hop' as TiviMove, last: '', timer: 0 })
+  const draw = useRef(() => {})
+  const start = useRef(() => {})
+
+  useEffect(() => {
+    const s = st.current
+    s.t = 0
+    const animated = () => !STATIC_EARS.has(prog) || s.k < SLOSH_TICKS
+    draw.current = () => {
+      let e = earsOf(prog, s.t, { loading: loadingRef.current })
+      if (s.k < SLOSH_TICKS) e = sloshed(e, s.k, s.kind)
+      const key = earKey(e)
+      if (key === s.last) return
+      s.last = key
+      setEars(e)
+    }
+    start.current = () => {
+      if (s.timer || !animated()) return
+      s.timer = window.setInterval(() => {
+        if (document.hidden) return
+        s.t++
+        if (s.k < SLOSH_TICKS) s.k++
+        draw.current()
+        if (!animated()) {
+          clearInterval(s.timer)
+          s.timer = 0
+        }
+      }, EAR_TICK_MS)
+    }
+    draw.current()
+    start.current()
+    return () => {
+      clearInterval(s.timer)
+      s.timer = 0
+    }
+  }, [prog])
+
+  // Рывок тела — жидкость в ушах плещется
+  useEffect(() => {
+    if (!move.kind) return
+    st.current.k = 0
+    st.current.kind = move.kind
+    draw.current()
+    start.current()
+  }, [move])
+
+  return ears
 }
 
 interface Props {
@@ -471,18 +552,20 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
     return () => clearTimeout(timer)
   }, [])
 
-  // Система: геймпад и шлем подключили или отключили, игра закончилась, обновление докачалось
+  // Система: геймпад и шлем подключили или отключили, у геймпада садится заряд, игра закончилась, обновление докачалось
   const downloaded = update.phase === 'ready'
-  const prev = useRef({ playing, pad, vr, loading, downloaded })
+  const lowBattery = padStatus.connected > 0 && (padStatus.battery === 'low' || padStatus.battery === 'empty')
+  const prev = useRef({ playing, pad, vr, loading, downloaded, lowBattery })
   useEffect(() => {
     const was = prev.current
-    prev.current = { playing, pad, vr, loading, downloaded }
+    prev.current = { playing, pad, vr, loading, downloaded, lowBattery }
     if (pad && !was.pad) tivi({ act: 'happy', priority: 2 })
     else if (!pad && was.pad) tivi({ act: 'gloom', ms: 1800, priority: 2 })
+    if (lowBattery && !was.lowBattery) tivi({ act: 'lowbat', ms: 1800, priority: 2 })
     if (vr && !was.vr) tivi({ act: 'vr', priority: 2 })
     if (!playing && was.playing) tivi({ act: Math.random() < 0.5 ? 'blush' : 'happy', ms: 1400, priority: 2 })
     if (downloaded && was.loading !== null) tivi({ act: 'news', ms: 1600, priority: 3 })
-  }, [playing, pad, vr, loading, downloaded])
+  }, [playing, pad, vr, loading, downloaded, lowBattery])
 
   // Пока качается обновление, следующая клетка полоски мигает
   const isLoading = loading !== null
@@ -606,6 +689,8 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
   // Полоска загрузки заменяет покой; сценки (клик, ошибка) показываются поверх неё
   const face = loading !== null && !act ? loadFace(loading, tick) : frame.face
   const free = FREE.has(face)
+  const ears = useEars(earProgramOf(act, stage, loading), loading, move)
+  const strips = loading !== null && !act ? { bottom: Math.round((loading / 100) * STRIP_DOTS) } : undefined
 
   return (
     <button
@@ -637,17 +722,80 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
         blink={free || face !== frame.face ? blink : 0}
         fx={face === frame.face ? frame.fx : undefined}
         cap={cap}
+        ears={ears}
+        strips={strips}
         className={move.kind ? `is-${move.kind}` : ''}
       />
     </button>
   )
 })
 
-/** Шаги вспышки искры — те же, что в tivi-twinkle */
-const SPARK_STEPS = ['', ' rotate(22.5) scale(1.25)', ' rotate(45) scale(1.55)', ' rotate(67.5) scale(1.25)']
+/**
+ * Матрица экрана и полосы над и под ней (по 14 точек, каждая посередине между двумя точками сетки; горят слева направо).
+ * Отдельно от ушей: на такт ушей матрица не перерисовывается
+ */
+const Matrix = memo(function Matrix({ face, gaze, blink, top, bottom }: { face: Grid; gaze: Gaze; blink: number; top: number; bottom: number }) {
+  const lit = paint(face, gaze, blink)
+  const dots: React.ReactNode[] = []
+  const dot = (key: string, x: number, y: number, fill: string, alpha: number) => <circle key={key} cx={x} cy={y} r={DOT} fill={fill} opacity={alpha} />
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const ch = lit.get(y * COLS + x)
+      const [fill, alpha] = ch ? COLORS[ch] : ['#ffffff', 0.045]
+      dots.push(dot(String(y * COLS + x), CX + (x - (COLS - 1) / 2) * PITCH, CY + (y - (ROWS - 1) / 2) * PITCH, fill, alpha))
+    }
+  for (const side of [-1, 1]) {
+    const y = CY + side * (((ROWS - 1) / 2) * PITCH + STRIP_GAP)
+    const n = side < 0 ? top : bottom
+    for (let x = 0; x < STRIP_DOTS; x++) dots.push(dot(`s${side}.${x}`, CX + (x - (STRIP_DOTS - 1) / 2) * PITCH, y, '#ffffff', x < n ? 1 : 0.045))
+  }
+  return <g filter="url(#tivi-glow)">{dots}</g>
+})
+
+/** Заливка окошка уха: жидкость с наклонённой или рябящей поверхностью, второй слой, полоски, пузырьки и капли (лишнее срезает маска окошка) */
+function EarFill({ e, x }: { e: Ear; x: number }) {
+  const x0 = x - 8
+  const x1 = x + 8
+  const y = (v: number) => WIN_BOT - v * WIN_H
+  const liquid = (v: number, c: string, op: number, key: string) => {
+    if (v <= 0) return null
+    const top = y(v)
+    const dy = (e.tilt ?? 0) * 5
+    const w = e.wave ?? 0
+    const edge = w
+      ? `L${x0} ${top + dy}Q${x - 4} ${top + dy / 2 + w} ${x} ${top}Q${x + 4} ${top - dy / 2 - w} ${x1} ${top - dy}`
+      : `L${x0} ${top + dy}L${x1} ${top - dy}`
+    return <path key={key} d={`M${x0} ${WIN_BOT + 2}${edge}L${x1} ${WIN_BOT + 2}Z`} fill={c} opacity={op} />
+  }
+  return (
+    <>
+      {liquid(e.v, e.c, e.o, 'v')}
+      {e.over && liquid(e.over.v, e.over.c, 1, 'over')}
+      {e.bands?.map(([a, b, c], i) => b > a && <rect key={`b${i}`} x={x0} y={y(b)} width={16} height={(b - a) * WIN_H} fill={c ?? e.c} />)}
+      {e.bubbles?.map((b, i) => b.y < e.v && <circle key={`u${i}`} cx={x + b.x * 5} cy={y(b.y)} r={b.r} fill={INSET} opacity={0.5} />)}
+      {e.drops?.map((d, i) => <circle key={`d${i}`} cx={x + (d.x ?? 0) * 4} cy={y(d.y)} r={d.r ?? 2.6} fill={d.c ?? e.c} />)}
+    </>
+  )
+}
+
+/** Ухо-капсула за корпусом, наклонено наружу; левое машет при приветствии (tivi-wave в styles-tivi.css) */
+function EarArt({ side, e }: { side: 'l' | 'r'; e: Ear }) {
+  const x = side === 'l' ? 64 : 192
+  return (
+    <g className={`tivi-ear-${side}`}>
+      <g transform={`rotate(${side === 'l' ? -16 : 16} ${x} 90)`}>
+        <rect x={x - 15} y={26} width={30} height={64} rx={15} fill={BODY} stroke="url(#tivi-ear-rim)" strokeWidth={1.5} />
+        <rect x={x - 8} y={WIN_TOP} width={16} height={WIN_H} rx={8} fill={INSET} />
+        <g clipPath={`url(#tivi-win-${side})`}>
+          <EarFill e={e} x={x} />
+        </g>
+      </g>
+    </g>
+  )
+}
 
 /**
- * Рисунок Тиви без поведения: корпус, антенны, экран с лицом, значки вокруг и колпак.
+ * Рисунок Тиви без поведения: уши, корпус с рамкой, экран с лицом и полосами, значки вокруг и колпак.
  * pose двигает тело атрибутами, а не CSS — так рисунок можно сохранить картинкой (экран установки); значки вокруг остаются на месте
  */
 export function TiviArt({
@@ -657,6 +805,8 @@ export function TiviArt({
   fx,
   cap = 'off',
   pose,
+  ears = EARS_IDLE,
+  strips,
   className
 }: {
   face: Grid
@@ -665,59 +815,36 @@ export function TiviArt({
   fx?: Fx[]
   cap?: 'off' | 'drop' | 'on'
   pose?: Pose
+  ears?: Ears
+  /** Сколько точек горит в полосах над и под матрицей */
+  strips?: { top?: number; bottom?: number }
   className?: string
 }) {
-  const lit = paint(face, gaze, blink)
-  const dots: React.ReactNode[] = []
-  for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++) {
-      const ch = lit.get(y * COLS + x)
-      const [fill, alpha] = ch ? COLORS[ch] : ['#ffffff', 0.045]
-      dots.push(
-        <circle
-          key={y * COLS + x}
-          cx={CX + (x - (COLS - 1) / 2) * PITCH}
-          cy={CY + (y - (ROWS - 1) / 2) * PITCH}
-          r={DOT}
-          fill={fill}
-          opacity={alpha}
-        />
-      )
-    }
   return (
     <svg viewBox="8 0 240 236" className={className} aria-hidden>
       <defs>
-        <linearGradient id="tivi-body" gradientUnits="userSpaceOnUse" x1="0" y1="70" x2="0" y2="230">
-          <stop offset="0" stopColor="#2b3448" />
-          <stop offset="1" stopColor="#0a0d15" />
-        </linearGradient>
-        <linearGradient id="tivi-rim" gradientUnits="userSpaceOnUse" x1="16" y1="70" x2="240" y2="230">
-          <stop offset="0" stopColor="#fff" stopOpacity=".75" />
-          <stop offset=".35" stopColor="#fff" stopOpacity=".14" />
-          <stop offset=".65" stopColor="#fff" stopOpacity=".07" />
-          <stop offset="1" stopColor="#fff" stopOpacity=".45" />
-        </linearGradient>
-        <linearGradient id="tivi-ant" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="70">
-          <stop offset="0" stopColor="#c3cad8" />
-          <stop offset="1" stopColor="#7f889c" />
+        {/* Ободок корпуса светится на двух дугах: сверху слева и снизу справа */}
+        <linearGradient id="tivi-rim" gradientUnits="userSpaceOnUse" x1="22" y1="76" x2="234" y2="224">
+          <stop offset="0" stopColor="#fff" stopOpacity=".55" />
+          <stop offset=".3" stopColor="#fff" stopOpacity=".07" />
+          <stop offset=".7" stopColor="#fff" stopOpacity=".03" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".22" />
         </linearGradient>
         <linearGradient id="tivi-lip" gradientUnits="userSpaceOnUse" x1="0" y1="88" x2="0" y2="212">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
           <stop offset=".6" stopColor="#fff" stopOpacity="0" />
           <stop offset="1" stopColor="#fff" stopOpacity=".16" />
         </linearGradient>
-        <linearGradient id="tivi-spark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#c2b4ff" />
-          <stop offset="1" stopColor="#8f78ff" />
+        <linearGradient id="tivi-ear-rim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".32" />
+          <stop offset=".5" stopColor="#fff" stopOpacity=".08" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".04" />
         </linearGradient>
-        <radialGradient id="tivi-ball" cx=".35" cy=".3" r=".8">
-          <stop offset="0" stopColor="#fff" />
-          <stop offset=".55" stopColor="#eef1f7" />
-          <stop offset="1" stopColor="#a3abbd" />
-        </radialGradient>
-        <clipPath id="tivi-clip">
-          <rect x="16" y="70" width="224" height="160" rx="40" />
-        </clipPath>
+        {(['l', 'r'] as const).map((side) => (
+          <clipPath key={side} id={`tivi-win-${side}`}>
+            <rect x={(side === 'l' ? 64 : 192) - 8} y={WIN_TOP} width={16} height={WIN_H} rx={8} />
+          </clipPath>
+        ))}
         <filter id="tivi-glow" x="-30%" y="-30%" width="160%" height="160%">
           <feGaussianBlur stdDeviation="3.2" result="b" />
           <feComponentTransfer in="b" result="b2">
@@ -730,29 +857,18 @@ export function TiviArt({
         </filter>
       </defs>
       <g transform={pose?.x || pose?.y ? `translate(${pose.x ?? 0} ${pose.y ?? 0})` : undefined}>
-        <path d="M144 72L186 22" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
-        {/* Наклон — на обёртке: у самой антенны CSS задаёт свою точку поворота */}
-        <g transform={pose?.ant ? `rotate(${pose.ant} 112 72)` : undefined}>
-          <g className="tivi-ant-l">
-            <path d="M112 72L80 24" stroke="url(#tivi-ant)" strokeWidth="7" strokeLinecap="round" />
-            <circle cx="80" cy="24" r="9" fill="url(#tivi-ball)" stroke="#6f7990" strokeOpacity=".4" strokeWidth="1.4" />
-          </g>
-        </g>
-        <g transform={`translate(188 22)${SPARK_STEPS[pose?.spark ?? 0]}`}>
-          <path className="tivi-spark" d={SPARK} fill="url(#tivi-spark)" />
-        </g>
-        <rect x="16" y="70" width="224" height="160" rx="40" fill="url(#tivi-body)" />
-        <g clipPath="url(#tivi-clip)">
-          <rect x="16" y="70" width="224" height="160" rx="40" fill="none" stroke="url(#tivi-rim)" strokeWidth="5" />
-        </g>
+        <EarArt side="l" e={ears.l} />
+        <EarArt side="r" e={ears.r} />
+        <rect x="22" y="76" width="212" height="148" rx="38" fill={BODY} />
+        <rect x="22.75" y="76.75" width="210.5" height="146.5" rx="37.25" fill="none" stroke="url(#tivi-rim)" strokeWidth="1.5" />
         {cap !== 'off' && (
           <g className="tivi-cap" shapeRendering="crispEdges">
-            {sprite('cap', 128, cap === 'drop' ? 34 : 45.5, 'cap')}
+            {sprite('cap', 128, cap === 'drop' ? 40 : 51.5, 'cap')}
           </g>
         )}
-        <rect x="34" y="88" width="188" height="124" rx="26" fill="#05070c" />
+        <rect x="34" y="88" width="188" height="124" rx="26" fill={INSET} />
         <rect x="34.75" y="88.75" width="186.5" height="122.5" rx="25.25" fill="none" stroke="url(#tivi-lip)" strokeWidth="1.5" />
-        <g filter="url(#tivi-glow)">{dots}</g>
+        <Matrix face={face} gaze={gaze} blink={blink} top={strips?.top ?? 0} bottom={strips?.bottom ?? 0} />
       </g>
       <g className="tivi-fx" shapeRendering="crispEdges">
         {fx?.flatMap(({ s, x, y }, k) => sprite(s, x, y, String(k)))}
