@@ -12,7 +12,8 @@
     "fixed": [
       "Магазин быстрее грузится при нестабильной связи со Steam",
       "Запускаются игры, которым нужны права администратора",
-      "Выключение компьютера больше не считается сбоем PlayOS"
+      "Выключение компьютера больше не считается сбоем PlayOS",
+      "Загрузка в облако больше не обрывается с ошибкой задержки"
     ]
   },
   "en": {
@@ -27,7 +28,8 @@
     "fixed": [
       "The Store loads faster on unstable connections to Steam",
       "Games that need administrator rights now start",
-      "A PC shutdown is no longer reported as a PlayOS crash"
+      "A PC shutdown is no longer reported as a PlayOS crash",
+      "Uploads to the cloud no longer fail with a delay error"
     ]
   }
 }
