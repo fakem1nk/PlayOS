@@ -37,12 +37,30 @@ jobs:
       - name: Сборка PlayOSHelper.exe
         run: npm run build:helper
 
+      # Electron и инструменты electron-builder (NSIS, rcedit) — из кэша прошлых сборок: не качать их каждый раз
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
       - name: Сборка и загрузка в черновик
-        run: npm run release
+        shell: pwsh
+        # Загрузки с релизов GitHub (Electron, его контрольные суммы, NSIS) временами отвечают 504. Удачно скачанное
+        # остаётся в кэше, поэтому каждая следующая попытка продвигается дальше; черновик каждый раз собирается заново
+        run: |
+          for ($i = 1; $i -le 6; $i++) {
+            npm run release
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "Попытка $i не удалась, повтор через 20 с"
+            Start-Sleep -Seconds 20
+          }
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 7-Zip для упаковки установщика — свой, из репозитория: electron-builder иначе качает его с релизов
-          # electron-builder-binaries на GitHub, а те временами отвечают 504 (так упала первая сборка 1.2.0-beta.7)
+          # 7-Zip для упаковки установщика — свой, из репозитория: одной загрузкой с GitHub меньше
           ELECTRON_BUILDER_7ZIP_PATH: ${{ github.workspace }}\resources\7zip\7z.exe
           # Ключи OAuth-приложений облаков: electron-vite встраивает MAIN_VITE_* в main-процесс.
           # Без них в сборке остаётся только «Папка синхронизации»
