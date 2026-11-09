@@ -1,0 +1,31 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Каталог игр в магазине: весь Steam с сортировкой и фильтрами",
+      "Игры GOG, которых нет в Steam, и игры из ваших источников",
+      "Быстрое добавление игры в библиотеку прямо с обложки",
+      "Загрузки встают на паузу, пока идёт игра, и продолжаются после неё",
+      "Ограничение скорости загрузки и отдачи",
+      "«Качать сейчас», порядок очереди и выбор файлов торрента",
+      "Раздача после загрузки до выбранного рейтинга"
+    ],
+    "fixed": [
+      "Длинное описание больше не выталкивает логотип из баннера магазина"
+    ]
+  },
+  "en": {
+    "new": [
+      "Game Catalogue in the Store: all of Steam with sorting and filters",
+      "GOG games that are not on Steam, and games from your sources",
+      "Add a game to the library right from its cover",
+      "Downloads pause while a game is running and continue after it",
+      "Download and upload speed limits",
+      "Download now, queue order and torrent file selection",
+      "Seeding after a download up to a chosen ratio"
+    ],
+    "fixed": [
+      "Long descriptions no longer push the logo out of the Store banner"
+    ]
+  }
+}
