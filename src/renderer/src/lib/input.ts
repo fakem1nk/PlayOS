@@ -153,7 +153,7 @@ let padKind: PadKind = 'playstation'
 let padConnected = false
 /** Главный процесс запретил геймпад: идёт игра, а PlayOS не на переднем плане */
 let padBlocked = false
-/** Чем человек управляет прямо сейчас — подсказки внизу показывают клавиши, если клавиатурой */
+/** Чем человек управляет прямо сейчас — подсказки внизу показывают клавиши, если клавиатурой или мышью */
 let lastDevice: 'pad' | 'keyboard' = 'pad'
 const padListeners = new Set<() => void>()
 const emitPad = () => padListeners.forEach((l) => l())
@@ -565,6 +565,8 @@ function onPointerMove(e: PointerEvent) {
   if (!moved) return
   pointerTravel += moved
   if (pointerTravel < HOVER_TRAVEL) return
+  // Мышь в деле — значки клавиатуры, как и при нажатии клавиш
+  setDevice('keyboard')
   clearTimeout(hoverTimer)
   const target = e.target as HTMLElement
   hoverTimer = setTimeout(() => focusHovered(target), HOVER_MS)
@@ -627,6 +629,9 @@ export function startInput() {
   window.addEventListener('mouseup', onMouseSide)
   requestAnimationFrame(pollPads)
   window.addEventListener('pointermove', onPointerMove, { passive: true })
+  // Клик и колесо — тоже мышь: значки клавиатуры (касание экрана не в счёт)
+  window.addEventListener('pointerdown', (e) => e.pointerType === 'mouse' && setDevice('keyboard'), { passive: true })
+  window.addEventListener('wheel', () => setDevice('keyboard'), { passive: true })
   for (const ev of ['mousemove', 'mousedown', 'wheel'] as const) window.addEventListener(ev, markActivity, { passive: true })
   api.onPadBlock((b) => {
     padBlocked = b
