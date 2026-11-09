@@ -20,6 +20,7 @@ import type {
   WindowMode
 } from '@shared/types'
 import { getLang } from '@shared/i18n'
+import { libraryMatch } from '@shared/match'
 
 declare global {
   interface Window {
@@ -754,8 +755,12 @@ function createMockApi(): PcsApi {
     // Демо: игра магазина в библиотеку без файлов — арт прямо ссылками
     storeAddToLibrary: async (appId, title) => {
       await new Promise((r) => setTimeout(r, 600))
-      const have = state.games.find((g) => g.steamAppId === appId)
-      if (have) return have.id
+      // Как main: своя игра с тем же названием — та же игра, привязываем к странице магазина
+      const have = libraryMatch(state.games, appId, title)
+      if (have) {
+        if (!have.steamAppId) set({ games: state.games.map((g) => (g.id === have.id ? { ...g, steamAppId: appId } : g)) })
+        return have.id
+      }
       const it = demoStoreRows()
         .rows.flatMap((r) => r.items)
         .find((i) => i.appId === appId)

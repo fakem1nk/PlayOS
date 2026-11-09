@@ -2,14 +2,16 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Game, StoreItem } from '@shared/types'
 import { api } from '../lib/api'
+import { titleKey } from '@shared/match'
 import { useDragScroll, useSwipe } from '../lib/drag'
-import { lastInputDevice, useInputLayer } from '../lib/input'
+import { lastInputDevice, useInputLayer, useLastDevice } from '../lib/input'
 import { nudge } from '../lib/nav'
 import { beginEdit, isEditing, openKeyboard, setKeyboardStatus } from '../lib/osk'
-import { ROW_TITLES, storeGame, tileNote, useStoreHome } from '../lib/shop'
+import { addStoreGame, ROW_TITLES, storeGame, tileNote, useStoreHome } from '../lib/shop'
 import { play } from '../lib/sound'
+import { Glyph } from './Glyph'
 import { Cover } from './Tile'
-import { IconCheck, IconClose, IconDownload, IconRestart, IconSearch } from './Icons'
+import { IconCheck, IconClose, IconDownload, IconPlus, IconRestart, IconSearch } from './Icons'
 import { t } from '@shared/i18n'
 import '../styles-store.css'
 
@@ -17,6 +19,8 @@ import '../styles-store.css'
 export interface StoreFocus {
   zone: 'search' | 'hero' | 'row' | 'results' | 'retry'
   searching: boolean
+  /** Игра в фокусе уже в библиотеке — △ открывает её страницу, а не добавляет */
+  owned?: boolean
 }
 
 type Zone = { kind: 'search' } | { kind: 'hero' } | { kind: 'row'; row: number } | { kind: 'results' } | { kind: 'retry' }
@@ -48,7 +52,26 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
     return src.filter((i) => i.hero).slice(0, HERO_COUNT)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [home])
-  const owned = useMemo(() => new Set(games.flatMap((g) => (g.steamAppId ? [g.steamAppId] : []))), [games])
+  // Уже в библиотеке — как на странице игры (libraryMatch): по Steam AppID или своя PC-игра с тем же названием без него
+  const owned = useMemo(() => {
+    const ids = new Set(games.flatMap((g) => (g.steamAppId ? [g.steamAppId] : [])))
+    const own = games.filter((g) => g.platform === 'pc' && !g.steamAppId).map((g) => titleKey(g.title))
+    const full = new Set(own.map((k) => k.full))
+    const base = new Set(own.map((k) => k.base))
+    const cache = new Map<number, boolean>()
+    return {
+      has: (appId: number, title: string) => {
+        if (ids.has(appId)) return true
+        let hit = cache.get(appId)
+        if (hit === undefined) {
+          const k = titleKey(title)
+          hit = !!k.full && (full.has(k.full) || base.has(k.base))
+          cache.set(appId, hit)
+        }
+        return hit
+      }
+    }
+  }, [games])
 
   const [zone, setZone] = useState<Zone>({ kind: 'hero' })
   const [heroIdx, setHeroIdx] = useState(0)
@@ -129,10 +152,11 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedItem?.appId, active])
+  const focusOwned = !!focusedItem && owned.has(focusedItem.appId, focusedItem.title)
   useEffect(() => {
-    if (active) onFocusKind({ zone: zone.kind, searching })
+    if (active) onFocusKind({ zone: zone.kind, searching, owned: focusOwned })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zone.kind, searching, active])
+  }, [zone.kind, searching, active, focusOwned])
 
   // Баннер листается сам, пока фокус не на нём
   useEffect(() => {
@@ -202,6 +226,24 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
     if (!item) return
     play('select')
     onOpen(item)
+  }
+  // Быстро в библиотеку — △ или «+» на обложке, не открывая страницу. Игра уже там — △ открывает страницу
+  const [adding, setAdding] = useState<ReadonlySet<number>>(new Set())
+  const quickAdd = async (item: StoreItem | null | undefined) => {
+    if (!item) return
+    if (owned.has(item.appId, item.title)) return open(item)
+    if (adding.has(item.appId)) return play('bump')
+    play('select')
+    setAdding((s) => new Set(s).add(item.appId))
+    try {
+      await addStoreGame(item)
+    } finally {
+      setAdding((s) => {
+        const next = new Set(s)
+        next.delete(item.appId)
+        return next
+      })
+    }
   }
 
   const openSearch = () => {
@@ -281,7 +323,8 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           }
           if (a === 'up') return go({ kind: 'search' })
           if (a === 'down') return rows.length ? go({ kind: 'row', row: 0 }) : bump('down')
-          if (a === 'confirm' || a === 'menu') return open(featured[hIdx])
+          if (a === 'confirm') return open(featured[hIdx])
+          if (a === 'menu') return void quickAdd(featured[hIdx])
           if (a === 'back') return onExitTop()
           return false
         }
@@ -297,7 +340,8 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           }
           if (a === 'up') return go(r > 0 ? { kind: 'row', row: r - 1 } : featured.length ? { kind: 'hero' } : { kind: 'search' })
           if (a === 'down') return r < rows.length - 1 ? go({ kind: 'row', row: r + 1 }) : bump('down')
-          if (a === 'confirm' || a === 'menu') return open(rows[r]?.items[i])
+          if (a === 'confirm') return open(rows[r]?.items[i])
+          if (a === 'menu') return void quickAdd(rows[r]?.items[i])
           // ○ в рядах — сначала к баннеру, второе ○ — к вкладкам
           if (a === 'back') {
             if (!featured.length) return onExitTop()
@@ -317,7 +361,8 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           if (a === 'right') return rIdx % c < c - 1 && rIdx + 1 < n ? move(rIdx + 1) : bump('right')
           if (a === 'down') return rIdx + c < n ? move(rIdx + c) : Math.floor(rIdx / c) < Math.floor((n - 1) / c) ? move(n - 1) : bump('down')
           if (a === 'up') return rIdx >= c ? move(rIdx - c) : go({ kind: 'search' })
-          if (a === 'confirm' || a === 'menu') return open(results[rIdx])
+          if (a === 'confirm') return open(results[rIdx])
+          if (a === 'menu') return void quickAdd(results[rIdx])
           if (a === 'back') return clearSearch()
           return false
         }
@@ -385,7 +430,9 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
                   item={item}
                   caption
                   focused={active && zone.kind === 'results' && i === rIdx}
-                  inLibrary={owned.has(item.appId)}
+                  inLibrary={owned.has(item.appId, item.title)}
+                  adding={adding.has(item.appId)}
+                  onAdd={() => void quickAdd(item)}
                   onClick={() => (zone.kind === 'results' && i === rIdx ? open(item) : (setResIdx(i), setZone({ kind: 'results' })))}
                 />
               ))}
@@ -420,6 +467,9 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
               items={featured}
               index={hIdx}
               focused={active && zone.kind === 'hero'}
+              owned={owned.has(featured[hIdx].appId, featured[hIdx].title)}
+              adding={adding.has(featured[hIdx].appId)}
+              onAdd={() => void quickAdd(featured[hIdx])}
               onPick={(i) => {
                 setHeroIdx(i)
                 setZone({ kind: 'hero' })
@@ -439,7 +489,9 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
                       item={item}
                       caption
                       focused={focused}
-                      inLibrary={owned.has(item.appId)}
+                      inLibrary={owned.has(item.appId, item.title)}
+                      adding={adding.has(item.appId)}
+                      onAdd={() => void quickAdd(item)}
                       onClick={() => (focused ? open(item) : (setPos((p) => ({ ...p, [r]: i })), setZone({ kind: 'row', row: r })))}
                     />
                   )
@@ -470,18 +522,25 @@ function StoreStrip({ onRef, children }: { onRef: (el: HTMLDivElement | null) =>
   )
 }
 
-/** Плитка игры магазина: обложка, отметки «можно скачать» и «в библиотеке», подпись с названием и оценкой */
+/**
+ * Плитка игры магазина: обложка, отметки «можно скачать» и «в библиотеке», подпись с названием и оценкой.
+ * «+» в углу обложки (при наведении и в фокусе) — сразу в библиотеку, без страницы игры
+ */
 function StoreTile({
   item,
   focused,
   inLibrary,
+  adding,
   caption,
+  onAdd,
   onClick
 }: {
   item: StoreItem
   focused: boolean
   inLibrary: boolean
+  adding: boolean
   caption?: boolean
+  onAdd: () => void
   onClick: () => void
 }) {
   const game = useMemo(() => storeGame(item), [item])
@@ -489,6 +548,21 @@ function StoreTile({
     <div className={`tile store-tile ${focused ? 'is-focused' : ''}`} role="button" aria-label={item.title} onClick={onClick}>
       <div className="tile-art">
         <Cover game={game} />
+        {!inLibrary && (
+          <button
+            tabIndex={-1}
+            className={`store-quick ${adding ? 'is-busy' : ''}`}
+            aria-label={t('Добавить в библиотеку')}
+            title={t('Добавить в библиотеку')}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAdd()
+            }}
+          >
+            {adding ? <span className="spinner" /> : focused ? <QuickGlyph /> : <IconPlus />}
+          </button>
+        )}
         {(inLibrary || !!item.options) && (
           <span className="store-badges">
             {!!item.options && (
@@ -518,8 +592,32 @@ function StoreTile({
   )
 }
 
+/** На геймпаде «+» в фокусе показывает кнопку, которой добавляют (△), с клавиатуры и мышью — плюс */
+function QuickGlyph() {
+  const device = useLastDevice()
+  return device === 'pad' ? <Glyph name="menu" /> : <IconPlus />
+}
+
 /** Баннер с новинками: широкий арт, логотип, описание и метки; точки внизу — какая из пяти */
-function StoreHero({ items, index, focused, onPick, onOpen }: { items: StoreItem[]; index: number; focused: boolean; onPick: (i: number) => void; onOpen: () => void }) {
+function StoreHero({
+  items,
+  index,
+  focused,
+  owned,
+  adding,
+  onAdd,
+  onPick,
+  onOpen
+}: {
+  items: StoreItem[]
+  index: number
+  focused: boolean
+  owned: boolean
+  adding: boolean
+  onAdd: () => void
+  onPick: (i: number) => void
+  onOpen: () => void
+}) {
   const item = items[index]
   const [logoFailed, setLogoFailed] = useState<Record<number, boolean>>({})
   const pills = [...(item.tags ?? []).slice(0, 3), ...(item.reviews?.label ? [item.reviews.label] : [])]
@@ -567,6 +665,24 @@ function StoreHero({ items, index, focused, onPick, onOpen }: { items: StoreItem
               <span key={p}>{p}</span>
             ))}
           </div>
+        )}
+        {owned ? (
+          <span className="store-hero-owned">
+            <IconCheck /> {t('Уже в библиотеке')}
+          </span>
+        ) : (
+          <button
+            tabIndex={-1}
+            className={`btn btn-glass store-hero-add ${adding ? 'is-busy' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAdd()
+            }}
+          >
+            {adding ? <span className="spinner" /> : focused ? <QuickGlyph /> : <IconPlus />}
+            {adding ? t('Добавляем…') : t('В библиотеку')}
+          </button>
         )}
       </motion.div>
       {items.length > 1 && (

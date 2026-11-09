@@ -417,6 +417,7 @@ export function App() {
     ) : (
       <>
         <Hint glyph="confirm" label={t('Подробнее')} />
+        {!storeFocus.owned && <Hint glyph="menu" label={t('В библиотеку')} />}
         {storeFocus.zone === 'hero' && <Hint glyph="adjust" label={t('Листать')} />}
         <Hint glyph="back" label={storeFocus.searching ? t('Сбросить поиск') : t('Назад')} />
         <Hint glyph="search" label={t('Поиск')} />

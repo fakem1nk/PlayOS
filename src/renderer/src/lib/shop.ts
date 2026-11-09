@@ -4,6 +4,7 @@ import { locale, plural, t } from '@shared/i18n'
 import { libraryMatch } from '@shared/match'
 import { api } from './api'
 import { DEFAULT_ACCENT } from './format'
+import { toast } from './state'
 
 /** Магазин: общие данные вкладки и страницы игры. Витрина живёт дольше вкладки — переключение не мигает пустотой */
 
@@ -142,4 +143,24 @@ export function useEmuDownloads(game: Game | null): number {
 /** Игра магазина уже в библиотеке PlayOS — по Steam AppID, а своя PC-игра без него — по названию */
 export function libraryGameFor(games: Game[], appId: number, title: string) {
   return libraryMatch(games, appId, title)
+}
+
+/** Игры, которые сейчас добавляются: второе нажатие, пока main ищет арт, не добавит игру дважды */
+const adding = new Set<number>()
+
+/**
+ * Игра магазина — в библиотеку, без файлов: оттуда её скачивают и запускают. Стоит в Steam на этом ПК — main добавит
+ * её сразу с папкой. Итог — короткое уведомление; null — не добавилась или уже добавляется
+ */
+export async function addStoreGame(item: StoreItem): Promise<string | null> {
+  if (adding.has(item.appId)) return null
+  adding.add(item.appId)
+  try {
+    const id = await api.storeAddToLibrary(item.appId, item.title).catch(() => null)
+    if (id) toast({ title: t('Игра в библиотеке'), message: item.title, image: item.cover, tone: 'success', history: false })
+    else toast({ title: t('Не удалось добавить игру'), message: t('Steam не ответил. Проверьте интернет и попробуйте ещё раз.'), tone: 'error', history: false })
+    return id
+  } finally {
+    adding.delete(item.appId)
+  }
 }

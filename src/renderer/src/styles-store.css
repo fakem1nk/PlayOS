@@ -285,6 +285,77 @@
   backdrop-filter: blur(0.8rem);
 }
 
+/* Быстро в библиотеку: круглый «+» в нижнем углу обложки — при наведении мышью и в фокусе */
+.store-quick {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  width: 3.8rem;
+  height: 3.8rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  color: #fff;
+  background: rgba(10, 12, 18, 0.62);
+  backdrop-filter: blur(1rem);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s var(--ease-out),
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.store-tile:hover .store-quick,
+.store-tile.is-focused .store-quick,
+.store-quick.is-busy {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.store-quick:hover {
+  color: #0b0d12;
+  background: #fff;
+}
+
+.store-quick:active {
+  transform: scale(0.92);
+}
+
+.store-quick .glyph {
+  font-size: 1.7rem;
+}
+
+.store-quick .spinner,
+.store-hero-add .spinner {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-width: 0.22rem;
+}
+
+/* Баннер: «В библиотеку» под метками; игра уже там — тихая отметка вместо кнопки */
+.store-hero-add {
+  pointer-events: auto;
+}
+
+.store-hero-add.is-busy {
+  pointer-events: none;
+}
+
+.store-hero-owned {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1.6rem;
+  color: var(--mist);
+}
+
 /* ── Загрузка ── */
 .store-skeleton .store-hero,
 .store-skeleton .tile-art {

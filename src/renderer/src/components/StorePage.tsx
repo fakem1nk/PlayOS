@@ -6,9 +6,8 @@ import { useSwipe } from '../lib/drag'
 import { useInputLayer } from '../lib/input'
 import { useSpatialNav } from '../lib/nav'
 import { notInstalled } from '../lib/format'
-import { libraryGameFor, optionsCount, releaseText, useStoreSteam } from '../lib/shop'
+import { addStoreGame, libraryGameFor, optionsCount, releaseText, useStoreSteam } from '../lib/shop'
 import { play } from '../lib/sound'
-import { toast } from '../lib/state'
 import { DotText } from './DotText'
 import { Hint } from './Glyph'
 import { IconChevron, IconClock, IconClose, IconDownload, IconGlobe, IconGrid, IconImage, IconPlus } from './Icons'
@@ -80,9 +79,7 @@ export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Prop
     play('select')
     setAdding(true)
     try {
-      const id = await api.storeAddToLibrary(item.appId, item.title)
-      if (id) toast({ title: t('Игра в библиотеке'), message: item.title, image: item.cover, tone: 'success', history: false })
-      else toast({ title: t('Не удалось добавить игру'), message: t('Steam не ответил. Проверьте интернет и попробуйте ещё раз.'), tone: 'error', history: false })
+      await addStoreGame(item)
     } finally {
       setAdding(false)
     }

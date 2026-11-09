@@ -195,6 +195,7 @@ export const EN: Record<string, string> = {
   'Определится по образу — для трофеев PS2': 'Detected from the image — for PS2 trophies',
   'Сохранить': 'Save',
   'Добавить в библиотеку': 'Add to library',
+  'В библиотеку': 'Add to library',
   'Отмена': 'Cancel',
   'Найти обложку и фон онлайн': 'Find cover and background online',
   'Обложка': 'Cover',
