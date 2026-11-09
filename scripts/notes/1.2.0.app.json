@@ -1,0 +1,43 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Магазин: весь каталог Steam с фильтрами, игры GOG и игры из ваших источников",
+      "Загрузки прямо в PlayOS: прямые ссылки и торренты, распаковка и установка",
+      "Раздел «Загрузки»: обложки, прогресс, график скорости и очередь",
+      "Загрузки встают на паузу во время игры; ограничение скорости и раздача",
+      "Стопка и полка пройденных игр в профиле, фигурки Тиви",
+      "Календарь активности в профиле",
+      "Новый Тиви: светящиеся ушки вместо антенн",
+      "Запуск свёрнутым в трей вместе с Windows",
+      "Подсказки кнопок переключаются на клавиатуру при работе мышью"
+    ],
+    "fixed": [
+      "Игры, которым нужны права администратора, снова запускаются",
+      "Удаление игр из папок с квадратными скобками в названии",
+      "Выключение ПК больше не считается сбоем PlayOS",
+      "Старые сеансы больше не пропадают из истории игр",
+      "Загрузка в облако больше не падает с ошибкой задержки"
+    ]
+  },
+  "en": {
+    "new": [
+      "Store: the whole Steam catalogue with filters, GOG games and games from your sources",
+      "Downloads right in PlayOS: direct links and torrents, unpacking and installing",
+      "Downloads section: covers, progress, speed graph and queue",
+      "Downloads pause while you play; speed limits and seeding",
+      "Stack and shelf of cleared games in the profile, Tivi figures",
+      "Activity calendar in the profile",
+      "New Tivi: glowing ears instead of antennas",
+      "Start minimized to the tray with Windows",
+      "Button hints switch to the keyboard while you use the mouse"
+    ],
+    "fixed": [
+      "Games that need administrator rights start again",
+      "Uninstalling games from folders with square brackets in the name",
+      "A PC shutdown is no longer reported as a PlayOS crash",
+      "Older sessions no longer disappear from game history",
+      "Cloud uploads no longer fail with a delay error"
+    ]
+  }
+}
