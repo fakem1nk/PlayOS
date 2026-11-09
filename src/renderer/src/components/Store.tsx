@@ -583,6 +583,15 @@ function StoreStrip({ onRef, children }: { onRef: (el: HTMLDivElement | null) =>
   )
 }
 
+/** Широкий тонкий шеврон стрелки баннера — без подложки, только линия с тенью */
+function WideChevron({ dir }: { dir: -1 | 1 }) {
+  return (
+    <svg viewBox="0 0 32 48" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={dir < 0 ? 'M25 5 7 24l18 19' : 'M7 5l18 19L7 43'} />
+    </svg>
+  )
+}
+
 /** Последняя плитка ряда жанра: все игры этого жанра в каталоге */
 function SeeAllTile({ title, focused, onClick }: { title: string; focused: boolean; onClick: () => void }) {
   return (
@@ -669,25 +678,44 @@ function StoreHero({
             ))}
           </div>
         )}
-        {owned ? (
-          <span className="store-hero-owned">
-            <IconCheck /> {t('Уже в библиотеке')}
-          </span>
-        ) : (
+      </motion.div>
+      {/* «В библиотеку» — справа внизу: длинное описание и метки слева её не выталкивают */}
+      {owned ? (
+        <span className="store-hero-owned">
+          <IconCheck /> {t('Уже в библиотеке')}
+        </span>
+      ) : (
+        <button
+          tabIndex={-1}
+          className={`btn btn-primary store-hero-add ${adding ? 'is-busy' : ''}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onAdd()
+          }}
+        >
+          {adding ? <span className="spinner" /> : focused ? <QuickGlyph /> : <IconPlus />}
+          {adding ? t('Добавляем…') : t('В библиотеку')}
+        </button>
+      )}
+      {/* Стрелки за краями баннера — листать мышью; по кругу, как сам баннер */}
+      {items.length > 1 &&
+        ([-1, 1] as const).map((dir) => (
           <button
+            key={dir}
             tabIndex={-1}
-            className={`btn btn-glass store-hero-add ${adding ? 'is-busy' : ''}`}
+            className={`store-hero-arrow ${dir < 0 ? 'is-prev' : 'is-next'}`}
+            aria-label={dir < 0 ? t('Предыдущая игра') : t('Следующая игра')}
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.stopPropagation()
-              onAdd()
+              play('move')
+              onPick((index + dir + items.length) % items.length)
             }}
           >
-            {adding ? <span className="spinner" /> : focused ? <QuickGlyph /> : <IconPlus />}
-            {adding ? t('Добавляем…') : t('В библиотеку')}
+            <WideChevron dir={dir} />
           </button>
-        )}
-      </motion.div>
+        ))}
       {items.length > 1 && (
         <div className="store-dots">
           {items.map((it, i) => (

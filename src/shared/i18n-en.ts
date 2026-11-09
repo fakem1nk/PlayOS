@@ -1154,6 +1154,8 @@ export const EN: Record<string, string> = {
   'Мир и эпоха': 'World and era',
   'Настроение и атмосфера': 'Mood and atmosphere',
   'К играм': 'Back to games',
+  'Предыдущая игра': 'Previous game',
+  'Следующая игра': 'Next game',
   'Только в GOG': 'Only on GOG',
   'Открыть в GOG': 'Open on GOG',
   'Оценка в GOG': 'GOG rating',

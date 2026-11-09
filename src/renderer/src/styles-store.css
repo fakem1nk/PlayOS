@@ -38,9 +38,10 @@
   overflow-x: hidden;
   overflow-anchor: none;
   scrollbar-width: none;
-  margin: 0 -2rem;
+  /* До краёв экрана: стрелки баннера живут в поле за его краями, иначе прокрутка их обрежет */
+  margin: 0 calc(-1 * var(--pad-x));
   /* Запас под кольцо фокуса и свечение плиток; снизу — чтобы последний ряд выходил из-под затухания */
-  padding: 1.6rem 2rem 8rem;
+  padding: 1.6rem var(--pad-x) 8rem;
   mask-image: linear-gradient(180deg, transparent 0, #000 1.4rem, #000 calc(100% - 6rem), transparent);
 }
 
@@ -96,7 +97,7 @@
 
 .store-hero-logo {
   max-width: 42rem;
-  max-height: 12rem;
+  max-height: 10rem;
   object-fit: contain;
   object-position: left bottom;
   filter: drop-shadow(0 0.8rem 2.4rem rgba(0, 0, 0, 0.5));
@@ -115,7 +116,8 @@
   line-height: 1.5;
   color: rgba(244, 246, 251, 0.86);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  /* Две строки и метки в один ряд: длинное описание не выталкивает логотип за верх баннера */
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -124,6 +126,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.8rem;
+}
+
+/* В баннере метки — один ряд: что не влезло, переносится во второй ряд и скрыто целиком, а не обрезано посередине */
+.store-hero .store-pills {
+  max-height: 3.2rem;
+  overflow: hidden;
+}
+
+.store-hero .store-pills span {
+  white-space: nowrap;
 }
 
 .store-pills span {
@@ -135,10 +147,11 @@
   color: var(--mist);
 }
 
+/* Точки — справа сверху: справа внизу кнопка «В библиотеку», слева — логотип и описание */
 .store-dots {
   position: absolute;
+  top: 2.8rem;
   right: 3.2rem;
-  bottom: 3.4rem;
   display: flex;
   align-items: center;
   gap: 0.8rem;
@@ -160,6 +173,61 @@
 .store-dots button.is-active {
   width: 2.6rem;
   background: #fff;
+}
+
+/* Стрелки баннера — за его краями, в поле экрана: широкий тонкий шеврон без подложки, с тенью */
+.store-hero-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 4.8rem;
+  height: 9rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  filter: drop-shadow(0 0.4rem 1.2rem rgba(0, 0, 0, 0.6));
+  transform: translateY(-50%);
+  transition:
+    color 0.2s ease,
+    transform 0.22s var(--ease-out);
+}
+
+.store-hero-arrow svg {
+  width: 3.2rem;
+  height: 4.8rem;
+}
+
+.store-hero-arrow.is-prev {
+  left: -5.8rem;
+}
+
+.store-hero-arrow.is-next {
+  right: -5.8rem;
+}
+
+.store-hero:hover .store-hero-arrow,
+.store-hero.is-focused .store-hero-arrow {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.store-hero-arrow:hover {
+  color: #fff;
+}
+
+.store-hero-arrow.is-prev:hover {
+  transform: translate(-0.3rem, -50%);
+}
+
+.store-hero-arrow.is-next:hover {
+  transform: translate(0.3rem, -50%);
+}
+
+.store-hero-arrow:active {
+  transform: translateY(-50%) scale(0.92);
 }
 
 /* ── Ряды ── */
@@ -766,7 +834,21 @@
   border-width: 0.22rem;
 }
 
-/* Баннер: «В библиотеку» под метками; игра уже там — тихая отметка вместо кнопки */
+/* «В библиотеку» на баннере — белая кнопка: крутилка тёмная */
+.store-hero-add .spinner {
+  border-color: rgba(0, 0, 0, 0.18);
+  border-top-color: #0b0d12;
+}
+
+/* Баннер: «В библиотеку» справа внизу; игра уже там — тихая отметка вместо кнопки */
+.store-hero-add,
+.store-hero-owned {
+  position: absolute;
+  right: 3.2rem;
+  bottom: 3.2rem;
+  z-index: 2;
+}
+
 .store-hero-add {
   pointer-events: auto;
 }
