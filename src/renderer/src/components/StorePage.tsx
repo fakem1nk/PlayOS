@@ -11,12 +11,19 @@ import { play } from '../lib/sound'
 import { DotText } from './DotText'
 import { Hint } from './Glyph'
 import { IconChevron, IconClock, IconClose, IconDownload, IconGlobe, IconGrid, IconImage, IconPlus } from './Icons'
-import { locale, t } from '@shared/i18n'
+import { locale, plural, t } from '@shared/i18n'
 
 /** Абзацев описания до «Читать полностью» */
 const ABOUT_PREVIEW = 5
 /** Скриншотов в карточке: один большой и два поменьше, на последнем — «+N» с остальными */
 const SHOT_PREVIEW = 3
+
+/** Описания нет: Steam или GOG не ответил, у игры его нет, а у игры из источников не нашлось статьи в Википедии */
+function emptyText(item: StoreItem, failed: boolean) {
+  if (item.store === 'sources') return failed ? t('Описание не загрузилось.') : t('Описания этой игры в Википедии не нашлось.')
+  if (item.store === 'gog') return failed ? t('Описание не загрузилось: GOG не ответил.') : t('У этой игры нет описания в GOG.')
+  return failed ? t('Описание не загрузилось: Steam не ответил.') : t('У этой игры нет описания в Steam.')
+}
 
 /** Часы с одним знаком после запятой: 14,6 ч */
 const hours = (sec: number) => t('{v} ч', { v: (sec / 3600).toLocaleString(locale(), { maximumFractionDigits: sec < 36000 ? 1 : 0 }) })
@@ -100,12 +107,16 @@ export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Prop
       : null
 
   const reviews = data.reviews
+  // Игра GOG: оценка — звёзды из 5, без словесной подписи Steam
+  const gogStars = item.store === 'gog' && reviews ? (reviews.percent / 20).toLocaleString(locale(), { maximumFractionDigits: 1 }) : ''
   const facts = [
     [data.upcoming ? t('Выход') : t('Дата выхода'), releaseText(data)],
     [t('Разработчик'), page?.developers.join(', ')],
     [t('Издатель'), page?.publishers.join(', ')],
     [t('Серия'), page?.franchise],
-    [t('Отзывы в Steam'), reviews ? t('{label}: {p}% из {n}', { label: reviews.label, p: reviews.percent, n: reviews.count.toLocaleString(locale()) }) : undefined]
+    gogStars
+      ? [t('Оценка в GOG'), t('{v} из 5 · {n}', { v: gogStars, n: `${reviews!.count.toLocaleString(locale())} ${plural(reviews!.count, ['оценка', 'оценки', 'оценок'], ['rating', 'ratings'])}` })]
+      : [t('Отзывы в Steam'), reviews ? t('{label}: {p}% из {n}', { label: reviews.label, p: reviews.percent, n: reviews.count.toLocaleString(locale()) }) : undefined]
   ].filter(([, v]) => v) as [string, string][]
   const about = page?.about ?? []
   const shown = expanded ? about : about.slice(0, ABOUT_PREVIEW)
@@ -143,6 +154,7 @@ export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Prop
             <div className="gp-meta">
               {releaseText(data) && <span>{data.upcoming ? t('Выход: {v}', { v: releaseText(data) }) : releaseText(data)}</span>}
               {reviews?.label && <span>{t('{label} · {p}%', { label: reviews.label, p: reviews.percent })}</span>}
+              {gogStars && <span>{t('Оценка в GOG: {v} из 5', { v: gogStars })}</span>}
               {libGame && <span className="store-owned">{t('Уже в библиотеке')}</span>}
             </div>
           </div>
@@ -162,10 +174,19 @@ export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Prop
               {download.icon} {download.label}
             </button>
           )}
-          {steam && (
-            <button data-nav className="btn btn-glass" onClick={() => openSteam(steam.client ? 'store' : 'web')}>
-              <IconGlobe /> {steam.client ? t('Открыть в Steam') : t('Открыть в браузере')}
-            </button>
+          {item.store === 'gog' ? (
+            item.link && (
+              <button data-nav className="btn btn-glass" onClick={() => openSteam('web')}>
+                <IconGlobe /> {t('Открыть в GOG')}
+              </button>
+            )
+          ) : (
+            !item.store &&
+            steam && (
+              <button data-nav className="btn btn-glass" onClick={() => openSteam(steam.client ? 'store' : 'web')}>
+                <IconGlobe /> {steam.client ? t('Открыть в Steam') : t('Открыть в браузере')}
+              </button>
+            )
           )}
         </div>
 
@@ -213,7 +234,7 @@ export function StorePage({ item, games, onClose, onOpenGame, onDownload }: Prop
                   )}
                 </>
               ) : (
-                <p className="gp-empty">{page === null ? t('Описание не загрузилось: Steam не ответил.') : t('У этой игры нет описания в Steam.')}</p>
+                <p className="gp-empty">{emptyText(item, page === null)}</p>
               )}
             </div>
 

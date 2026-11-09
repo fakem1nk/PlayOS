@@ -154,7 +154,7 @@ const decodeEntities = (s: string) =>
 const WIKI_HEADERS = { 'User-Agent': 'PlayOS/0.7 (local game launcher)' }
 
 /** Краткое описание из статьи об игре: сначала Википедия на языке интерфейса, потом другая */
-async function wikiSummary(title: string, onlyRussian = false): Promise<string | undefined> {
+export async function wikiSummary(title: string, onlyRussian = false): Promise<string | undefined> {
   const ru = ['ru.wikipedia.org', 'компьютерная игра', /игр/i] as const
   const en = ['en.wikipedia.org', 'video game', /game/i] as const
   const sources = onlyRussian ? [ru] : getLang() === 'en' ? [en, ru] : [ru, en]

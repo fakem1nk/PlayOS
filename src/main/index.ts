@@ -34,11 +34,13 @@ import type {
   DownloadControl,
   DownloadRequest,
   StoreHome,
+  StoreItem,
   StoreSteam,
   ArtSource,
   WindowAction,
   WindowMode
 } from '@shared/types'
+import { gogIdOf } from '@shared/types'
 import { startGamepad } from './gamepad'
 import * as ach from './achievements'
 import { ACCENT_VERSION, fromHex, gameAccent, PLATFORM_COLOR } from './color'
@@ -46,6 +48,8 @@ import { forgetDetails, gameDetails, liveBackground } from './details'
 import { scanSteam, steamRoot } from './steam'
 import * as shop from './shop/catalog'
 import * as sources from './shop/sources'
+import * as gog from './shop/gog'
+import * as srconly from './shop/srconly'
 import * as downloads from './downloads'
 import { libraryMatch } from '@shared/match'
 import { armLock, endedCleanly, initLog, lastRunCrashed, log, saveReport, watchWindow } from './log'
@@ -1830,22 +1834,36 @@ function registerIpc() {
   })
   // Магазин: каталог Steam, витрина обновляется в фоне и приходит отдельным событием
   // Варианты загрузки из источников пользователя дописываются к играм перед отправкой; кэш Steam их не хранит
-  const sendHome = async (h: StoreHome) => sendTo(win, 'store-home', shop.viewerHome(await sources.decorateHome(h)))
-  shop.setHomeListener((h) => void sendHome(h))
-  sources.setSourcesListener(() => {
+  // Игры GOG, которых нет в Steam, — рядом «Только в GOG» перед «Скоро выйдут»; со Steam их сверяют поиски источников
+  const homeView = async (h: StoreHome) => shop.viewerHome(await sources.decorateHome(gog.withGogRow(h)))
+  const sendHome = async (h: StoreHome) => sendTo(win, 'store-home', await homeView(h))
+  const resendHome = () =>
     shop
       .storeHome()
       .then(sendHome)
       .catch(() => {
         /* витрины ещё нет — придёт сама */
       })
+  gog.setSteamResolver(sources.steamIdFor)
+  shop.setHomeListener((h) => void sendHome(h))
+  sources.setSourcesListener(resendHome)
+  gog.setGogRowListener(resendHome)
+  ipcMain.handle('store:home', async (_e, refresh?: boolean) => homeView(await shop.storeHome(refresh)))
+  // Поиск сразу в Steam и GOG; из GOG — только то, чего нет в Steam (сверка ждёт Steam недолго, остальное запомнит в фоне)
+  ipcMain.handle('store:search', async (_e, q: string) => {
+    const gogFound = gog.gogSearch(q).catch(() => [] as StoreItem[])
+    const steam = await shop.storeSearch(q).catch(async (e) => {
+      if (!(await gogFound).length) throw e
+      return [] as StoreItem[]
+    })
+    const only = await gog.gogOnly(await gogFound, steam, 2500)
+    return shop.viewerItems(await sources.mergeSearch(q, steam, only))
   })
-  ipcMain.handle('store:home', async (_e, refresh?: boolean) => shop.viewerHome(await sources.decorateHome(await shop.storeHome(refresh))))
-  ipcMain.handle('store:search', async (_e, q: string) => shop.viewerItems(await sources.mergeSearch(q, await shop.storeSearch(q))))
   // Страница — сразу с тем, что известно по источникам; одноимённые варианты уточняются у Steam отдельно (store:optionCount),
   // чтобы описание и скриншоты не ждали этих поисков
   ipcMain.handle('store:page', async (_e, appId: number) => {
-    const page = await shop.storePage(appId)
+    const id = Number(appId)
+    const page = gogIdOf(id) ? await gog.gogPage(id) : srconly.isSrcId(id) ? await srconly.srcPage(id) : await shop.storePage(id)
     return page && (await sources.decorateItems([page]))[0]
   })
   ipcMain.handle('store:optionCount', async (_e, appId: number, title: string) => {
@@ -1860,6 +1878,12 @@ function registerIpc() {
   })
   ipcMain.handle('store:open', async (_e, appId: number, how: 'store' | 'web') => {
     const id = Math.trunc(Number(appId))
+    // Игра GOG — её страница на gog.com; у игр только из источников страницы магазина нет
+    if (id < 0) {
+      const link = gog.gogItemOf(id)?.link
+      if (link && /^https:\/\/www\.gog\.com\//.test(link)) await shell.openExternal(link)
+      return
+    }
     if (!id) return
     if (how === 'web') return void shell.openExternal(`https://store.steampowered.com/app/${id}/`)
     await shell.openExternal(`steam://store/${id}`)
@@ -1870,6 +1894,17 @@ function registerIpc() {
   ipcMain.handle('store:addToLibrary', async (_e, appId: number, title: string): Promise<string | null> => {
     const id = Math.trunc(Number(appId))
     if (!id) return null
+    // Игра GOG или только из источников: без Steam AppID, арт — тот, что у плитки (GOG, SteamGridDB)
+    if (id < 0) {
+      const item = gog.gogItemOf(id) ?? srconly.srcItemOf(id)
+      const name = item?.title ?? String(title || '').trim()
+      if (!name) return null
+      const same = libraryMatch(getDb().games, id, name)
+      if (same) return same.id
+      const art = item?.store === 'sources' ? ((await srconly.withArt([item], 8000))[0] ?? item) : item
+      const game = await saveGame({ title: name, platform: 'pc', path: '', cover: art?.cover, hero: art?.hero, logo: art?.logo }, { quiet: true })
+      return game.id
+    }
     const have = libraryMatch(getDb().games, id, String(title || ''))
     if (have) {
       // Своя игра с тем же названием — та же игра: привязываем к странице магазина, второй раз не добавляем

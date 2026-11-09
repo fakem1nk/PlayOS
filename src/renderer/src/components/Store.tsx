@@ -563,8 +563,9 @@ function StoreTile({
             {adding ? <span className="spinner" /> : focused ? <QuickGlyph /> : <IconPlus />}
           </button>
         )}
-        {(inLibrary || !!item.options) && (
+        {(inLibrary || !!item.options || item.store === 'gog') && (
           <span className="store-badges">
+            {item.store === 'gog' && <span className="store-badge is-text">GOG</span>}
             {!!item.options && (
               <span className="store-badge is-dl" title={t('Можно скачать')}>
                 <IconDownload />

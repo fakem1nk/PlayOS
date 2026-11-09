@@ -13,6 +13,7 @@ export const ROW_TITLES: Record<StoreRowId, string> = {
   top: t('Лидеры продаж'),
   new: t('Новое и популярное'),
   played: t('Самые популярные'),
+  gog: t('Только в GOG'),
   soon: t('Скоро выйдут')
 }
 
@@ -58,6 +59,8 @@ export function releaseText(item: StoreItem): string {
 export function tileNote(item: StoreItem): string {
   if (item.upcoming) return releaseText(item)
   if (item.reviews?.label) return item.reviews.label
+  // Игры нет ни в Steam, ни в GOG — о ней знают только источники пользователя
+  if (item.store === 'sources') return t('Из ваших источников')
   return item.tags?.[0] ?? ''
 }
 

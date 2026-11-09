@@ -1021,8 +1021,13 @@ export type StoreUpcoming = 'date' | 'month' | 'quarter' | 'year' | 'soon' | 'tb
 
 /** Игра в магазине (каталог Steam, всегда регион US — региональные запреты ничего не прячут) */
 export interface StoreItem {
+  /** Номер игры в магазине: Steam AppID; у игр не из Steam — отрицательный (gogStoreId, SRC_BASE) */
   appId: number
   title: string
+  /** Игра не из Steam: из каталога GOG или есть только в источниках пользователя */
+  store?: 'gog' | 'sources'
+  /** Страница игры в GOG */
+  link?: string
   /** Вертикальная обложка 600×900 */
   cover?: string
   /** Широкий арт для фона и баннера */
@@ -1043,8 +1048,17 @@ export interface StoreItem {
   adult?: boolean
 }
 
-/** sources — «Новинки и свежие обновления»: свежие загрузки, по одной на игру */
-export type StoreRowId = 'sources' | 'top' | 'new' | 'played' | 'soon'
+/**
+ * Игры не из Steam живут в магазине под отрицательными номерами — так их не спутать с AppID: игра GOG — минус её id
+ * в GOG (до двух миллиардов), игра только из источников — ниже −SRC_BASE
+ */
+export const SRC_BASE = 1e10
+export const gogStoreId = (gogId: number) => -gogId
+export const gogIdOf = (appId: number) => (appId < 0 && -appId < SRC_BASE ? -appId : 0)
+export const isSteamItem = (appId: number) => appId > 0
+
+/** sources — «Новинки и свежие обновления»: свежие загрузки, по одной на игру; gog — игры GOG, которых нет в Steam */
+export type StoreRowId = 'sources' | 'top' | 'new' | 'played' | 'gog' | 'soon'
 
 export interface StoreRow {
   id: StoreRowId

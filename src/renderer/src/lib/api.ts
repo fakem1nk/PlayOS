@@ -19,6 +19,7 @@ import type {
   SystemState,
   WindowMode
 } from '@shared/types'
+import { SRC_BASE } from '@shared/types'
 import { getLang } from '@shared/i18n'
 import { libraryMatch } from '@shared/match'
 
@@ -696,17 +697,33 @@ function createMockApi(): PcsApi {
     onStoreHome: noop,
     storeSearch: async (q) => {
       await new Promise((r) => setTimeout(r, 300))
-      const all = demoStoreHome().rows.flatMap((r) => r.items)
+      const all = [...demoStoreHome().rows.flatMap((r) => r.items), ...demoDecorate(DEMO_SRC)]
       const seen = new Set<number>()
       return demoDecorate(all.filter((i) => i.title.toLowerCase().includes(q.trim().toLowerCase()) && !seen.has(i.appId) && seen.add(i.appId)))
     },
     storePage: async (appId) => {
       await new Promise((r) => setTimeout(r, 500))
-      const item = demoStoreHome()
-        .rows.flatMap((r) => r.items)
-        .find((i) => i.appId === appId)
+      const item = [...demoStoreHome().rows.flatMap((r) => r.items), ...demoDecorate(DEMO_SRC)].find((i) => i.appId === appId)
       if (!item) return null
       const en = getLang() === 'en'
+      // Игра GOG — описание из GOG, игра только из источников — из Википедии (в демо придуманное)
+      if (item.store) {
+        const text =
+          item.store === 'gog'
+            ? en
+              ? 'A demo description: for GOG games PlayOS shows the text from the GOG page.'
+              : 'Демо-описание: у игр GOG PlayOS показывает текст со страницы GOG.'
+            : en
+              ? 'A demo description: for games that only your sources know, PlayOS takes the summary from Wikipedia.'
+              : 'Демо-описание: у игр, о которых знают только ваши источники, PlayOS берёт краткое описание из Википедии.'
+        return {
+          ...item,
+          about: [{ kind: 'p', text }],
+          developers: item.store === 'gog' ? ['Demo Studio'] : [],
+          publishers: item.store === 'gog' ? ['Demo Publisher'] : [],
+          screenshots: item.hero ? [{ thumb: item.hero, full: item.hero }] : []
+        }
+      }
       // Демо: превью — маленькая шапка, полный размер — широкий арт, чтобы было видно ленивую подгрузку
       const shots = ['library_hero.jpg', 'header.jpg', 'capsule_616x353.jpg', 'page_bg_generated_v6b.jpg', 'library_hero.jpg', 'header.jpg'].map((f, i) => ({
         thumb: steam(appId, i % 2 ? f : 'capsule_231x87.jpg'),
@@ -758,13 +775,12 @@ function createMockApi(): PcsApi {
       // Как main: своя игра с тем же названием — та же игра, привязываем к странице магазина
       const have = libraryMatch(state.games, appId, title)
       if (have) {
-        if (!have.steamAppId) set({ games: state.games.map((g) => (g.id === have.id ? { ...g, steamAppId: appId } : g)) })
+        if (!have.steamAppId && appId > 0) set({ games: state.games.map((g) => (g.id === have.id ? { ...g, steamAppId: appId } : g)) })
         return have.id
       }
-      const it = demoStoreRows()
-        .rows.flatMap((r) => r.items)
-        .find((i) => i.appId === appId)
-      const game: Game = { id: `store-${appId}`, title: it?.title ?? title, platform: 'pc', path: '', steamAppId: appId, cover: it?.cover, hero: it?.hero, logo: it?.logo, playtime: 0, addedAt: Date.now(), sessions: [] }
+      const it = [...demoStoreRows().rows.flatMap((r) => r.items), ...DEMO_SRC].find((i) => i.appId === appId)
+      // Игра GOG или только из источников — без Steam AppID
+      const game: Game = { id: `store-${appId}`, title: it?.title ?? title, platform: 'pc', path: '', ...(appId > 0 ? { steamAppId: appId } : {}), cover: it?.cover, hero: it?.hero, logo: it?.logo, playtime: 0, addedAt: Date.now(), sessions: [] }
       set({ games: [...state.games, game] })
       return game.id
     },
@@ -959,7 +975,12 @@ async function demoFileSource(file: string): Promise<{ source?: StoreSource; err
   demoSources = [...demoSources, source]
   return { source }
 }
+/** Демо: придуманная игра, о которой знает только источник — ни Steam, ни GOG (арта нет, как без ключа SteamGridDB) */
+const DEMO_SRC_ID = -(SRC_BASE + 4242)
+const DEMO_SRC: StoreItem[] = [{ appId: DEMO_SRC_ID, store: 'sources', title: 'Brasswick Murmurs' }]
+
 const DEMO_FREE: [number, string, string, string][] = [
+  [DEMO_SRC_ID, 'brasswick murmurs', '1.8 GB', 'http'],
   [730, 'counter-strike 2', '33.5 GB', 'magnet'],
   [730, 'counter-strike 2', '33.6 GB', 'http'],
   [570, 'dota 2', '41.2 GB', 'magnet'],
@@ -1017,7 +1038,8 @@ const demoDecorate = (items: StoreItem[]) =>
 function demoStoreHome(): StoreHome {
   const home = demoStoreRows()
   const rows = home.rows.map((r) => ({ ...r, items: demoDecorate(r.items) }))
-  const fresh = [...new Set(DEMO_FREE.map(([id]) => id))].flatMap((id) => rows.flatMap((r) => r.items).find((i) => i.appId === id && i.options) ?? [])
+  const known = [...rows.flatMap((r) => r.items), ...demoDecorate(DEMO_SRC)]
+  const fresh = [...new Set(DEMO_FREE.map(([id]) => id))].flatMap((id) => known.find((i) => i.appId === id && i.options) ?? [])
   return { ...home, rows: fresh.length ? [{ id: 'sources', items: fresh }, ...rows] : rows }
 }
 
@@ -1047,6 +1069,19 @@ function demoStoreRows(): StoreHome {
   })
   const soon = (appId: number, title: string, upcoming: StoreItem['upcoming'], date?: number): StoreItem =>
     item(appId, title, 2027, { upcoming, released: date, reviews: undefined })
+  const gogImg = (hash: string, ext = 'jpg') => `https://images.gog-statics.com/${hash}.${ext}`
+  const gog = (id: number, title: string, year: number, rating: number, count: number, ru: string[], eng: string[], cover: string, hero: string, logo: string, slug: string): StoreItem => ({
+    appId: -id,
+    store: 'gog',
+    title,
+    cover: gogImg(cover),
+    hero: gogImg(hero),
+    logo: logo ? gogImg(logo, 'png') : undefined,
+    link: `https://www.gog.com/en/game/${slug}`,
+    released: Date.UTC(year, 5, 1),
+    tags: tags(ru, eng),
+    reviews: { percent: rating * 2, count, label: '' }
+  })
   return {
     fetchedAt: Date.now(),
     rows: [
@@ -1089,6 +1124,21 @@ function demoStoreRows(): StoreHome {
           item(271590, 'Grand Theft Auto V', 2015),
           item(892970, 'Valheim', 2021),
           item(105600, 'Terraria', 2011)
+        ]
+      },
+      // Игры GOG, которых нет в Steam (проверено сверкой 2026-11-09): картинки с CDN GOG
+      {
+        id: 'gog',
+        items: [
+          gog(1412601690, 'Diablo + Hellfire', 1996, 46, 4873, ['Ролевая игра', 'Экшн'], ['Role-playing', 'Action'], '271f23dcffc02293cc3b34e5289d8e24bfc97742dae752b809884bcf6e0f9b67', '334a689a896068732499d7ed61564b07fadc6e369a581a53f810916ee425b7c0', '86419818d059039da76927bb2a882028b0867c50cb38e6f9e83671212e0fee54', 'diablo'),
+          gog(1409964317, 'SWAT 4: Gold Edition', 2005, 48, 2246, ['Экшн', 'Тактическая'], ['Action', 'Tactical'], '87f7dda5ee51f4fe11e0ef1bbb24187599e0d1ced645c293f99894f7431c1d7c', 'beb36f717e0865b22fd269432e29d5940994e96125c6c04f96cf7c9baaa9c029', 'e057718314f895dfa8ef3f132888174fd02d7d7f1564d82968c1eff2438cd69b', 'swat_4_gold_edition'),
+          gog(1141086411, 'Silent Hill 4: The Room', 2004, 45, 1829, ['Приключение', 'Хоррор'], ['Adventure', 'Horror'], '9c695817623e63cea34d9b78af20e6a079516682917a37a90b1515b0c23762ed', '1c54b439f5a25006ae702611247dfe557bf408f67005a607bd835bce479136cc', '06ad5885682ddcd7a11a519a67ff04286241f289c850704687d9cd9e4849186b', 'silent_hill_4_the_room'),
+          gog(1207658916, 'Might and Magic 7: For Blood and Honor', 1999, 46, 2095, ['Ролевая игра', 'Фэнтези'], ['Role-playing', 'Fantasy'], '77caefb63a55de57aa6bbc8a3bc9d1ac9cd1957a02835bd5a46b984050ff71aa', '6c718ed08707deb6b9f8d0329085c6c247b15439a793347d0440d4d9976d7f91', '0034c28d4056a458ca94adb50a741e7f5e0afeac365eced8368c5f7b29255c3f', 'might_and_magic_7_for_blood_and_honor'),
+          gog(1207658891, 'Icewind Dale 2 Complete', 2002, 45, 3043, ['Ролевая игра', 'Фэнтези'], ['Role-playing', 'Fantasy'], '6ad21da40f0679b31ee546d475b1719f6ad486570035f3b76bf8f4694fba4cdf', '321fb9d887deeac44abe1149db1b4b343219ed33ec1b15315f4dab24eb0d40c0', '619e57735dec8e159bd91b3de08af4844b5b656f147b0fafc0bacb519ba4ff06', 'icewind_dale_2'),
+          gog(1752794474, 'Mortal Kombat 4', 1997, 43, 270, ['Экшн', 'Файтинг'], ['Action', 'Fighting'], '1697f571cf54643e4150a444bb902663743034cb94fac4046cb5476a97e40c91', 'd7eb4568599f848ad7fcf4b3209c1ad4d7eb7376ad1ae4599e061aec0e81e982', '0e8ddfe01c1a6c5291e7b00132108c21be49673308de3e74064bf09ca6e1a461', 'mortal_kombat_4'),
+          gog(1174788223, 'Star Trek: Armada II', 2001, 42, 680, ['Стратегия', 'Фантастика'], ['Strategy', 'Sci-fi'], '9f36b73e5c3ec7f4fd4066fa3520cfabf758209c49964e7051177a3bad40e6cf', 'ea357d163383583b70083183c5ad73f413d211797732921fb6542ac8ff587534', 'ee85459d4363bf8d168cbd51361c986c925422032e2786a4fc7f2ad9ea334965', 'star_trek_armada_ii'),
+          gog(1207659104, 'Worms 2', 1997, 36, 449, ['Стратегия', 'Пошаговая'], ['Strategy', 'Turn-based'], '11e06eb407d4f03644627ea67471bcd588014d12ea83fae5882cc000a86dcf8c', 'a99a5a96d62ecf3cfc35f41302c831d9453363bf176062915013c28b03705534', '9a4fac37079a391d1f57f90cfb1c8a7f523844fef2ea149193a82a9955d84abe', 'worms_2'),
+          gog(1176929400, 'Medal of Honor: Pacific Assault', 2004, 37, 431, ['Шутер', 'Историческая'], ['Shooter', 'Historical'], '7327c7ed6895493e6aad5e8a49f6b59a8cfceaf5693b54edcd156eb55e2e234d', 'abdf1f2193bae18b675b8e61d06224275486230c63848f291dc1c4cca30f6c4c', '', 'medal_of_honor_pacific_assault')
         ]
       },
       {

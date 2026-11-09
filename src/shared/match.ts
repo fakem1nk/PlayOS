@@ -158,6 +158,22 @@ export function parseTitle(title: string): TitleInfo {
 }
 
 /**
+ * Название раздачи для витрины: главный вариант (тот же, что даёт главный ключ) без версий и обвеса —
+ * «Hollow Knight v1.5.78 + All DLCs (FitGirl Repack)» → «Hollow Knight». Его ключ совпадает с ключом раздачи
+ */
+export function displayTitle(title: string): string {
+  const { parts } = split(title)
+  const latin = parts.filter((p) => !CYRILLIC.test(p)).sort((a, b) => b.length - a.length)
+  const main = latin[0] ?? parts[0] ?? title
+  const clean = main
+    .replace(new RegExp(VERSION.source, 'gi'), ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s\-–—:,.]+$/, '')
+    .trim()
+  return clean || main.trim()
+}
+
+/**
  * Игра магазина в библиотеке: по Steam AppID, а среди PC-игр без AppID (добавлены вручную, арт не из Steam) —
  * по названию, чтобы магазин не добавил её второй раз
  */

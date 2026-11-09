@@ -575,6 +575,33 @@ export async function searchSteamGridDB(query: string, key: string): Promise<Art
   ).then((list) => list.filter((c) => c.cover || c.hero || c.coverAnimated))
 }
 
+/**
+ * Арт одной игры из SteamGridDB — для магазина: только если SteamGridDB знает игру ровно с таким названием
+ * (same решает вызывающий), первая обложка, фон и логотип. null — не нашлась; ошибка — сеть или ключ
+ */
+export async function sgdbArt(query: string, key: string, same: (name: string) => boolean): Promise<{ cover?: string; hero?: string; logo?: string } | null> {
+  const api = async (p: string) => {
+    const r = await httpFetch(`https://www.steamgriddb.com/api/v2${p}`, {
+      headers: { Authorization: `Bearer ${key.trim()}` },
+      signal: AbortSignal.timeout(10000)
+    })
+    if (!r.ok) throw new Error(`SteamGridDB ${r.status}`)
+    const j = (await r.json()) as { success: boolean; data?: unknown }
+    return j.success ? j.data : null
+  }
+  const games = ((await api(`/search/autocomplete/${encodeURIComponent(query.trim())}`)) as { id: number; name: string }[] | null) ?? []
+  const g = games.slice(0, 5).find((x) => same(x.name))
+  if (!g) return null
+  const first = (v: unknown) => (Array.isArray(v) ? (v[0] as { url?: string } | undefined)?.url : undefined)
+  const [grids, heroes, logos] = await Promise.all([
+    api(`/grids/game/${g.id}?dimensions=600x900,342x482,660x930&types=static`).catch(() => null),
+    api(`/heroes/game/${g.id}?types=static`).catch(() => null),
+    api(`/logos/game/${g.id}?types=static`).catch(() => null)
+  ])
+  const art = { cover: first(grids), hero: first(heroes), logo: first(logos) }
+  return art.cover || art.hero ? art : null
+}
+
 const WIKI_UA = { 'User-Agent': 'PlayOS/0.7 (local game launcher)' }
 
 /** Википедия: картинка из карточки статьи об игре — обычно это обложка. Без ключей. */

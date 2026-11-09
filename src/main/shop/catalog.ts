@@ -286,8 +286,8 @@ async function query(filters: object, sort: number): Promise<RawItem[]> {
   return res.store_items ?? []
 }
 
-/** Ряды из Steam; «Новинки и свежие обновления» собирает sources.ts */
-type SteamRow = Exclude<StoreRowId, 'sources'>
+/** Ряды из Steam; «Новинки и свежие обновления» собирает sources.ts, «Только в GOG» — gog.ts */
+type SteamRow = Exclude<StoreRowId, 'sources' | 'gog'>
 
 const ROWS: Record<SteamRow, () => Promise<RawItem[]>> = {
   top: async () => {

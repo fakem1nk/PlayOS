@@ -5,12 +5,14 @@ import { setImmediate as breath } from 'node:timers/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { DownloadKind, DownloadOption, StoreHome, StoreItem, StoreSource } from '@shared/types'
 import { getLang, t } from '@shared/i18n'
-import { parseTitle, TitleIndex, titleKey, type TitleKey } from '@shared/match'
+import { displayTitle, parseTitle, TitleIndex, titleKey, type TitleKey } from '@shared/match'
 import { httpFetch } from '../http'
 import { log } from '../log'
 import { dataDir } from '../store'
 import { ITEM_V, searchTitles, storeItems } from './catalog'
 import { readJson, writeJson } from './disk'
+import { gogFind } from './gog'
+import { srcItem, withArt } from './srconly'
 
 /**
  * Источники загрузок — JSON-файлы по ссылкам или с диска, которые добавил сам пользователь (формат Hydra:
@@ -356,17 +358,27 @@ const CYRILLIC = /[а-яё]/i
  * AppID игры с этим ключом: из памяти или по одному поиску в Steam. Русские названия ищутся по-русски — так Steam
  * находит и русские игры, и локализованные названия («Ведьмак 3»)
  */
-function resolve(base: string): Promise<number> {
+function resolve(base: string, terms: string[] = [base], also: string[] = []): Promise<number> {
   const hit = cache[base]
   if (hit && (hit[0] || Date.now() - hit[1] < MISS_TTL)) return Promise.resolve(hit[0])
   let p = resolving.get(base)
   if (!p) {
-    p = searchTitles(base, CYRILLIC.test(base) ? 'russian' : 'english')
+    const want = new Set([base, ...also])
+    // Запросы по очереди, пока Steam не вернёт игру с этим названием
+    const search = async () => {
+      let list: Awaited<ReturnType<typeof searchTitles>> = []
+      for (const term of [...new Set(terms)]) {
+        list = await searchTitles(term, CYRILLIC.test(term) ? 'russian' : 'english')
+        if (list.some((c) => want.has(titleKey(c.title).full) || want.has(titleKey(c.title).base))) break
+      }
+      return list
+    }
+    p = search()
       .then((list) => {
         // Все игры Steam с этим названием — у одноимённых загрузку разведёт год
         const same = list.filter((c) => {
           const k = titleKey(c.title)
-          return k.full === base || k.base === base
+          return want.has(k.full) || want.has(k.base)
         })
         const appId = same[0]?.appId ?? 0
         cache[base] = same.length > 1 ? [appId, Date.now(), same.map((c) => [c.appId, c.year ?? 0])] : [appId, Date.now()]
@@ -380,13 +392,34 @@ function resolve(base: string): Promise<number> {
   return p
 }
 
+/**
+ * Есть ли игра с таким названием в Steam: AppID или 0. Ответы общие с источниками (match-cache.json) — так GOG
+ * сверяется со Steam один раз на название. Ошибка — Steam не ответил
+ */
+export function steamIdFor(title: string): Promise<number> {
+  loadList()
+  const k = titleKey(title)
+  // Сначала по самому названию без скобок: по ключу Steam не находит «F.E.A.R.» («f e a r»), а «DOOM (2016)» —
+  // по названию со скобками. Не нашлось — по ключу без издания («Tomb Raider GOTY» → «tomb raider»).
+  // Совпасть может и полный ключ: «Painkiller Black Edition» и «Painkiller: Black Edition» — одна игра
+  const name = title
+    .replace(/[™®©]/g, '')
+    .replace(/\s*[([{][^)\]}]*[)\]}]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  return k.base ? resolve(k.base, [name || k.base, k.base], [k.full]) : Promise.resolve(0)
+}
+
 /** AppID загрузки: ключи по очереди («Grand Theft Auto V», потом «GTA 5»), с учётом года у одноимённых */
 async function resolveEntry(e: Entry): Promise<number> {
   for (const k of e.keys) if (await resolve(k.base)) break
   return appOf(e) ?? 0
 }
 
-/** Несколько загрузок, по четыре запроса сразу. Отдельная ошибка сети — просто 0, все сразу — Steam недоступен */
+/**
+ * Несколько загрузок, по четыре запроса сразу: AppID, 0 — Steam такой игры не знает, −1 — Steam не ответил
+ * на этот запрос. Не ответил ни на один — Steam недоступен
+ */
 async function resolveMany(list: Entry[]): Promise<number[]> {
   const out = list.map(() => 0)
   let next = 0
@@ -394,7 +427,7 @@ async function resolveMany(list: Entry[]): Promise<number[]> {
   const worker = async () => {
     while (next < list.length) {
       const i = next++
-      out[i] = await resolveEntry(list[i]).catch(() => (failed++, 0))
+      out[i] = await resolveEntry(list[i]).catch(() => (failed++, -1))
     }
   }
   await Promise.all(Array.from({ length: 4 }, worker))
@@ -418,12 +451,38 @@ function freshEntries(limit: number, filter?: (e: Entry) => boolean): Entry[] {
 
 let rowLoading: Promise<void> | null = null
 
+/**
+ * Плитки для загрузок по порядку: игра Steam, иначе та же игра в GOG, иначе игра только из источников (арт из
+ * SteamGridDB). Steam не ответил на запрос (−1) — загрузку пропускаем: не выдаём игру Steam за игру без магазина
+ */
+async function itemsFor(list: Entry[], ids: number[], limit: number, budget = Infinity): Promise<StoreItem[]> {
+  const steamIds = [...new Set(ids.filter((id) => id > 0))]
+  const late = <T>(p: Promise<T>, fallback: T) => (Number.isFinite(budget) ? Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), budget))]) : p)
+  // Steam и GOG — параллельно: GOG спрашиваем только о том, чего нет в Steam
+  const [steamList, gogList] = await Promise.all([
+    steamIds.length ? storeItems(steamIds).catch(() => []) : Promise.resolve([]),
+    Promise.all(list.map((e, i) => (ids[i] === 0 ? late(gogFind(displayTitle(e.title)).catch(() => null), null) : Promise.resolve(null))))
+  ])
+  const steam = new Map(steamList.map((i) => [i.appId, i]))
+  const out: StoreItem[] = []
+  const seen = new Set<number>()
+  for (let i = 0; i < list.length && out.length < limit; i++) {
+    const id = ids[i]
+    const item = id > 0 ? steam.get(id) : id === 0 ? (gogList[i] ?? srcItem(list[i].title, list[i].year)) : null
+    if (item && !seen.has(item.appId)) {
+      seen.add(item.appId)
+      out.push(item)
+    }
+  }
+  return withArt(out, budget)
+}
+
 function refreshRow() {
   rowLoading ??= (async () => {
     await ensureIndex()
     const sig = signature()
-    const ids = [...new Set((await resolveMany(freshEntries(ROW_GROUPS))).filter(Boolean))].slice(0, ROW_SIZE)
-    const items = ids.length ? await storeItems(ids) : []
+    const fresh = freshEntries(ROW_GROUPS)
+    const items = await itemsFor(fresh, await resolveMany(fresh), ROW_SIZE)
     row = { sig, lang: getLang(), v: ITEM_V, items }
     writeJson(rowFile(), row)
     onChange?.()
@@ -434,17 +493,30 @@ function refreshRow() {
     .finally(() => (rowLoading = null))
 }
 
-/** Поиск: к найденному в Steam добавляются игры из источников с этим словом в названии */
-export async function mergeSearch(q: string, steam: StoreItem[]): Promise<StoreItem[]> {
-  if (!loadList().length) return steam
+/**
+ * Поиск: найденное в Steam, игры GOG, которых нет в Steam, и игры из источников с этим словом в названии — те, что
+ * Steam не вернул, и те, которых нет ни в Steam, ни в GOG
+ */
+export async function mergeSearch(q: string, steam: StoreItem[], gog: StoreItem[] = []): Promise<StoreItem[]> {
+  if (!loadList().length) return [...steam, ...gog]
   await ensureIndex()
   const words = titleKey(q).full
-  if (words.length < 2) return decorate(steam)
-  const have = new Set(steam.map((i) => i.appId))
-  const found = await resolveMany(freshEntries(SEARCH_GROUPS, (e) => e.keys.some((k) => k.full.includes(words)))).catch(() => [])
-  const ids = [...new Set(found.filter((id) => id && !have.has(id)))]
-  const extra = ids.length ? await storeItems(ids).catch(() => []) : []
-  return decorate([...steam, ...extra])
+  if (words.length < 2) return decorate([...steam, ...gog])
+  const list = freshEntries(SEARCH_GROUPS, (e) => e.keys.some((k) => k.full.includes(words)))
+  const found = await resolveMany(list).catch(() => list.map(() => -1))
+  // Игра GOG из выдачи — та же, что раздача с её названием: второй плиткой раздачу не показываем
+  const gogKeys = new Set(gog.map((g) => titleKey(g.title).base))
+  const have = new Set([...steam, ...gog].map((i) => i.appId))
+  const rest = list.flatMap((e, i) => (have.has(found[i]) || (found[i] === 0 && e.keys.some((k) => gogKeys.has(k.base))) ? [] : [{ e, id: found[i] }]))
+  const extra = await itemsFor(
+    rest.map((r) => r.e),
+    rest.map((r) => r.id),
+    SEARCH_GROUPS,
+    3000
+  )
+  const seen = new Set<number>()
+  // Сначала Steam (что нашёл он и что нашлось по раздачам), потом GOG, потом игры только из источников
+  return decorate([...steam, ...extra.filter((i) => !i.store), ...gog, ...extra.filter((i) => i.store)].filter((i) => !seen.has(i.appId) && !!seen.add(i.appId)))
 }
 
 /** «Не та игра»: ключ больше не показывается у этой игры, а если его нашёл Steam — забываем и это */
