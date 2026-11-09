@@ -227,6 +227,44 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 value={s.keepArchives !== true}
                 onChange={(v) => save({ keepArchives: !v })}
               />
+              <Toggle
+                label={t('Пауза во время игры')}
+                hint={t('Пока идёт игра, загрузки, распаковка и раздача стоят и не отнимают интернет и диск. Игра закроется — всё продолжится само')}
+                value={s.downloadPauseInGame !== false}
+                onChange={(v) => save({ downloadPauseInGame: v })}
+              />
+              <Cycler
+                label={t('Скорость загрузки')}
+                hint={t('Ограничение для прямых ссылок и торрентов: загрузка не займёт весь интернет')}
+                value={String(s.downloadLimit ?? 0)}
+                options={speedOptions([1, 2, 5, 10, 20, 50, 100])}
+                onChange={(v) => save({ downloadLimit: Number(v) })}
+              />
+              <Cycler
+                label={t('Скорость отдачи')}
+                hint={t('Торренты отдают скачанное другим и во время загрузки, и на раздаче')}
+                value={String(s.uploadLimit ?? 0)}
+                options={speedOptions([0.5, 1, 2, 5, 10])}
+                onChange={(v) => save({ uploadLimit: Number(v) })}
+              />
+              <Toggle
+                label={t('Раздавать после загрузки')}
+                hint={t('Скачанный торрент ещё отдаётся другим, пока не наберёт рейтинг ниже. Архивы такой раздачи удаляются, когда она закончится')}
+                value={s.seed === true}
+                onChange={(v) => save({ seed: v })}
+              />
+              {s.seed === true && (
+                <Cycler
+                  label={t('Раздавать до рейтинга')}
+                  hint={t('Рейтинг — сколько отдано относительно размера: 1 — столько же, сколько скачано')}
+                  value={String(s.seedRatio ?? 1)}
+                  options={[
+                    ...[0.5, 1, 1.5, 2, 3].map((n) => ({ id: String(n), label: n.toLocaleString(locale()) })),
+                    { id: '0', label: t('Без предела') }
+                  ]}
+                  onChange={(v) => save({ seedRatio: Number(v) })}
+                />
+              )}
               <h2 className="panel-title">
                 <IconGrid /> {t('Витрина')}
               </h2>
@@ -546,6 +584,12 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
 }
 
 /** «О системе»: окно со сведениями о PlayOS, компьютере, экранах и геймпадах */
+/** Варианты ограничения скорости: «Без ограничения» и шаги в МБ/с; значение — байт/с */
+const speedOptions = (mb: number[]) => [
+  { id: '0', label: t('Без ограничения') },
+  ...mb.map((n) => ({ id: String(Math.round(n * 2 ** 20)), label: t('{v} МБ/с', { v: n.toLocaleString(locale()) }) }))
+]
+
 function SystemInfoRow({ version }: { version: string }) {
   const [open, setOpen] = useState(false)
   return (

@@ -230,6 +230,17 @@ export const IconArrowUp = (p: P) => (
     <path d="M12 19V5m0 0-5.5 5.5M12 5l5.5 5.5" />
   </svg>
 )
+export const IconArrowDown = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 5v14m0 0-5.5-5.5M12 19l5.5-5.5" />
+  </svg>
+)
+/** Качать сейчас: первой в очереди */
+export const IconToTop = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5.5 4.5h13M12 20V9m0 0-5 5m5-5 5 5" />
+  </svg>
+)
 /** Пауза загрузки */
 export const IconPause = (p: P) => (
   <svg {...base(p)}>

@@ -1340,6 +1340,7 @@ function applySettings(prev: Settings, next: Settings) {
   }
   // Выбрали другой экран — переезжаем сразу
   if (prev.displayId !== next.displayId) moveToTargetDisplay()
+  downloads.downloadSettings(prev, next)
   // Подсветку включили или выключили посреди игры
   if (prev.dsxLightbar !== next.dsxLightbar) {
     const r = launcher.running()
@@ -2006,6 +2007,8 @@ function registerIpc() {
   ipcMain.handle('downloads:start', (_e, req: DownloadRequest) => downloads.startDownload(req))
   ipcMain.handle('downloads:control', (_e, id: string, action: DownloadControl) => downloads.controlDownload(String(id), action))
   ipcMain.handle('downloads:password', (_e, id: string, password: string) => downloads.setPassword(String(id), String(password ?? '')))
+  ipcMain.handle('downloads:files', (_e, id: string) => downloads.downloadFiles(String(id)))
+  ipcMain.handle('downloads:setFiles', (_e, id: string, skip: number[]) => downloads.setFiles(String(id), Array.isArray(skip) ? skip.filter((i) => Number.isInteger(i)) : []))
   ipcMain.handle('downloads:folders', () => downloads.listFolders())
   ipcMain.handle('downloads:drives', () => downloads.listDrives())
   ipcMain.handle('downloads:folderAdd', async (_e, p: string) => {
@@ -2451,7 +2454,8 @@ app.whenReady().then(() => {
     away: () => win?.minimize(),
     back: () => {
       if (win?.isMinimized() && !launcher.running()) bringToFront()
-    }
+    },
+    game: () => !!launcher.running()
   })
   vr.migrateStandalone()
   // Шлем в верхней панели: шлём только изменения (подключение, способ связи, заряд)
@@ -2480,6 +2484,8 @@ app.whenReady().then(() => {
   launcher.events.on('change', () => {
     const r = launcher.running()
     if (!r) keySlot = 1
+    // На время игры загрузки и раздача стоят
+    downloads.syncHold()
     syncTrophyWatch()
     // Игра только что запустилась — подсветка DualSense в цвет игры
     if (r && r.gameId !== litGameId) {

@@ -2014,6 +2014,97 @@ html[data-theme='light'] .store-dots button.is-active {
   color: var(--danger);
 }
 
+/* Выше и ниже в очереди — круглые кнопки без подписи: подпись в подсказке внизу */
+.dl-act-round {
+  flex: none;
+}
+
+/* ── Выбор файлов торрента: галочка, имя (у папки — значок и число файлов), размер ── */
+.dl-files .dl-list {
+  gap: 0.6rem;
+}
+
+.dl-file {
+  flex: none;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.2rem 2rem 1.2rem 1.6rem;
+}
+
+.dl-file-check {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  color: #0b0d12;
+  box-shadow: inset 0 0 0 0.2rem rgba(255, 255, 255, 0.35);
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.dl-file-check.is-on,
+.dl-file-check.is-part {
+  background: #fff;
+  box-shadow: none;
+}
+
+.dl-file-dash {
+  width: 1.2rem;
+  height: 0.22rem;
+  border-radius: 0.2rem;
+  background: #0b0d12;
+}
+
+.dl-file-name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  font-size: 1.8rem;
+}
+
+.dl-file-name > svg {
+  flex: none;
+  font-size: 1.9rem;
+  color: var(--mist);
+}
+
+.dl-file-name > span:not(.dl-file-count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-file-count {
+  flex: none;
+  font-size: 1.45rem;
+  color: var(--faint);
+}
+
+.dl-file .dl-size {
+  font-size: 1.7rem;
+}
+
+/* Убранный файл — приглушён: видно, что качаться не будет */
+.dl-file.is-off .dl-file-name,
+.dl-file.is-off .dl-size {
+  color: var(--faint);
+}
+
+.dl-files-note {
+  margin: 2rem 0;
+  font-size: 1.5rem;
+  line-height: 1.45;
+  color: var(--faint);
+}
+
 .dl-chip {
   flex: none;
   padding: 0.2rem 0.9rem;

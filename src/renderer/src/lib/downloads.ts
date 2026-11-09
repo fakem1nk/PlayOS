@@ -80,6 +80,9 @@ export function useDownloadNotices(jobs: DownloadJob[]) {
 export const fraction = (j: DownloadJob) =>
   j.phase === 'extracting' && j.unpack?.total ? Math.min(1, j.unpack.done / j.unpack.total) : j.size ? Math.min(1, j.received / j.size) : 0
 
+/** Рейтинг раздачи — сколько отдано относительно размера: «0,42» */
+export const ratioText = (j: DownloadJob) => ((j.uploaded ?? 0) / Math.max(1, j.size)).toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 /** Сколько осталось: «меньше минуты», «6 мин», «1 ч 20 мин» */
 export function timeLeft(sec: number): string {
   if (sec < 60) return t('меньше минуты')
@@ -103,6 +106,8 @@ export function jobLine(j: DownloadJob): string {
         .filter(Boolean)
         .join(' · ')
     case 'queued':
+      // Идёт игра — очередь стоит и продолжится сама, когда игра закроется
+      if (j.held) return [t('Пауза на время игры — продолжится, когда игра закроется'), of].filter(Boolean).join(' · ')
       return [j.downloaded ? t('Ждёт распаковки') : t('В очереди'), of].filter(Boolean).join(' · ')
     case 'paused':
       return [t('Пауза'), of].filter(Boolean).join(' · ')

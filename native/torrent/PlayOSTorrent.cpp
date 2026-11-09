@@ -2,21 +2,29 @@
 // и живёт, пока идут торрент-загрузки.
 //
 // Команды — строками в stdin, поля через табуляцию:
-//   add    <id> <папка> <magnet или путь к .torrent>   — начать или продолжить (есть файл докачки — с него)
+//   add    <id> <папка> <magnet или путь к .torrent> [<пропустить>] [<0|1 раздавать>]
+//                                                     — начать или продолжить (есть файл докачки — с него)
 //   pause  <id>                                       — пауза, состояние докачки сохраняется
 //   remove <id> <0|1>                                 — убрать из сессии; 1 — вместе со скачанными файлами
+//   files  <id> <пропустить>                          — какие файлы не качать: номера через запятую, пусто — все
+//   seed   <id> <0|1>                                 — раздавать ли после загрузки
+//   limits <приём> <отдача>                           — ограничение скорости, байт/с; 0 — без ограничения
+//   hold   <0|1>                                      — пауза всей сессии (идёт игра) и обратно
 //   quit                                              — сохранить докачку и выйти
 // События — строками JSON в stdout:
 //   {"ev":"ready"}
-//   {"ev":"status","id":…,"state":"metadata|checking|downloading|finished","done":…,"total":…,"rate":…,"peers":…,"seeds":…,"name":…}
-//   {"ev":"finished","id":…,"path":…}    — скачано целиком; раздача сразу останавливается
+//   {"ev":"status","id":…,"state":"metadata|checking|downloading|finished","done":…,"total":…,"rate":…,"up":…,"uprate":…,"peers":…,"seeds":…,"name":…}
+//   {"ev":"files","id":…,"files":[{"i":…,"p":…,"s":…}]}  — список файлов (без служебных pad-файлов), как только он известен
+//   {"ev":"finished","id":…,"path":…}    — скачано целиком; без раздачи торрент сразу уходит из сессии
 //   {"ev":"error","id":…,"message":…}
 //   {"ev":"removed","id":…}
 // stdin закрылся (PlayOS завершился или упал) — сохраняемся и выходим: торрент не качается сиротой.
 // Файлы докачки и состояние DHT — в папке из аргумента --state.
 
 #include <libtorrent/add_torrent_params.hpp>
+#include <libtorrent/address.hpp>
 #include <libtorrent/alert_types.hpp>
+#include <libtorrent/ip_filter.hpp>
 #include <libtorrent/load_torrent.hpp>
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/read_resume_data.hpp>
@@ -34,8 +42,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <map>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -145,6 +155,48 @@ static std::vector<std::string> split(const std::string& s) {
   return out;
 }
 
+// «3,5,8» → номера файлов
+static std::vector<int> parseSkip(const std::string& s) {
+  std::vector<int> out;
+  std::string cur;
+  std::istringstream in(s);
+  while (std::getline(in, cur, ',')) {
+    try {
+      if (!cur.empty()) out.push_back(std::stoi(cur));
+    } catch (...) {
+    }
+  }
+  return out;
+}
+
+// Пропущенные файлы — не качать, остальные — обычный приоритет. Нужен список файлов (метаданные)
+static void applySkip(const lt::torrent_handle& h, const std::vector<int>& skip) {
+  auto ti = h.torrent_file();
+  if (!ti) return;
+  std::vector<lt::download_priority_t> prio(static_cast<size_t>(ti->num_files()), lt::default_priority);
+  for (int i : skip)
+    if (i >= 0 && i < static_cast<int>(prio.size())) prio[static_cast<size_t>(i)] = lt::dont_download;
+  h.prioritize_files(prio);
+}
+
+// Список файлов раздачи — для выбора, что качать; служебные pad-файлы не показываем, номера остаются настоящими
+static void emitFiles(const std::string& id, const lt::torrent_handle& h) {
+  auto ti = h.torrent_file();
+  if (!ti) return;
+  const lt::file_storage& fst = ti->layout();
+  std::ostringstream o;
+  o << "{\"ev\":\"files\",\"id\":\"" << esc(id) << "\",\"files\":[";
+  bool first = true;
+  for (lt::file_index_t i : fst.file_range()) {
+    if (fst.pad_file_at(i)) continue;
+    if (!first) o << ',';
+    first = false;
+    o << "{\"i\":" << static_cast<int>(i) << ",\"p\":\"" << esc(fst.file_path(i)) << "\",\"s\":" << fst.file_size(i) << '}';
+  }
+  o << "]}";
+  emit(o.str());
+}
+
 static const char* stateName(lt::torrent_status::state_t s) {
   switch (s) {
     case lt::torrent_status::downloading_metadata: return "metadata";
@@ -188,9 +240,22 @@ int main(int argc, char** argv) {
     }
   }
   lt::session ses(std::move(params));
+  // Все пиры — в общем классе: у libtorrent пиры из локальной сети в своём классе без ограничений скорости, а
+  // «не больше N» должно значить «не больше N» для всех вместе
+  {
+    const std::uint32_t global = 1u << static_cast<std::uint32_t>(lt::session::global_peer_class_id);
+    lt::ip_filter classes;
+    classes.add_rule(lt::make_address("0.0.0.0"), lt::make_address("255.255.255.255"), global);
+    classes.add_rule(lt::make_address("::"), lt::make_address("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"), global);
+    ses.set_peer_class_filter(classes);
+  }
 
   std::map<std::string, lt::torrent_handle> byId;
   std::map<lt::torrent_handle, std::string> idOf;
+  // Эти после загрузки остаются раздавать; PlayOS сам убирает их, когда отдано достаточно
+  std::set<std::string> seeders;
+  // Что не качать — для магнетов, у которых списка файлов ещё нет: применится, когда он придёт
+  std::map<std::string, std::vector<int>> pendingSkip;
   int pendingResume = 0;
   bool quitting = false;
 
@@ -200,9 +265,20 @@ int main(int argc, char** argv) {
     pendingResume++;
   };
 
-  auto add = [&](const std::string& id, const std::string& save, const std::string& source) {
+  // Список файлов уже есть — применяем выбор сразу, нет — когда придут метаданные
+  auto setSkip = [&](const std::string& id, const lt::torrent_handle& h, const std::vector<int>& skip) {
+    if (h.is_valid() && h.torrent_file()) {
+      applySkip(h, skip);
+      pendingSkip.erase(id);
+    } else pendingSkip[id] = skip;
+  };
+
+  auto add = [&](const std::string& id, const std::string& save, const std::string& source, const std::string& skip, bool seed) {
+    if (seed) seeders.insert(id);
+    else seeders.erase(id);
     auto it = byId.find(id);
     if (it != byId.end() && it->second.is_valid()) {
+      setSkip(id, it->second, parseSkip(skip));
       it->second.resume();
       return;
     }
@@ -226,6 +302,9 @@ int main(int argc, char** argv) {
     if (ec) return emitError(id, ec.message());
     byId[id] = h;
     idOf[h] = id;
+    setSkip(id, h, parseSkip(skip));
+    // Торрент-файл или докачка со списком файлов — список известен сразу
+    if (h.torrent_file()) emitFiles(id, h);
   };
 
   auto forget = [&](const lt::torrent_handle& h) {
@@ -239,7 +318,7 @@ int main(int argc, char** argv) {
     auto f = split(line);
     if (f.empty()) return;
     const std::string& cmd = f[0];
-    if (cmd == "add" && f.size() >= 4) add(f[1], f[2], f[3]);
+    if (cmd == "add" && f.size() >= 4) add(f[1], f[2], f[3], f.size() >= 5 ? f[4] : "", f.size() >= 6 && f[5] == "1");
     else if (cmd == "pause" && f.size() >= 2) {
       auto it = byId.find(f[1]);
       if (it == byId.end()) return;
@@ -249,12 +328,35 @@ int main(int argc, char** argv) {
       const std::string id = f[1];
       std::error_code rm;
       fs::remove(resumeFile(id), rm);
+      seeders.erase(id);
+      pendingSkip.erase(id);
       auto it = byId.find(id);
       if (it == byId.end()) return emit("{\"ev\":\"removed\",\"id\":\"" + esc(id) + "\"}");
       lt::torrent_handle h = it->second;
       forget(h);
       ses.remove_torrent(h, f.size() >= 3 && f[2] == "1" ? lt::session_handle::delete_files : lt::remove_flags_t{});
       emit("{\"ev\":\"removed\",\"id\":\"" + esc(id) + "\"}");
+    } else if (cmd == "files" && f.size() >= 2) {
+      auto it = byId.find(f[1]);
+      const auto skip = parseSkip(f.size() >= 3 ? f[2] : "");
+      if (it == byId.end()) pendingSkip[f[1]] = skip;
+      else setSkip(f[1], it->second, skip);
+    } else if (cmd == "seed" && f.size() >= 3) {
+      if (f[2] == "1") seeders.insert(f[1]);
+      else seeders.erase(f[1]);
+    } else if (cmd == "limits" && f.size() >= 3) {
+      try {
+        const int down = std::max(0, std::stoi(f[1]));
+        const int up = std::max(0, std::stoi(f[2]));
+        lt::settings_pack lim;
+        lim.set_int(lt::settings_pack::download_rate_limit, down);
+        lim.set_int(lt::settings_pack::upload_rate_limit, up);
+        ses.apply_settings(std::move(lim));
+      } catch (...) {
+      }
+    } else if (cmd == "hold" && f.size() >= 2) {
+      if (f[1] == "1") ses.pause();
+      else ses.resume();
     } else if (cmd == "quit") quitting = true;
   };
 
@@ -297,7 +399,8 @@ int main(int argc, char** argv) {
           if (it == idOf.end()) continue;
           std::ostringstream o;
           o << "{\"ev\":\"status\",\"id\":\"" << esc(it->second) << "\",\"state\":\"" << stateName(s.state) << "\",\"done\":" << s.total_wanted_done
-            << ",\"total\":" << (s.has_metadata ? s.total_wanted : 0) << ",\"rate\":" << s.download_payload_rate << ",\"peers\":" << s.num_peers
+            << ",\"total\":" << (s.has_metadata ? s.total_wanted : 0) << ",\"rate\":" << s.download_payload_rate << ",\"up\":" << s.all_time_upload
+            << ",\"uprate\":" << s.upload_payload_rate << ",\"peers\":" << s.num_peers
             << ",\"seeds\":" << s.num_seeds << ",\"paused\":" << ((s.flags & lt::torrent_flags::paused) ? "true" : "false") << ",\"name\":\"" << esc(s.name)
             << "\"}";
           emit(o.str());
@@ -312,7 +415,12 @@ int main(int argc, char** argv) {
         if (!root.empty() && root.back() != '\\' && root.back() != '/') root += '\\';
         root += s.name;
         emit("{\"ev\":\"finished\",\"id\":\"" + esc(id) + "\",\"path\":\"" + esc(root) + "\"}");
-        // Раздавать после загрузки не будем: торрент — из сессии, файлы остаются
+        // Раздаём — торрент остаётся в сессии; докачка (с отданным) — на диск: раздача продолжится после перезапуска
+        if (seeders.count(id)) {
+          saveResume(fin->handle);
+          continue;
+        }
+        // Без раздачи — торрент из сессии, файлы остаются
         std::error_code rm;
         fs::remove(resumeFile(id), rm);
         forget(fin->handle);
@@ -326,6 +434,15 @@ int main(int argc, char** argv) {
       } else if (auto* md = lt::alert_cast<lt::metadata_received_alert>(a)) {
         // Список файлов узнали — сохраняем сразу: после перезапуска его не придётся искать заново
         saveResume(md->handle);
+        auto it = idOf.find(md->handle);
+        if (it != idOf.end()) {
+          emitFiles(it->second, md->handle);
+          auto ps = pendingSkip.find(it->second);
+          if (ps != pendingSkip.end()) {
+            applySkip(md->handle, ps->second);
+            pendingSkip.erase(ps);
+          }
+        }
       } else if (auto* te = lt::alert_cast<lt::torrent_error_alert>(a)) {
         auto it = idOf.find(te->handle);
         if (it != idOf.end()) emitError(it->second, te->error.message() + (te->filename() && *te->filename() ? std::string(": ") + te->filename() : ""));

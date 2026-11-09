@@ -142,6 +142,8 @@ const api: PcsApi = {
   onDownloads: listen('downloads'),
   downloadStart: (req) => ipcRenderer.invoke('downloads:start', req),
   downloadControl: (id, action) => ipcRenderer.invoke('downloads:control', id, action),
+  downloadFiles: (id) => ipcRenderer.invoke('downloads:files', id),
+  downloadSetFiles: (id, skip) => ipcRenderer.invoke('downloads:setFiles', id, skip),
   downloadPassword: (id, password) => ipcRenderer.invoke('downloads:password', id, password),
   downloadFolders: () => ipcRenderer.invoke('downloads:folders'),
   downloadDrives: () => ipcRenderer.invoke('downloads:drives'),

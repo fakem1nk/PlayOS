@@ -288,6 +288,16 @@ export interface Settings {
   downloadDirs?: string[]
   /** Оставлять архивы после распаковки; нет — удаляются, когда всё распаковалось */
   keepArchives?: boolean
+  /** Пока идёт игра, загрузки, распаковка и раздача стоят; нет — так и есть (false — качать и во время игры) */
+  downloadPauseInGame?: boolean
+  /** Ограничение скорости загрузки, байт/с; нет или 0 — без ограничения. У каждого ПК своё: у них разный интернет */
+  downloadLimit?: number
+  /** Ограничение скорости отдачи торрентов, байт/с; нет или 0 — без ограничения */
+  uploadLimit?: number
+  /** Раздавать торрент после загрузки, пока не отдано seedRatio × размер; нет — раздача сразу останавливается */
+  seed?: boolean
+  /** До какого рейтинга раздавать (отдано / размер); нет — 1, 0 — пока раздачу не остановят */
+  seedRatio?: number
   /** Всплывающие уведомления; false — тихо копятся в центре уведомлений (ошибки и ответы на действия видны всегда) */
   noticePopups?: boolean
   /** Сколько уведомление держится на экране и какого оно размера; нет — обычно */
@@ -869,8 +879,12 @@ export interface PcsApi {
   /** Очередь целиком при каждом изменении; пока качается — не чаще пары раз в секунду */
   onDownloads(cb: (jobs: DownloadJob[]) => void): () => void
   downloadStart(req: DownloadRequest): Promise<{ job?: DownloadJob; error?: string }>
-  /** Пауза, продолжить, отменить, убрать из списка, удалить файлы, выше в очереди, открыть папку, убрать готовые */
+  /** Пауза, продолжить, отменить, убрать из списка, удалить файлы, порядок очереди, открыть папку, убрать готовые */
   downloadControl(id: string, action: DownloadControl): Promise<void>
+  /** Файлы торрента и какие из них не качать; null — список ещё не известен */
+  downloadFiles(id: string): Promise<{ files: TorrentFile[]; skip: number[] } | null>
+  /** Какие файлы торрента не качать (номера из списка файлов) */
+  downloadSetFiles(id: string, skip: number[]): Promise<void>
   /** Пароль от архива загрузки — распаковка продолжается с ним */
   downloadPassword(id: string, password: string): Promise<void>
   /** Папки загрузок пользователя со свободным местом */
@@ -1267,9 +1281,30 @@ export interface DownloadJob {
   installError?: string
   /** Торрент: с кем соединён */
   peers?: number
+  /** Торрент: сколько файлов в раздаче (без служебных); больше одного — можно выбрать, какие качать */
+  fileCount?: number
+  /** Торрент: номера файлов, которые не качаем */
+  skip?: number[]
+  /** Торрент скачан и раздаётся, пока не отдано seedRatio × размер */
+  seeding?: boolean
+  /** Торрент: сколько отдано за всё время, байт */
+  uploaded?: number
+  /** Скорость отдачи, байт/с — только пока раздаётся */
+  upSpeed?: number
+  /** Ждёт своей очереди, потому что идёт игра (пауза на время игры) — только в интерфейсе, не сохраняется */
+  held?: boolean
+  /** Распакованные архивы (первые части), оставленные только ради раздачи: удаляются, когда она закончится */
+  keptArchives?: string[]
   error?: string
   addedAt: number
   doneAt?: number
+}
+
+/** Файл торрента: номер в раздаче, путь внутри неё, размер */
+export interface TorrentFile {
+  i: number
+  p: string
+  s: number
 }
 
 /** Что скачать и куда */
@@ -1305,7 +1340,11 @@ export interface DownloadDrive {
   total: number
 }
 
-export type DownloadControl = 'pause' | 'resume' | 'cancel' | 'remove' | 'deleteFiles' | 'up' | 'folder' | 'clearDone' | 'install'
+/**
+ * up/down — на место выше или ниже в очереди; now — качать сейчас: первой в очереди, текущая загрузка уступает
+ * (и во время игры — несмотря на паузу на время игры); stopSeed — остановить раздачу
+ */
+export type DownloadControl = 'pause' | 'resume' | 'cancel' | 'remove' | 'deleteFiles' | 'up' | 'down' | 'now' | 'stopSeed' | 'folder' | 'clearDone' | 'install'
 
 export interface AchievementNotice {
   gameId: string

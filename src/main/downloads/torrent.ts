@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
-import type { DownloadJob } from '@shared/types'
+import type { DownloadJob, TorrentFile } from '@shared/types'
 import { t } from '@shared/i18n'
 import { httpFetch } from '../http'
 import { log } from '../log'
@@ -12,8 +12,9 @@ import { freeSpace, Stop, type Progress } from './http'
 
 /**
  * Торренты — свой клиент PlayOSTorrent.exe на libtorrent (native/torrent). Он запускается, когда очередь дошла
- * до торрента, и закрывается, когда торрентов в работе нет. Команды и события — строками через stdin/stdout.
+ * до торрента, и закрывается, когда торрентов в работе и на раздаче нет. Команды и события — строками через stdin/stdout.
  * Файлы докачки и состояние DHT — в %APPDATA%\PlayOS\torrents; после перезапуска торрент продолжается с того же места.
+ * Там же — список файлов каждой раздачи (<id>.files.json): из него выбирают, что качать.
  */
 
 export const torrentPath = () =>
@@ -22,11 +23,14 @@ export const torrentPath = () =>
 export const torrentReady = () => fs.existsSync(torrentPath())
 const stateDir = () => path.join(dataDir(), 'torrents')
 
-interface Status {
+export interface TorrentStatus {
   state: 'metadata' | 'checking' | 'downloading' | 'finished'
   done: number
   total: number
   rate: number
+  /** Отдано за всё время и скорость отдачи */
+  up: number
+  uprate: number
   peers: number
   seeds: number
   paused: boolean
@@ -34,7 +38,7 @@ interface Status {
 }
 
 interface Watch {
-  status: (s: Status) => void
+  status: (s: TorrentStatus) => void
   finished: (path: string) => void
   error: (message: string) => void
 }
@@ -47,6 +51,14 @@ let child: ChildProcess | null = null
 let closing: Promise<void> | null = null
 let idleTimer: ReturnType<typeof setTimeout> | null = null
 const watching = new Map<string, Watch>()
+/** Скачанные торренты на раздаче: id → что делать с их состоянием; ended — клиент закрылся сам */
+const seeding = new Map<string, { status: (s: TorrentStatus) => void; ended: () => void }>()
+/** Ограничения скорости (байт/с, 0 — нет) и пауза на время игры — новый клиент получает их сразу */
+let limits = [0, 0]
+let held = false
+/** Пришёл список файлов раздачи */
+let onFiles: (id: string, files: TorrentFile[]) => void = () => {}
+export const onTorrentFiles = (cb: typeof onFiles) => (onFiles = cb)
 
 function helper(): ChildProcess {
   if (idleTimer) clearTimeout(idleTimer)
@@ -56,14 +68,17 @@ function helper(): ChildProcess {
   const c = spawn(torrentPath(), ['--state', stateDir()], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
   child = c
   readline.createInterface({ input: c.stdout! }).on('line', (line) => {
-    let ev: { ev: string; id?: string; message?: string; path?: string } & Partial<Status>
+    let ev: { ev: string; id?: string; message?: string; path?: string; files?: TorrentFile[] } & Partial<TorrentStatus>
     try {
       ev = JSON.parse(line)
     } catch {
       return
     }
     const w = ev.id ? watching.get(ev.id) : undefined
-    if (ev.ev === 'status') w?.status(ev as unknown as Status)
+    if (ev.ev === 'status') {
+      w?.status(ev as unknown as TorrentStatus)
+      if (ev.id) seeding.get(ev.id)?.status(ev as unknown as TorrentStatus)
+    } else if (ev.ev === 'files' && ev.id && Array.isArray(ev.files)) saveFiles(ev.id, ev.files)
     else if (ev.ev === 'finished') w?.finished(ev.path ?? '')
     else if (ev.ev === 'error') {
       log('WARN', '[торрент]', ev.id, ev.message)
@@ -80,38 +95,131 @@ function helper(): ChildProcess {
     // Упал рабочий клиент: загрузки остановились; очередь покажет ошибку, «Продолжить» запустит клиент заново
     for (const w of [...watching.values()]) w.error(t('Торрент-клиент PlayOS закрылся'))
     watching.clear()
+    // Раздача тоже прервалась — заканчиваем её
+    for (const s of [...seeding.values()]) s.ended()
+    seeding.clear()
   })
+  // Настройки — первыми командами: до первого торрента
+  write(c, 'limits', String(limits[0]), String(limits[1]))
+  if (held) write(c, 'hold', '1')
   return c
+}
+
+function write(c: ChildProcess, ...fields: string[]) {
+  c.stdin?.write(fields.map((f) => f.replace(/[\t\r\n]/g, ' ')).join('\t') + '\n')
 }
 
 /** Команда клиенту: поля через табуляцию, поэтому табуляций и переводов строк в полях быть не должно */
 function send(...fields: string[]) {
-  helper().stdin?.write(fields.map((f) => f.replace(/[\t\r\n]/g, ' ')).join('\t') + '\n')
+  write(helper(), ...fields)
 }
 
 /** То же, но только если клиент уже запущен: ради паузы его не поднимаем */
 function tell(...fields: string[]) {
-  if (child && child.exitCode === null) send(...fields)
+  if (child && child.exitCode === null) write(child, ...fields)
 }
 
-/** Торрентов в работе нет — через IDLE_QUIT_MS клиент сохраняет докачку и выходит (закрытый stdin) */
+/** Ограничения скорости приёма и отдачи, байт/с; 0 — без ограничения */
+export function setTorrentLimits(down: number, up: number) {
+  limits = [Math.max(0, Math.round(down) || 0), Math.max(0, Math.round(up) || 0)]
+  tell('limits', String(limits[0]), String(limits[1]))
+}
+
+/** Пауза всей сессии на время игры: и загрузка, и раздача */
+export function setTorrentHold(on: boolean) {
+  if (held === on) return
+  held = on
+  tell('hold', on ? '1' : '0')
+}
+
+/** Торрентов в работе и на раздаче нет — через IDLE_QUIT_MS клиент сохраняет докачку и выходит (закрытый stdin) */
 export function quitTorrents() {
-  if (!child || watching.size || idleTimer) return
+  if (!child || watching.size || seeding.size || idleTimer) return
   idleTimer = setTimeout(() => {
     idleTimer = null
     const c = child
-    if (!c || watching.size) return
+    if (!c || watching.size || seeding.size) return
     child = null
     closing = new Promise<void>((resolve) => c.once('exit', () => resolve())).finally(() => (closing = null))
     c.stdin?.end()
   }, IDLE_QUIT_MS)
 }
 
-/** Убрать торрент: из клиента (вместе с файлами, если deleteFiles) и его файлы докачки */
+/** Убрать торрент: из клиента (вместе с файлами, если deleteFiles), его файлы докачки и список файлов */
 export function removeTorrent(job: DownloadJob, deleteFiles: boolean) {
   watching.delete(job.id)
+  seeding.delete(job.id)
+  filesCache.delete(job.id)
   tell('remove', job.id, deleteFiles ? '1' : '0')
-  for (const f of [`${job.id}.resume`, `${job.id}.torrent`]) fs.rmSync(path.join(stateDir(), f), { force: true })
+  for (const f of [`${job.id}.resume`, `${job.id}.torrent`, `${job.id}.files.json`]) fs.rmSync(path.join(stateDir(), f), { force: true })
+}
+
+// ───────────────────────── Файлы раздачи ─────────────────────────
+
+const filesCache = new Map<string, TorrentFile[]>()
+const filesFile = (id: string) => path.join(stateDir(), `${id}.files.json`)
+
+function saveFiles(id: string, files: TorrentFile[]) {
+  const list = files.filter((f) => Number.isInteger(f.i) && typeof f.p === 'string' && Number.isFinite(f.s))
+  filesCache.set(id, list)
+  try {
+    fs.writeFileSync(filesFile(id), JSON.stringify(list), 'utf8')
+  } catch (e) {
+    log('WARN', '[торрент] не удалось записать список файлов:', (e as Error).message)
+  }
+  onFiles(id, list)
+}
+
+/** Список файлов раздачи; null — ещё не известен (магнет без метаданных) */
+export function torrentFiles(id: string): TorrentFile[] | null {
+  const hit = filesCache.get(id)
+  if (hit) return hit
+  try {
+    const list = JSON.parse(fs.readFileSync(filesFile(id), 'utf8')) as TorrentFile[]
+    if (!Array.isArray(list)) return null
+    filesCache.set(id, list)
+    return list
+  } catch {
+    return null
+  }
+}
+
+/** Какие файлы не качать — клиенту сразу, если торрент у него; иначе выбор уйдёт со следующим «add» */
+export function setTorrentSkip(id: string, skip: number[]) {
+  tell('files', id, skip.join(','))
+}
+
+// ───────────────────────── Раздача ─────────────────────────
+
+/** Раздавать ли торрент после загрузки — для того, что качается сейчас (настройку поменяли на ходу) */
+export function setTorrentSeed(id: string, on: boolean) {
+  tell('seed', id, on ? '1' : '0')
+}
+
+/** Следить за раздачей скачанного торрента: отдано и скорость отдачи */
+export function watchSeed(id: string, status: (s: TorrentStatus) => void, ended: () => void) {
+  seeding.set(id, { status, ended })
+}
+
+/** Остановить раздачу: торрент уходит из клиента, файлы остаются */
+export function stopSeed(id: string) {
+  seeding.delete(id)
+  tell('remove', id, '0')
+  quitTorrents()
+}
+
+/**
+ * Раздача после перезапуска PlayOS: торрент снова в клиенте с его докачкой (там и отданное). false — продолжить
+ * нечем: файла докачки нет (раздача сохранялась раз в минуту и при выходе)
+ */
+export function resumeSeed(job: DownloadJob, status: (s: TorrentStatus) => void, ended: () => void): boolean {
+  if (!torrentReady() || !fs.existsSync(path.join(stateDir(), `${job.id}.resume`))) return false
+  const file = path.join(stateDir(), `${job.id}.torrent`)
+  const source = job.uris.find((u) => /^magnet:/i.test(u)) ?? (fs.existsSync(file) ? file : '')
+  if (!source) return false
+  watchSeed(job.id, status, ended)
+  send('add', job.id, job.dir, source, (job.skip ?? []).join(','), '1')
+  return true
 }
 
 /** .torrent по ссылке — сначала сам файл торрента */
@@ -132,9 +240,10 @@ async function torrentFile(job: DownloadJob, signal: AbortSignal): Promise<strin
 
 /**
  * Скачать торрент варианта в папку загрузки. Пауза (signal) — клиент ставит торрент на паузу и сохраняет докачку.
+ * seed — после загрузки торрент остаётся в клиенте раздавать (за раздачей следит watchSeed).
  * Возвращает путь к скачанному (папка раздачи или файл)
  */
-export async function torrentDownload(job: DownloadJob, signal: AbortSignal, progress: Progress, persist: () => void): Promise<string> {
+export async function torrentDownload(job: DownloadJob, signal: AbortSignal, progress: Progress, persist: () => void, seed: boolean): Promise<string> {
   if (!torrentReady()) throw new Stop(t('Торрент-клиента PlayOS нет — переустановите PlayOS'))
   await fs.promises.mkdir(job.dir, { recursive: true }).catch((e) => {
     throw new Stop(t('Не получилось создать папку {dir}: {e}', { dir: job.dir, e: (e as Error).message }))
@@ -160,6 +269,7 @@ export async function torrentDownload(job: DownloadJob, signal: AbortSignal, pro
         if (s.paused) return
         job.phase = s.state === 'metadata' ? 'metadata' : s.state === 'checking' ? 'checking' : undefined
         job.peers = s.peers
+        job.uploaded = s.up
         let changed = false
         if (s.total && job.size !== s.total) {
           job.size = s.total
@@ -191,7 +301,7 @@ export async function torrentDownload(job: DownloadJob, signal: AbortSignal, pro
         end(() => reject(new Error(message || t('Торрент остановился'))))
       }
     })
-    send('add', job.id, job.dir, source)
+    send('add', job.id, job.dir, source, (job.skip ?? []).join(','), seed ? '1' : '0')
   })
 }
 

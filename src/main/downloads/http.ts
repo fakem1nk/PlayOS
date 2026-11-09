@@ -52,6 +52,23 @@ export async function diskSpace(dir: string): Promise<{ free: number; total: num
 
 export const freeSpace = async (dir: string) => (await diskSpace(dir))?.free ?? null
 
+/** Ограничение скорости, байт/с; 0 — без ограничения. Задаёт очередь из настроек */
+let limit = 0
+export const setHttpLimit = (bps: number) => (limit = bps > 0 ? Math.round(bps) : 0)
+
+/**
+ * Ведро токенов: limit байт в секунду, запас — не больше полсекунды. Обогнали — ждём, пока ведро снова наполнится;
+ * пока ждём, данные не читаются, и сервер сам сбавляет скорость
+ */
+let budget = 0
+let budgetAt = 0
+async function throttle(n: number, signal: AbortSignal) {
+  const now = Date.now()
+  budget = Math.min(limit / 2, budget + ((now - budgetAt) * limit) / 1000) - n
+  budgetAt = now
+  if (budget < 0) await sleep(Math.min(5000, (-budget * 1000) / limit), signal)
+}
+
 const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     const id = setTimeout(resolve, ms)
@@ -179,6 +196,7 @@ async function fetchOnce(job: DownloadJob, uri: string, signal: AbortSignal, pro
         received += value.byteLength
         if (!out.write(value)) await Promise.race([once(out, 'drain'), failed])
         progress(received, job.size)
+        if (limit) await throttle(value.byteLength, ctl.signal)
       }
     } finally {
       await new Promise<void>((resolve) => out.end(resolve))

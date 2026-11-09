@@ -183,11 +183,17 @@ function extractError(out: string, archive: string, hasPassword: boolean): Error
 
 const gb = (n: number) => t('{v} ГБ', { v: (n / 2 ** 30).toFixed(1) })
 
+/** Удалить архивы со всеми частями — те, что оставались ради раздачи */
+export function removeArchives(list: string[]) {
+  for (const a of list) for (const v of volumes(a)) fs.rmSync(v, { force: true })
+}
+
 /**
  * Распаковать архивы загрузки по очереди; прогресс — байты всех архивов вместе. Распакованный архив сразу уходит
- * из job.archives (и с диска, если не keep), так что повтор после ошибки продолжает со следующего
+ * из job.archives (и с диска, если не keep), так что повтор после ошибки продолжает со следующего.
+ * keep = 'seed' — архив нужен раздаче: остаётся на диске и запоминается в job.keptArchives, чтобы удалить его после неё
  */
-export async function extractAll(job: DownloadJob, signal: AbortSignal, progress: (done: number, total: number) => void, persist: () => void, keep: boolean) {
+export async function extractAll(job: DownloadJob, signal: AbortSignal, progress: (done: number, total: number) => void, persist: () => void, keep: boolean | 'seed') {
   if (!job.archives) {
     job.archives = findArchives(job.file ?? job.dir)
     persist()
@@ -230,6 +236,7 @@ export async function extractAll(job: DownloadJob, signal: AbortSignal, progress
     progress(base, total)
     job.archives = job.archives.filter((a) => a !== archive)
     if (!keep) for (const v of volumes(archive)) fs.rmSync(v, { force: true })
+    else if (keep === 'seed') job.keptArchives = [...new Set([...(job.keptArchives ?? []), archive])]
     persist()
     log('INFO', '[распаковка] готово:', name, '→', dir)
   }

@@ -17,8 +17,7 @@ import type {
   StoreItem,
   StoreSource,
   SystemState,
-  WindowMode
-} from '@shared/types'
+  WindowMode, TorrentFile } from '@shared/types'
 import { SRC_BASE } from '@shared/types'
 import { getLang } from '@shared/i18n'
 import { libraryMatch } from '@shared/match'
@@ -878,12 +877,42 @@ function createMockApi(): PcsApi {
           jobSubs.forEach((cb) => cb(demoJobs))
         }, 3000)
       }
-      else if (action === 'up') {
-        const i = demoJobs.indexOf(job)
-        if (i > 0) demoJobs = [...demoJobs.slice(0, i - 1), job, demoJobs[i - 1], ...demoJobs.slice(i + 1)]
-      } else demoJobs = demoJobs.filter((j) => j !== job)
+      else if (action === 'up' || action === 'down') {
+        // Как в PlayOS: меняемся с соседом среди ждущих
+        const line = demoJobs.filter((j) => j.status !== 'done' && j.status !== 'active')
+        const k = line.indexOf(job) + (action === 'up' ? -1 : 1)
+        if (k >= 0 && k < line.length) {
+          const a = demoJobs.indexOf(job)
+          const b = demoJobs.indexOf(line[k])
+          demoJobs[a] = line[k]
+          demoJobs[b] = job
+        }
+      } else if (action === 'now') {
+        // Первой в очереди, текущая уступает
+        const cur = demoJobs.find((j) => j.status === 'active')
+        if (cur) Object.assign(cur, { status: 'queued', speed: undefined })
+        job.status = 'active'
+        job.error = undefined
+        demoJobs = [job, ...demoJobs.filter((j) => j !== job)]
+      } else if (action === 'stopSeed') Object.assign(job, { seeding: undefined, upSpeed: undefined })
+      else demoJobs = demoJobs.filter((j) => j !== job)
       if (job) job.speed = undefined
       demoPump()
+    },
+    // Демо: файлы раздачи как у репаков — установщик, части данных и необязательные озвучки с бонусами
+    downloadFiles: async (id) => {
+      const job = demoJobs.find((j) => j.id === id)
+      if (!job?.fileCount) return null
+      return { files: demoTorrentFiles(job.title), skip: job.skip ?? [] }
+    },
+    downloadSetFiles: async (id, skip) => {
+      const job = demoJobs.find((j) => j.id === id)
+      if (!job) return
+      const off = new Set(skip)
+      job.skip = skip.length ? skip : undefined
+      job.size = demoTorrentFiles(job.title).reduce((n, f) => n + (off.has(f.i) ? 0 : f.s), 0)
+      demoJobs = [...demoJobs]
+      jobSubs.forEach((cb) => cb(demoJobs))
     },
     // Демо: любой пароль подходит
     downloadPassword: async (id) => {
@@ -945,16 +974,35 @@ const demoHero = (id: number) => `https://shared.akamai.steamstatic.com/store_it
 let demoJobs: DownloadJob[] = demoQuery.has('downloads')
   ? [
       { id: 'd1', title: 'Counter-Strike 2', name: demoRelease('Counter-Strike 2', 1), cover: demoCover(730), hero: demoHero(730), kind: 'http', uris: ['https://example.invalid/demo/730.zip'], dir: 'D:\\PlayOS Games\\Counter-Strike 2', status: 'active', received: 21.4 * 2 ** 30, size: 33.6 * 2 ** 30, speed: 38 * 2 ** 20, addedAt: Date.now() - 600000 },
-      { id: 'd2', title: 'Dota 2', name: demoRelease('Dota 2', 2), cover: demoCover(570), kind: 'http', uris: ['https://example.invalid/demo/570.zip'], dir: 'D:\\PlayOS Games\\Dota 2', status: 'queued', received: 0, size: 41 * 2 ** 30, addedAt: Date.now() - 500000 },
+      { id: 'd2', title: 'Dota 2', name: demoRelease('Dota 2', 2), cover: demoCover(570), kind: 'magnet', uris: ['magnet:?xt=urn:btih:demo2'], dir: 'D:\\PlayOS Games\\Dota 2', status: 'queued', received: 0, size: 41 * 2 ** 30, fileCount: 12, addedAt: Date.now() - 500000 },
       { id: 'd3', title: 'Team Fortress 2', name: demoRelease('Team Fortress 2', 4), cover: demoCover(440), kind: 'http', uris: ['https://example.invalid/demo/440.zip'], dir: 'D:\\PlayOS Games\\Team Fortress 2', status: 'paused', received: 9.1 * 2 ** 30, size: 27 * 2 ** 30, addedAt: Date.now() - 400000 },
       { id: 'd4', title: 'Warframe', name: demoRelease('Warframe', 5), cover: demoCover(230410), kind: 'http', uris: ['https://example.invalid/demo/230410.zip'], dir: 'D:\\PlayOS Games\\Warframe', status: 'error', error: 'Сервер перестал отдавать данные', received: 3.2 * 2 ** 30, size: 50 * 2 ** 30, addedAt: Date.now() - 300000 },
       { id: 'd6', title: 'Portal 2', name: demoRelease('Portal 2', 7), cover: demoCover(620), kind: 'magnet', uris: ['magnet:?xt=urn:btih:demo'], dir: 'D:\\PlayOS Games\\Portal 2', status: 'error', error: 'Архив защищён паролем', needPassword: true, downloaded: true, received: 11.8 * 2 ** 30, size: 11.8 * 2 ** 30, addedAt: Date.now() - 250000 },
       { id: 'd5', title: 'Path of Exile', name: demoRelease('Path of Exile', 6), cover: demoCover(238960), kind: 'http', uris: ['https://example.invalid/demo/238960.zip'], dir: 'D:\\PlayOS Games\\Path of Exile', file: 'D:\\PlayOS Games\\Path of Exile\\poe.zip', status: 'done', received: 40 * 2 ** 30, size: 40 * 2 ** 30, addedAt: Date.now() - 900000, doneAt: Date.now() - 200000, install: 'ready', installer: 'D:\\PlayOS Games\\Path of Exile\\setup.exe' },
       // Готовая игра без установщика — сразу в библиотеке, «Играть» запускает демо-игру
-      { id: 'd7', gameId: '1', title: 'Death Stranding', name: demoRelease('Death Stranding', 8), cover: demoCover(1190460), kind: 'http', uris: ['https://example.invalid/demo/1190460.zip'], dir: 'D:\\PlayOS Games\\Death Stranding', status: 'done', received: 72 * 2 ** 30, size: 72 * 2 ** 30, addedAt: Date.now() - 2000000, doneAt: Date.now() - 1500000, install: 'installed' }
+      { id: 'd7', gameId: '1', title: 'Death Stranding', name: demoRelease('Death Stranding', 8), cover: demoCover(1190460), kind: 'magnet', uris: ['magnet:?xt=urn:btih:demo7'], dir: 'D:\\PlayOS Games\\Death Stranding', status: 'done', received: 72 * 2 ** 30, size: 72 * 2 ** 30, addedAt: Date.now() - 2000000, doneAt: Date.now() - 1500000, install: 'installed', seeding: true, uploaded: 31.4 * 2 ** 30, upSpeed: 3.2 * 2 ** 20 }
     ]
   : []
 const jobSubs = new Set<(jobs: DownloadJob[]) => void>()
+
+/** Файлы демо-раздачи: установщик, части данных и необязательные части (озвучки, бонусы); 12 штук на 41 ГБ */
+function demoTorrentFiles(title: string): TorrentFile[] {
+  const names = [
+    ['setup.exe', 0.01],
+    ['data-01.bin', 6],
+    ['data-02.bin', 6],
+    ['data-03.bin', 6],
+    ['data-04.bin', 6],
+    ['data-05.bin', 5.2],
+    ['optional-voice-english.bin', 3.1],
+    ['optional-voice-russian.bin', 3.2],
+    ['optional-voice-german.bin', 2.9],
+    ['optional-soundtrack.bin', 1.4],
+    ['optional-artbook.bin', 1.1],
+    ['MD5\\checksums.md5', 0.001]
+  ] as const
+  return names.map(([n, gb], i) => ({ i, p: `${title}\\${n}`, s: Math.round(gb * 2 ** 30) }))
+}
 let demoJobTimer: ReturnType<typeof setInterval> | null = null
 // ?downloads=unpack — первая загрузка уже скачана и распаковывается
 if (demoQuery.get('downloads') === 'unpack' && demoJobs[0]) Object.assign(demoJobs[0], { received: demoJobs[0].size, downloaded: true, phase: 'extracting', unpack: { done: 14.2 * 2 ** 30, total: 52.4 * 2 ** 30 } })
