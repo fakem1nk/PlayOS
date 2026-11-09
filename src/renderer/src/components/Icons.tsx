@@ -181,6 +181,15 @@ export const IconSort = (p: P) => (
     <path d="M8 18V6m0 0L5 9m3-3 3 3M16 6v12m0 0-3-3m3 3 3-3" />
   </svg>
 )
+/** Фильтры: три ползунка */
+export const IconFilter = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 7h9m4 0h3M4 12h3m4 0h9M4 17h11m4 0h1" />
+    <circle cx="15" cy="7" r="2" />
+    <circle cx="9" cy="12" r="2" />
+    <circle cx="17" cy="17" r="2" />
+  </svg>
+)
 /** Список: подборки игр */
 export const IconList = (p: P) => (
   <svg {...base(p)}>

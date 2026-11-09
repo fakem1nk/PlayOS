@@ -33,8 +33,11 @@ import type {
   ShelfChange,
   DownloadControl,
   DownloadRequest,
+  StoreBrowsePage,
+  StoreBrowseQuery,
   StoreHome,
   StoreItem,
+  StoreSort,
   StoreSteam,
   ArtSource,
   WindowAction,
@@ -1859,6 +1862,38 @@ function registerIpc() {
     const only = await gog.gogOnly(await gogFound, steam, 2500)
     return shop.viewerItems(await sources.mergeSearch(q, steam, only))
   })
+  // Весь каталог Steam. «Можно скачать» — из страниц Steam остаются игры с вариантами в источниках: листаем дальше,
+  // пока не наберётся экран (не больше шести страниц за раз), общее число тогда неизвестно
+  ipcMain.handle('store:browse', async (_e, raw: StoreBrowseQuery): Promise<StoreBrowsePage> => {
+    const sorts: StoreSort[] = ['popular', 'new', 'reviews', 'name']
+    const num = (v: unknown, min: number, max: number) => (Number(v) >= min && Number(v) <= max ? Math.trunc(Number(v)) : undefined)
+    const year = num(raw?.year, 1990, 2100)
+    const decade = year ? undefined : num(raw?.decade, 1990, 2100)
+    const q: StoreBrowseQuery = {
+      sort: sorts.includes(raw?.sort) ? raw.sort : 'popular',
+      start: Math.max(0, Math.trunc(Number(raw?.start) || 0)),
+      tags: (Array.isArray(raw?.tags) ? raw.tags : []).map(Number).filter((n) => n > 0).slice(0, 20),
+      ...(year ? { year } : decade ? { decade: decade - (decade % 10) } : {}),
+      ...(num(raw?.reviews, 1, 100) ? { reviews: num(raw?.reviews, 1, 100) } : {}),
+      ...(num(raw?.minReviews, 1, 10_000_000) ? { minReviews: num(raw?.minReviews, 1, 10_000_000) } : {}),
+      ...(raw?.ruText ? { ruText: true } : {}),
+      ...(raw?.ruVoice ? { ruVoice: true } : {}),
+      ...(raw?.noEarly ? { noEarly: true } : {})
+    }
+    if (!raw?.downloadable) {
+      const page = await shop.storeBrowse(q)
+      return { ...page, items: shop.viewerItems(await sources.decorateItems(page.items)) }
+    }
+    const items: StoreItem[] = []
+    let start: number | undefined = q.start
+    for (let i = 0; i < 6 && start !== undefined && items.length < 24; i++) {
+      const page = await shop.storeBrowse({ ...q, start })
+      items.push(...(await sources.decorateItems(page.items)).filter((it) => it.options))
+      start = page.next
+    }
+    return { items: shop.viewerItems(items), ...(start !== undefined ? { next: start } : {}) }
+  })
+  ipcMain.handle('store:tagInfo', (_e, ids: number[]) => shop.storeTagInfo((Array.isArray(ids) ? ids : []).map(Number).filter((n) => n > 0).slice(0, 300)))
   // Страница — сразу с тем, что известно по источникам; одноимённые варианты уточняются у Steam отдельно (store:optionCount),
   // чтобы описание и скриншоты не ждали этих поисков
   ipcMain.handle('store:page', async (_e, appId: number) => {

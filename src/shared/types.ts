@@ -827,6 +827,10 @@ export interface PcsApi {
   storeHome(refresh?: boolean): Promise<StoreHome>
   onStoreHome(cb: (h: StoreHome) => void): () => void
   storeSearch(query: string): Promise<StoreItem[]>
+  /** Каталог игр Steam: страница с сортировкой и фильтрами */
+  storeBrowse(query: StoreBrowseQuery): Promise<StoreBrowsePage>
+  /** Названия меток Steam на языке интерфейса и сколько с ними игр (счётчики догружаются в фоне) */
+  storeTagInfo(ids: number[]): Promise<Record<number, StoreTagInfo>>
   storePage(appId: number): Promise<StorePage | null>
   /** Сколько вариантов загрузки у игры, с уточнением одноимённых у Steam (дольше, чем страница) */
   storeOptionCount(appId: number, title: string): Promise<number>
@@ -1061,9 +1065,90 @@ export const isSteamItem = (appId: number) => appId > 0
 export type StoreRowId = 'sources' | 'top' | 'new' | 'played' | 'gog' | 'soon'
 
 export interface StoreRow {
-  id: StoreRowId
+  /** Свои ряды витрины или ряд жанра: tag-<id метки Steam> */
+  id: StoreRowId | `tag-${number}`
   items: StoreItem[]
+  /** Название ряда жанра (у своих рядов название в интерфейсе) */
+  title?: string
+  /** Метка Steam ряда жанра: в конце ряда — «Все игры жанра» */
+  tag?: number
 }
+
+/** Сортировка каталога: популярные, новинки, лучшие по отзывам, по названию */
+export type StoreSort = 'popular' | 'new' | 'reviews' | 'name'
+
+/** Фильтры каталога игр Steam (как в подборе игр на сайтах раздач: жанры, год, отзывы, русский язык) */
+export interface StoreFilters {
+  /** Отмеченные метки Steam: у игры должна быть каждая */
+  tags?: number[]
+  /** Один год выхода или десятилетие (2010 — 2010–2019) */
+  year?: number
+  decade?: number
+  /** Доля положительных отзывов не ниже, % */
+  reviews?: number
+  /** Отзывов не меньше */
+  minReviews?: number
+  ruText?: boolean
+  ruVoice?: boolean
+  /** Без раннего доступа */
+  noEarly?: boolean
+  /** Только игры, у которых есть варианты загрузки в источниках */
+  downloadable?: boolean
+}
+
+/** Страница каталога игр Steam */
+export interface StoreBrowseQuery extends StoreFilters {
+  sort: StoreSort
+  start: number
+}
+
+export interface StoreBrowsePage {
+  items: StoreItem[]
+  /** Сколько игр подходит; с фильтрами, которые Steam не умеет (отзывы, язык, «Можно скачать»), неизвестно */
+  total?: number
+  /** start следующей страницы; нет — это последняя */
+  next?: number
+}
+
+/** Название метки Steam на языке интерфейса и сколько с ней игр в каталоге */
+export interface StoreTagInfo {
+  name: string
+  count?: number
+}
+
+/** Десятилетия в фильтре года: даты Steam начинаются с 2003, игры старше — с датой выхода в Steam */
+export const STORE_DECADES = [2020, 2010, 2000]
+
+/** Метка Steam «Ранний доступ» — для «Без раннего доступа» */
+export const STORE_EARLY_ACCESS = 493
+
+/**
+ * Группы фильтров каталога — метки Steam (id; названия — от Steam на языке интерфейса). title — ключ перевода.
+ * open — раскрыта сразу, show — сколько меток видно до «Ещё»
+ */
+export const STORE_FILTER_GROUPS: { id: string; title: string; tags: number[]; open?: boolean; show?: number }[] = [
+  { id: 'genres', title: 'Жанры', open: true, tags: [19, 122, 21, 9, 599, 1774, 1667, 1664, 1625, 699, 701, 1743, 3810, 3799, 1773] },
+  {
+    id: 'sub',
+    title: 'Поджанры и форматы',
+    open: true,
+    show: 10,
+    tags: [
+      1695, 1662, 4231, 4434, 1663, 3814, 1716, 3959, 29482, 1628, 1741, 1676, 4364, 4328, 10235, 87918, 1646, 1720, 1698, 5900, 1666, 32322,
+      1645, 1687, 176981, 1754, 9204, 21725, 10695, 4474, 3978, 1721, 5613, 12472, 255534, 220585, 7332, 1702, 1752, 1738, 5537, 4885, 4158,
+      1023537, 353880, 1199779, 492, 597
+    ]
+  },
+  { id: 'camera', title: 'Вид камеры', tags: [3839, 1697, 4791, 5851, 3798, 3871, 4191, 4975] },
+  { id: 'modes', title: 'Режимы игры', tags: [4182, 3859, 1685, 3843, 3841, 10816, 1775, 6730, 128] },
+  { id: 'style', title: 'Визуальный стиль', tags: [3964, 4085, 4195, 4175, 4252, 6815, 4004, 4305, 4094, 5411, 4145] },
+  { id: 'story', title: 'Сюжет и прохождение', tags: [1742, 6426, 6971, 7208, 7250, 6869, 1756, 4234, 4711, 3854] },
+  { id: 'world', title: 'Мир и эпоха', tags: [3942, 1684, 4604, 3835, 4172, 4115, 1755, 3987, 1659, 4150, 4168, 1647, 7432, 16094, 1681, 1777] },
+  { id: 'mood', title: 'Настроение и атмосфера', tags: [4166, 4342, 1654, 4136, 4726, 4026, 5716, 5608, 552282, 97376, 1710, 1719, 5923, 4345, 4667] }
+]
+
+/** Ряды жанров на витрине — после «Самых популярных» */
+export const STORE_GENRE_ROWS = [19, 122, 9, 21, 599]
 
 export interface StoreHome {
   rows: StoreRow[]

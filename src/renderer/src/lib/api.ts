@@ -695,6 +695,31 @@ function createMockApi(): PcsApi {
       return demoStoreHome()
     },
     onStoreHome: noop,
+    // Демо каталога: игры Steam из витрины; метки в демо не сужают, год, отзывы и «Можно скачать» — по-настоящему
+    storeBrowse: async (q) => {
+      await new Promise((r) => setTimeout(r, q.year || q.decade ? 900 : 400))
+      const seen = new Set<number>()
+      let list = demoStoreHome()
+        .rows.flatMap((r) => r.items)
+        .filter((i) => i.appId > 0 && !i.upcoming && !seen.has(i.appId) && !!seen.add(i.appId))
+      const yearOf = (i: StoreItem) => (i.released ? new Date(i.released).getUTCFullYear() : 0)
+      if (q.year) list = list.filter((i) => yearOf(i) === q.year)
+      else if (q.decade) list = list.filter((i) => yearOf(i) >= q.decade! && yearOf(i) <= q.decade! + 9)
+      if (q.reviews) list = list.filter((i) => (i.reviews?.percent ?? 0) >= q.reviews!)
+      if (q.minReviews) list = list.filter((i) => (i.reviews?.count ?? 0) >= q.minReviews!)
+      if (q.downloadable) list = list.filter((i) => i.options)
+      const by = q.year || q.decade ? 'date' : q.sort
+      if (by === 'name') list.sort((a, b) => a.title.localeCompare(b.title))
+      else if (by === 'reviews') list.sort((a, b) => (b.reviews?.percent ?? 0) - (a.reviews?.percent ?? 0))
+      else if (by === 'new' || by === 'date') list.sort((a, b) => (b.released ?? 0) - (a.released ?? 0))
+      const page = list.slice(q.start, q.start + 48)
+      const exact = !q.reviews && !q.minReviews && !q.downloadable && !q.ruText && !q.ruVoice
+      return { items: page, ...(exact ? { total: list.length } : {}), ...(q.start + 48 < list.length ? { next: q.start + 48 } : {}) }
+    },
+    storeTagInfo: async (ids) => {
+      const en = getLang() === 'en'
+      return Object.fromEntries(ids.map((id) => [id, { name: DEMO_TAGS[id]?.[en ? 1 : 0] ?? String(id), count: 300 + ((id * 7919) % 24000) }]))
+    },
     storeSearch: async (q) => {
       await new Promise((r) => setTimeout(r, 300))
       const all = [...demoStoreHome().rows.flatMap((r) => r.items), ...demoDecorate(DEMO_SRC)]
@@ -975,6 +1000,142 @@ async function demoFileSource(file: string): Promise<{ source?: StoreSource; err
   demoSources = [...demoSources, source]
   return { source }
 }
+/** Демо: названия меток каталога, как их отдаёт Steam (по-русски и по-английски) */
+const DEMO_TAGS: Record<number, [string, string]> = {
+  19: ['Экшен', 'Action'],
+  122: ['Ролевая игра', 'RPG'],
+  21: ['Приключение', 'Adventure'],
+  9: ['Стратегия', 'Strategy'],
+  599: ['Симулятор', 'Simulation'],
+  1774: ['Шутер', 'Shooter'],
+  1667: ['Хоррор', 'Horror'],
+  1664: ['Головоломка', 'Puzzle'],
+  1625: ['Платформер', 'Platformer'],
+  699: ['Гонки', 'Racing'],
+  701: ['Спорт', 'Sports'],
+  1743: ['Файтинг', 'Fighting'],
+  3810: ['Песочница', 'Sandbox'],
+  3799: ['Визуальная новелла', 'Visual Novel'],
+  1773: ['Аркада', 'Arcade'],
+  1695: ['Открытый мир', 'Open World'],
+  1662: ['Выживание', 'Survival'],
+  4231: ['Ролевой экшен', 'Action RPG'],
+  4434: ['Японская ролевая игра', 'JRPG'],
+  1663: ['Шутер от первого лица', 'FPS'],
+  3814: ['Шутер от третьего лица', 'Third-Person Shooter'],
+  1716: ['Рогалик', 'Roguelike'],
+  3959: ['Упрощённый рогалик', 'Roguelite'],
+  29482: ['Похожа на Dark Souls', 'Souls-like'],
+  1628: ['Метроидвания', 'Metroidvania'],
+  1741: ['Пошаговая стратегия', 'Turn-Based Strategy'],
+  1676: ['Стратегия в реальном времени', 'RTS'],
+  4364: ['Глобальная стратегия', 'Grand Strategy'],
+  4328: ['Градостроение', 'City Builder'],
+  10235: ['Симулятор жизни', 'Life Sim'],
+  87918: ['Симулятор фермы', 'Farming Sim'],
+  1646: ['Слэшер', 'Hack and Slash'],
+  1720: ['Подземелья', 'Dungeon Crawler'],
+  1698: ['Point & Click', 'Point & Click'],
+  5900: ['Симулятор ходьбы', 'Walking Simulator'],
+  1666: ['Карточная игра', 'Card Game'],
+  32322: ['Построение колоды', 'Deckbuilding'],
+  1645: ['Башенная защита', 'Tower Defense'],
+  1687: ['Стелс', 'Stealth'],
+  176981: ['Королевская битва', 'Battle Royale'],
+  1754: ['MMORPG', 'MMORPG'],
+  9204: ['Иммерсивный симулятор', 'Immersive Sim'],
+  21725: ['Тактическая ролевая игра', 'Tactical RPG'],
+  10695: ['Партийная ролевая игра', 'Party-Based RPG'],
+  4474: ['Компьютерная ролевая игра', 'CRPG'],
+  3978: ['Хоррор на выживание', 'Survival Horror'],
+  1721: ['Психологический хоррор', 'Psychological Horror'],
+  5613: ['Детектив', 'Detective'],
+  12472: ['Менеджмент', 'Management'],
+  255534: ['Автоматизация', 'Automation'],
+  220585: ['Симулятор колонии', 'Colony Sim'],
+  7332: ['Строительство базы', 'Base Building'],
+  1702: ['Крафтинг', 'Crafting'],
+  1752: ['Ритм-игра', 'Rhythm'],
+  1738: ['Поиск предметов', 'Hidden Object'],
+  5537: ['Головоломка-платформер', 'Puzzle Platformer'],
+  4885: ['Пулевой ад', 'Bullet Hell'],
+  4158: ["Beat 'em up", "Beat 'em up"],
+  1023537: ['Бумерский шутер', 'Boomer Shooter'],
+  353880: ['Лутер-шутер', 'Looter Shooter'],
+  1199779: ['Шутер с эвакуацией', 'Extraction Shooter'],
+  492: ['Инди', 'Indie'],
+  597: ['Казуальная игра', 'Casual'],
+  3839: ['От первого лица', 'First-Person'],
+  1697: ['От третьего лица', 'Third Person'],
+  4791: ['Вид сверху', 'Top-Down'],
+  5851: ['Изометрия', 'Isometric'],
+  3798: ['Вид сбоку', 'Side Scroller'],
+  3871: ['2D', '2D'],
+  4191: ['3D', '3D'],
+  4975: ['2.5D', '2.5D'],
+  4182: ['Для одного игрока', 'Singleplayer'],
+  3859: ['Для нескольких игроков', 'Multiplayer'],
+  1685: ['Кооператив', 'Co-op'],
+  3843: ['Сетевой кооператив', 'Online Co-Op'],
+  3841: ['Локальный кооператив', 'Local Co-Op'],
+  10816: ['Разделение экрана', 'Split Screen'],
+  1775: ['Игрок против игрока', 'PvP'],
+  6730: ['Игрок против ИИ', 'PvE'],
+  128: ['ММО', 'Massively Multiplayer'],
+  3964: ['Пиксельная графика', 'Pixel Graphics'],
+  4085: ['Аниме', 'Anime'],
+  4195: ['Мультипликация', 'Cartoony'],
+  4175: ['Реализм', 'Realistic'],
+  4252: ['Стилизация', 'Stylized'],
+  6815: ['Рисованная графика', 'Hand-drawn'],
+  4004: ['Ретро', 'Retro'],
+  4305: ['Цветастая', 'Colorful'],
+  4094: ['Минимализм', 'Minimalist'],
+  5411: ['Красивая', 'Beautiful'],
+  4145: ['Кинематографичная', 'Cinematic'],
+  1742: ['Глубокий сюжет', 'Story Rich'],
+  6426: ['Решения с последствиями', 'Choices Matter'],
+  6971: ['Несколько концовок', 'Multiple Endings'],
+  7208: ['Протагонистка', 'Female Protagonist'],
+  7250: ['Линейная', 'Linear'],
+  6869: ['Нелинейная', 'Nonlinear'],
+  1756: ['Отличный саундтрек', 'Great Soundtrack'],
+  4234: ['Короткая', 'Short'],
+  4711: ['Реиграбельность', 'Replay Value'],
+  3854: ['Проработанная вселенная', 'Lore-Rich'],
+  3942: ['Научная фантастика', 'Sci-fi'],
+  1684: ['Фэнтези', 'Fantasy'],
+  4604: ['Тёмное фэнтези', 'Dark Fantasy'],
+  3835: ['Постапокалипсис', 'Post-apocalyptic'],
+  4172: ['Средневековье', 'Medieval'],
+  4115: ['Киберпанк', 'Cyberpunk'],
+  1755: ['Космос', 'Space'],
+  3987: ['Историческая', 'Historical'],
+  1659: ['Зомби', 'Zombies'],
+  4150: ['Вторая мировая война', 'World War II'],
+  4168: ['Военные действия', 'Military'],
+  1647: ['Вестерн', 'Western'],
+  7432: ['Лавкрафт', 'Lovecraftian'],
+  16094: ['Мифология', 'Mythology'],
+  1681: ['Пираты', 'Pirates'],
+  1777: ['Стимпанк', 'Steampunk'],
+  4166: ['Атмосферная', 'Atmospheric'],
+  4342: ['Мрачная', 'Dark'],
+  1654: ['Расслабляющая', 'Relaxing'],
+  4136: ['Смешная', 'Funny'],
+  4726: ['Милая', 'Cute'],
+  4026: ['Сложная', 'Difficult'],
+  5716: ['Тайна', 'Mystery'],
+  5608: ['Эмоциональная', 'Emotional'],
+  552282: ['Душевная', 'Wholesome'],
+  97376: ['Уютная', 'Cozy'],
+  1710: ['Сюрреалистичная', 'Surreal'],
+  1719: ['Юмор', 'Comedy'],
+  5923: ['Чёрный юмор', 'Dark Humor'],
+  4345: ['Кровь', 'Gore'],
+  4667: ['Насилие', 'Violent']
+}
+
 /** Демо: придуманная игра, о которой знает только источник — ни Steam, ни GOG (арта нет, как без ключа SteamGridDB) */
 const DEMO_SRC_ID = -(SRC_BASE + 4242)
 const DEMO_SRC: StoreItem[] = [{ appId: DEMO_SRC_ID, store: 'sources', title: 'Brasswick Murmurs' }]
@@ -1124,6 +1285,20 @@ function demoStoreRows(): StoreHome {
           item(271590, 'Grand Theft Auto V', 2015),
           item(892970, 'Valheim', 2021),
           item(105600, 'Terraria', 2011)
+        ]
+      },
+      // Ряд жанра: в конце — «Все игры жанра»
+      {
+        id: 'tag-19',
+        tag: 19,
+        title: DEMO_TAGS[19][getLang() === 'en' ? 1 : 0],
+        items: [
+          item(1245620, 'ELDEN RING', 2022),
+          item(1091500, 'Cyberpunk 2077', 2020),
+          item(814380, 'Sekiro: Shadows Die Twice', 2019),
+          item(1145360, 'Hades', 2020),
+          item(1593500, 'God of War', 2022),
+          item(2358720, 'Black Myth: Wukong', 2024)
         ]
       },
       // Игры GOG, которых нет в Steam (проверено сверкой 2026-11-09): картинки с CDN GOG

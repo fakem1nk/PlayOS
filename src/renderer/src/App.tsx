@@ -409,6 +409,24 @@ export function App() {
         <Hint glyph="confirm" label={t('Ввести название')} />
         <Hint glyph="back" label={storeFocus.searching ? t('Сбросить поиск') : t('Назад')} />
       </>
+    ) : storeFocus.zone === 'all' || storeFocus.zone === 'browse' ? (
+      <>
+        <Hint glyph="confirm" label={storeFocus.zone === 'all' ? t('Каталог игр') : t('Выбрать')} />
+        {storeFocus.zone === 'browse' && <Hint glyph="options" label={t('Фильтры')} />}
+        <Hint glyph="back" label={t('Назад')} />
+      </>
+    ) : storeFocus.zone === 'browse-grid' ? (
+      <>
+        <Hint glyph="confirm" label={t('Подробнее')} />
+        {!storeFocus.owned && <Hint glyph="menu" label={t('В библиотеку')} />}
+        <Hint glyph="options" label={t('Фильтры')} />
+        <Hint glyph="back" label={t('Назад')} />
+      </>
+    ) : storeFocus.zone === 'browse-panel' ? (
+      <>
+        <Hint glyph="confirm" label={t('Выбрать')} />
+        <Hint glyph="back" label={t('К играм')} />
+      </>
     ) : storeFocus.zone === 'retry' ? (
       <>
         <Hint glyph="confirm" label={t('Повторить')} />

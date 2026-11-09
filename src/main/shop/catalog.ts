@@ -1,5 +1,6 @@
 import path from 'node:path'
-import type { GameDetails, StoreBlock, StoreHome, StoreItem, StorePage, StoreRow, StoreRowId, StoreUpcoming } from '@shared/types'
+import type { GameDetails, StoreBlock, StoreBrowsePage, StoreBrowseQuery, StoreHome, StoreItem, StorePage, StoreRow, StoreRowId, StoreSort, StoreTagInfo, StoreUpcoming } from '@shared/types'
+import { STORE_EARLY_ACCESS, STORE_GENRE_ROWS } from '@shared/types'
 import { getLang } from '@shared/i18n'
 import { howLongToBeat } from '../details'
 import { httpFetch } from '../http'
@@ -25,8 +26,13 @@ export const ITEM_V = 2
 /** Метки Steam «Только для взрослых: сексуальный контент» и «Частая нагота или сексуальный контент» */
 const ADULT = new Set([3, 4])
 
-// Сортировки IStoreQueryService/Query (подобраны по ответам Steam): 20 — новое и популярное, 13 — самые ожидаемые
+// Сортировки IStoreQueryService/Query (подобраны по ответам Steam, 2026-11-09): 10 — популярные, 20 — новое и
+// популярное, 23 — лучшие по отзывам, 1 — по названию, 40 — по дате выхода (свежие первыми), 13 — самые ожидаемые
+const SORT_POPULAR = 10
 const SORT_NEW_TRENDING = 20
+const SORT_TOP_RATED = 23
+const SORT_NAME = 1
+const SORT_BY_DATE = 40
 const SORT_WISHLISTED = 13
 
 const steamLang = () => (getLang() === 'en' ? 'english' : 'russian')
@@ -277,9 +283,9 @@ async function itemsByIds(ids: number[], request: object): Promise<RawItem[]> {
   return res.store_items ?? []
 }
 
-async function query(filters: object, sort: number): Promise<RawItem[]> {
+async function query(filters: object, sort: number, count = ROW_SIZE + 6): Promise<RawItem[]> {
   const res = await call<{ store_items?: RawItem[] }>('IStoreQueryService/Query', {
-    query: { start: 0, count: ROW_SIZE + 6, sort, filters: { ...filters, type_filters: { include_games: true } } },
+    query: { start: 0, count, sort, filters: { ...filters, type_filters: { include_games: true } } },
     context: context(),
     data_request: TILE_REQUEST
   })
@@ -307,7 +313,20 @@ const ROWS: Record<SteamRow, () => Promise<RawItem[]>> = {
   },
   soon: () => query({ coming_soon_only: true }, SORT_WISHLISTED)
 }
-const ROW_ORDER: SteamRow[] = ['top', 'new', 'played', 'soon']
+/**
+ * Порядок витрины: свои ряды, после «Самых популярных» — жанры. В ряд жанра берём игры, которых нет в рядах выше:
+ * иначе «Экшен» повторял бы «Лидеров продаж», а «Ролевая игра» — «Экшен»
+ */
+interface RowSpec {
+  id: StoreRow['id']
+  tag?: number
+  load: () => Promise<RawItem[]>
+}
+const rowSpecs = (): RowSpec[] => [
+  ...(['top', 'new', 'played'] as const).map((id) => ({ id, load: ROWS[id] })),
+  ...STORE_GENRE_ROWS.map((tag) => ({ id: `tag-${tag}` as const, tag, load: () => query({ released_only: true, tagids_must_match: [{ tagids: [tag] }] }, SORT_POPULAR, 48) })),
+  { id: 'soon', load: ROWS.soon }
+]
 
 let home: (StoreHome & { lang: string }) | null = null
 let homeLoading: Promise<StoreHome> | null = null
@@ -324,14 +343,21 @@ const homeFile = () => path.join(cacheDir(), `home-${steamLang()}.json`)
 function loadHome(prev: StoreHome | null): Promise<StoreHome> {
   homeLoading ??= (async () => {
     // Метки — параллельно с рядами: их список почти всегда уже на диске
-    const [names, results] = await Promise.all([tags(), Promise.allSettled(ROW_ORDER.map((id) => ROWS[id]()))])
+    const specs = rowSpecs()
+    const [names, results] = await Promise.all([tags(), Promise.allSettled(specs.map((r) => r.load()))])
     const rows: StoreRow[] = []
+    const shown = new Set<number>()
     results.forEach((r, i) => {
-      const id = ROW_ORDER[i]
-      const items = r.status === 'fulfilled' ? r.value.map((raw) => toItem(raw, names)).filter((x): x is StoreItem => !!x).slice(0, ROW_SIZE) : []
+      const { id, tag } = specs[i]
+      const all = r.status === 'fulfilled' ? r.value.map((raw) => toItem(raw, names)).filter((x): x is StoreItem => !!x) : []
+      const items = (tag ? all.filter((it) => !shown.has(it.appId)) : all).slice(0, ROW_SIZE)
       const fallback = prev?.rows.find((row) => row.id === id)?.items ?? []
       const use = items.length ? items : fallback
-      if (use.length) rows.push({ id, items: use })
+      if (!use.length) return
+      // Каждая игра — в одном ряду: «Ролевая игра» не повторяет ни «Лидеров продаж», ни «Экшен» выше
+      if (id !== 'soon') for (const it of use) shown.add(it.appId)
+      // Название ряда жанра — метка Steam на языке интерфейса
+      rows.push(tag ? { id, items: use, tag, title: names.get(tag) ?? '' } : { id, items: use })
     })
     if (!rows.length) throw new Error('Steam не ответил')
     const fresh: StoreHome = { rows, fetchedAt: Date.now() }
@@ -353,7 +379,8 @@ export async function storeHome(refresh = false): Promise<StoreHome> {
   }
   if (!home) return loadHome(null)
   const cached: StoreHome = { rows: home.rows, fetchedAt: home.fetchedAt }
-  if (refresh || Date.now() - home.fetchedAt > HOME_TTL) {
+  // Витрина из версии без рядов жанров — обновить сразу, не дожидаясь часа
+  if (refresh || Date.now() - home.fetchedAt > HOME_TTL || !home.rows.some((r) => r.tag)) {
     void loadHome(cached)
       .then((h) => onHome?.(h))
       .catch(() => {
@@ -373,6 +400,183 @@ export function viewerItems(items: StoreItem[]): StoreItem[] {
 export function viewerHome(h: StoreHome): StoreHome {
   if (adultAllowed()) return h
   return { ...h, rows: h.rows.map((r) => ({ ...r, items: viewerItems(r.items) })).filter((r) => r.items.length) }
+}
+
+// ───────────────────────── Каталог игр ─────────────────────────
+
+const BROWSE_SORT: Record<StoreSort, number> = { popular: SORT_POPULAR, new: SORT_NEW_TRENDING, reviews: SORT_TOP_RATED, name: SORT_NAME }
+const BROWSE_PAGE = 48
+/** С фильтрами, которых нет у Steam (отзывы, язык), — листаем дальше, пока не наберётся экран, но не больше 8 страниц */
+const FILL = 24
+const FILL_PAGES = 8
+/** Страницы каталога в памяти: назад к уже открытому — сразу */
+const BROWSE_TTL = 10 * 60_000
+/** Границы года в списке по дате меняются медленно: новые игры добавляются только сверху */
+const YEAR_TTL = 6 * HOUR
+const TAG_COUNTS_TTL = 24 * HOUR
+/** Язык Steam «русский» в supported_languages */
+const RUSSIAN = 8
+
+/** То, что Steam фильтрует сам: метки (у игры — каждая) и «без раннего доступа» */
+interface ServerFilter {
+  tags: number[]
+  noEarly: boolean
+}
+
+const browseFilters = (f: ServerFilter) => ({
+  released_only: true,
+  type_filters: { include_games: true },
+  ...(f.tags.length ? { tagids_must_match: f.tags.map((tag) => ({ tagids: [tag] })) } : {}),
+  ...(f.noEarly ? { tagids_exclude: [STORE_EARLY_ACCESS] } : {})
+})
+
+interface LangRaw {
+  supported_languages?: { elanguage: number; supported?: boolean; full_audio?: boolean }[]
+}
+
+async function queryAt(start: number, count: number, sort: number, f: ServerFilter, request: object) {
+  const res = await call<{ store_items?: (RawItem & LangRaw)[]; metadata?: { total_matching_records?: number } }>('IStoreQueryService/Query', {
+    query: { start, count, sort, filters: browseFilters(f) },
+    context: context(),
+    data_request: request
+  })
+  return { raws: res.store_items ?? [], total: res.metadata?.total_matching_records ?? 0 }
+}
+
+/** Год выхода игры на месте i в списке по дате выхода (свежие первыми) и сколько игр в списке */
+async function yearAt(i: number, f: ServerFilter): Promise<{ year: number; total: number }> {
+  const { raws, total } = await queryAt(i, 1, SORT_BY_DATE, f, { include_release: true })
+  const rel = raws[0]?.release
+  const at = rel?.steam_release_date ?? rel?.original_release_date
+  return { year: at ? new Date(at * 1000).getUTCFullYear() : 0, total }
+}
+
+/**
+ * Первое место, начиная с которого pred истинно (до него ложно) — поиск по четыре пробы сразу: у Steam нет фильтра
+ * по году, но в списке по дате выхода игры одного года идут подряд. Около семи кругов запросов на весь каталог
+ */
+async function firstWhere(total: number, pred: (i: number) => Promise<boolean>): Promise<number> {
+  let lo = 0
+  let hi = total
+  while (lo < hi) {
+    const span = hi - lo
+    const probes = span <= 4 ? Array.from({ length: span }, (_, k) => lo + k) : [1, 2, 3, 4].map((k) => lo + Math.floor((span * k) / 5))
+    const hits = await Promise.all(probes.map(pred))
+    const k = hits.indexOf(true)
+    if (k < 0) lo = probes[probes.length - 1] + 1
+    else {
+      hi = probes[k]
+      if (k > 0) lo = probes[k - 1] + 1
+    }
+  }
+  return lo
+}
+
+const yearRanges = new Map<string, { at: number; range: Promise<{ from: number; to: number }> }>()
+
+/** Где в списке по дате выхода игры с fromYear по toYear включительно */
+function yearRange(fromYear: number, toYear: number, f: ServerFilter): Promise<{ from: number; to: number }> {
+  const key = `${f.tags.join(',')}:${f.noEarly}:${fromYear}-${toYear}`
+  const hit = yearRanges.get(key)
+  if (hit && Date.now() - hit.at < YEAR_TTL) return hit.range
+  const range = (async () => {
+    const { total } = await yearAt(0, f)
+    const before = (y: number) => (i: number) => yearAt(i, f).then((r) => r.year < y)
+    const [from, to] = await Promise.all([firstWhere(total, before(toYear + 1)), firstWhere(total, before(fromYear))])
+    return { from, to }
+  })()
+  yearRanges.set(key, { at: Date.now(), range })
+  // Неудачу не запоминаем: возможно, Steam просто не ответил
+  range.catch(() => yearRanges.delete(key))
+  return range
+}
+
+/** Фильтры, которых у Steam нет: отзывы и русский язык — по ответу на каждую игру */
+function rawFilter(q: StoreBrowseQuery): ((r: RawItem & LangRaw) => boolean) | null {
+  const checks: ((r: RawItem & LangRaw) => boolean)[] = []
+  if (q.reviews) checks.push((r) => (r.reviews?.summary_filtered?.percent_positive ?? 0) >= q.reviews!)
+  if (q.minReviews) checks.push((r) => (r.reviews?.summary_filtered?.review_count ?? 0) >= q.minReviews!)
+  const ru = (r: LangRaw) => r.supported_languages?.find((l) => l.elanguage === RUSSIAN)
+  if (q.ruText) checks.push((r) => !!ru(r)?.supported)
+  if (q.ruVoice) checks.push((r) => !!ru(r)?.full_audio)
+  return checks.length ? (r) => checks.every((c) => c(r)) : null
+}
+
+const browsed = new Map<string, { at: number; page: Promise<StoreBrowsePage> }>()
+
+/**
+ * Страница каталога игр Steam. Метки и ранний доступ фильтрует Steam; год и десятилетие — отрезок списка по дате
+ * выхода (так что с годом порядок — по дате: другой Steam не умеет); отзывы и русский язык — мы, по ответу Steam
+ */
+export function storeBrowse(q: StoreBrowseQuery): Promise<StoreBrowsePage> {
+  const f: ServerFilter = { tags: [...new Set(q.tags ?? [])].sort((a, b) => a - b), noEarly: !!q.noEarly }
+  const key = JSON.stringify([steamLang(), q.sort, f, q.year, q.decade, q.reviews, q.minReviews, q.ruText, q.ruVoice, q.start])
+  const hit = browsed.get(key)
+  if (hit && Date.now() - hit.at < BROWSE_TTL) return hit.page
+  const page = (async (): Promise<StoreBrowsePage> => {
+    const names = await tags()
+    const keep = rawFilter(q)
+    const request = q.ruText || q.ruVoice ? { ...TILE_REQUEST, include_supported_languages: true } : TILE_REQUEST
+    const years = q.year ? [q.year, q.year] : q.decade ? [q.decade, q.decade + 9] : null
+    const range = years ? await yearRange(years[0], years[1], f) : null
+    const sort = range ? SORT_BY_DATE : (BROWSE_SORT[q.sort] ?? SORT_POPULAR)
+    const items: StoreItem[] = []
+    let start = q.start
+    let end = range ? range.to - range.from : Infinity
+    for (let n = 0; n < (keep ? FILL_PAGES : 1) && start < end; n++) {
+      const count = Math.min(BROWSE_PAGE, end - start)
+      const res = await queryAt((range?.from ?? 0) + start, count, sort, f, request)
+      if (!range) end = res.total
+      for (const raw of keep ? res.raws.filter(keep) : res.raws) {
+        const it = toItem(raw, names)
+        if (it) items.push(it)
+      }
+      start += count
+      if (items.length >= FILL) break
+    }
+    return { items, ...(keep ? {} : { total: end }), ...(start < end ? { next: start } : {}) }
+  })()
+  if (browsed.size > 120) browsed.delete(browsed.keys().next().value!)
+  browsed.set(key, { at: Date.now(), page })
+  page.catch(() => browsed.delete(key))
+  return page
+}
+
+// Счётчики меток для панели фильтров: по одному запросу на метку, раз в сутки, в фоне
+const tagCountsFile = () => path.join(cacheDir(), 'tag-counts.json')
+let tagCounts: { at: number; counts: Record<number, number> } | null = null
+let countsLoading: Promise<void> | null = null
+
+function refreshTagCounts(ids: number[]) {
+  countsLoading ??= (async () => {
+    const counts = { ...(tagCounts?.counts ?? {}) }
+    const fresh = Date.now() - (tagCounts?.at ?? 0) < TAG_COUNTS_TTL
+    const due = fresh ? ids.filter((id) => counts[id] === undefined) : ids
+    let next = 0
+    let changed = 0
+    const worker = async () => {
+      while (next < due.length) {
+        const id = due[next++]
+        const res = await queryAt(0, 1, SORT_POPULAR, { tags: [id], noEarly: false }, {}).catch(() => null)
+        if (!res) continue
+        counts[id] = res.total
+        // На диск — порциями: следующее открытие панели увидит то, что уже посчитано
+        if (++changed % 12 === 0) writeJson(tagCountsFile(), (tagCounts = { at: tagCounts?.at ?? Date.now(), counts }))
+      }
+    }
+    await Promise.all(Array.from({ length: 4 }, worker))
+    tagCounts = { at: fresh ? tagCounts!.at : Date.now(), counts }
+    writeJson(tagCountsFile(), tagCounts)
+  })().finally(() => (countsLoading = null))
+}
+
+/** Названия меток на языке интерфейса и сколько игр с каждой; чего не хватает — посчитается в фоне */
+export async function storeTagInfo(ids: number[]): Promise<Record<number, StoreTagInfo>> {
+  const names = await tags()
+  tagCounts ??= readJson<{ at: number; counts: Record<number, number> }>(tagCountsFile())
+  const counts = tagCounts?.counts ?? {}
+  if (!tagCounts || Date.now() - tagCounts.at > TAG_COUNTS_TTL || ids.some((id) => counts[id] === undefined)) refreshTagCounts(ids)
+  return Object.fromEntries(ids.map((id) => [id, { name: names.get(id) ?? String(id), ...(counts[id] !== undefined ? { count: counts[id] } : {}) }]))
 }
 
 // ───────────────────────── Поиск ─────────────────────────

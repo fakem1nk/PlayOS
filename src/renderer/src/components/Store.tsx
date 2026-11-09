@@ -1,29 +1,30 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Game, StoreItem } from '@shared/types'
+import type { Game, StoreItem, StoreRowId } from '@shared/types'
 import { api } from '../lib/api'
 import { titleKey } from '@shared/match'
 import { useDragScroll, useSwipe } from '../lib/drag'
-import { lastInputDevice, useInputLayer, useLastDevice } from '../lib/input'
+import { lastInputDevice, useInputLayer } from '../lib/input'
 import { nudge } from '../lib/nav'
 import { beginEdit, isEditing, openKeyboard, setKeyboardStatus } from '../lib/osk'
-import { addStoreGame, ROW_TITLES, storeGame, tileNote, useStoreHome } from '../lib/shop'
+import { addStoreGame, ROW_TITLES, tileNote, useStoreHome } from '../lib/shop'
 import { play } from '../lib/sound'
-import { Glyph } from './Glyph'
-import { Cover } from './Tile'
-import { IconCheck, IconClose, IconDownload, IconPlus, IconRestart, IconSearch } from './Icons'
+import { StoreBrowse } from './StoreBrowse'
+import { QuickGlyph, StoreTile } from './StoreTile'
+import { IconCheck, IconClose, IconGrid, IconPlus, IconRestart, IconSearch } from './Icons'
 import { t } from '@shared/i18n'
 import '../styles-store.css'
 
 /** Что в фокусе магазина — по нему App подбирает подсказки кнопок */
 export interface StoreFocus {
-  zone: 'search' | 'hero' | 'row' | 'results' | 'retry'
+  /** all — фишка «Каталог игр» у поиска; browse / browse-grid / browse-panel — шапка, сетка и фильтры каталога */
+  zone: 'search' | 'all' | 'hero' | 'row' | 'results' | 'retry' | 'browse' | 'browse-grid' | 'browse-panel'
   searching: boolean
   /** Игра в фокусе уже в библиотеке — △ открывает её страницу, а не добавляет */
   owned?: boolean
 }
 
-type Zone = { kind: 'search' } | { kind: 'hero' } | { kind: 'row'; row: number } | { kind: 'results' } | { kind: 'retry' }
+type Zone = { kind: 'search' } | { kind: 'all' } | { kind: 'hero' } | { kind: 'row'; row: number } | { kind: 'results' } | { kind: 'retry' }
 
 /** Сколько игр крутится в баннере и как часто он листается сам */
 const HERO_COUNT = 5
@@ -44,8 +45,11 @@ interface Props {
  * Магазин: баннер с новинками, ряды витрины Steam и поиск по всему каталогу.
  * Вверх-вниз — между баннером и рядами, влево-вправо — внутри ряда; у каждого ряда своя позиция.
  */
-export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOpen }: Props) {
+export function Store({ games, active: tabActive, onFocusItem, onFocusKind, onExitTop, onOpen }: Props) {
   const { home, failed, retry } = useStoreHome()
+  // Открыт каталог игр — витрина ждёт под ним со своим фокусом
+  const [browse, setBrowse] = useState<{ tag?: number } | null>(null)
+  const active = tabActive && !browse
   const rows = home?.rows ?? []
   const featured = useMemo(() => {
     const src = rows.find((r) => r.id === 'new')?.items ?? rows[0]?.items ?? []
@@ -124,7 +128,9 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
   }, [featured.length, rows.length, failed, home])
 
   const hIdx = featured.length ? heroIdx % featured.length : 0
-  const rowPos = (r: number) => Math.min(pos[r] ?? 0, Math.max(0, (rows[r]?.items.length ?? 1) - 1))
+  // В ряду жанра после игр — плитка «Все игры жанра»
+  const rowLen = (r: number) => (rows[r]?.items.length ?? 0) + (rows[r]?.tag ? 1 : 0)
+  const rowPos = (r: number) => Math.min(pos[r] ?? 0, Math.max(0, rowLen(r) - 1))
   const rIdx = Math.min(resIdx, Math.max(0, results.length - 1))
   const focusedItem: StoreItem | null =
     zone.kind === 'hero'
@@ -152,7 +158,8 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedItem?.appId, active])
-  const focusOwned = !!focusedItem && owned.has(focusedItem.appId, focusedItem.title)
+  // Не на игре (плитка «Все игры жанра») — подсказки «В библиотеку» нет
+  const focusOwned = !focusedItem || owned.has(focusedItem.appId, focusedItem.title)
   useEffect(() => {
     if (active) onFocusKind({ zone: zone.kind, searching, owned: focusOwned })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,6 +233,10 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
     if (!item) return
     play('select')
     onOpen(item)
+  }
+  const openBrowse = (tag?: number) => {
+    play('select')
+    setBrowse(tag ? { tag } : {})
   }
   // Быстро в библиотеку — △ или «+» на обложке, не открывая страницу. Игра уже там — △ открывает страницу
   const [adding, setAdding] = useState<ReadonlySet<number>>(new Set())
@@ -302,7 +313,19 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           }
           if (a === 'back' && searching) return clearSearch()
           if (a === 'up' || a === 'back') return onExitTop()
-          if (a === 'left' || a === 'right') return bump(a)
+          if (a === 'right') return go({ kind: 'all' })
+          if (a === 'left') return bump(a)
+          return false
+        }
+        case 'all': {
+          if (a === 'confirm') return openBrowse()
+          if (a === 'left') return go({ kind: 'search' })
+          if (a === 'right') return bump(a)
+          if (a === 'down') {
+            const z = below()
+            return z ? go(z) : bump('down')
+          }
+          if (a === 'up' || a === 'back') return onExitTop()
           return false
         }
         case 'retry': {
@@ -331,7 +354,7 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
         case 'row': {
           const r = zone.row
           const i = rowPos(r)
-          const n = rows[r]?.items.length ?? 0
+          const n = rowLen(r)
           if (a === 'left' || a === 'right') {
             const next = i + (a === 'left' ? -1 : 1)
             if (next < 0 || next >= n) return bump(a)
@@ -340,8 +363,9 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           }
           if (a === 'up') return go(r > 0 ? { kind: 'row', row: r - 1 } : featured.length ? { kind: 'hero' } : { kind: 'search' })
           if (a === 'down') return r < rows.length - 1 ? go({ kind: 'row', row: r + 1 }) : bump('down')
-          if (a === 'confirm') return open(rows[r]?.items[i])
-          if (a === 'menu') return void quickAdd(rows[r]?.items[i])
+          const item = rows[r]?.items[i]
+          if (a === 'confirm') return item ? open(item) : rows[r]?.tag ? openBrowse(rows[r].tag) : false
+          if (a === 'menu') return item ? void quickAdd(item) : bump('down')
           // ○ в рядах — сначала к баннеру, второе ○ — к вкладкам
           if (a === 'back') {
             if (!featured.length) return onExitTop()
@@ -374,6 +398,23 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
 
   const noFocus = (e: React.MouseEvent) => e.preventDefault()
   const searchZone = zone.kind === 'search' && active
+
+  if (browse)
+    return (
+      <div className="store">
+        <StoreBrowse
+          tag={browse.tag}
+          active={tabActive}
+          owned={(it) => owned.has(it.appId, it.title)}
+          adding={adding}
+          onQuickAdd={(it) => void quickAdd(it)}
+          onOpen={onOpen}
+          onClose={() => setBrowse(null)}
+          onFocusItem={onFocusItem}
+          onFocusKind={(f) => onFocusKind({ zone: f.zone, searching: false, owned: f.owned })}
+        />
+      </div>
+    )
   const meta = searching
     ? loading
       ? t('Ищем…')
@@ -408,6 +449,15 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
             </button>
           )}
         </label>
+        <button
+          tabIndex={-1}
+          className={`chip chip-pick store-all ${zone.kind === 'all' && active ? 'is-focused' : ''}`}
+          onMouseDown={noFocus}
+          onClick={() => (setZone({ kind: 'all' }), openBrowse())}
+        >
+          <IconGrid />
+          {t('Каталог игр')}
+        </button>
         <div className="library-meta store-meta">
           {searching && loading ? (
             <span className="store-meta-wait">
@@ -479,7 +529,7 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
           )}
           {rows.map((row, r) => (
             <section key={row.id} className="store-row" ref={(el) => void (sectionRefs.current[r] = el)}>
-              <h2 className="store-row-title">{ROW_TITLES[row.id]}</h2>
+              <h2 className="store-row-title">{row.title ?? ROW_TITLES[row.id as StoreRowId]}</h2>
               <StoreStrip onRef={(el) => void (stripRefs.current[r] = el)}>
                 {row.items.map((item, i) => {
                   const focused = active && zone.kind === 'row' && zone.row === r && i === rowPos(r)
@@ -496,6 +546,17 @@ export function Store({ games, active, onFocusItem, onFocusKind, onExitTop, onOp
                     />
                   )
                 })}
+                {row.tag && (
+                  <SeeAllTile
+                    title={row.title ?? ''}
+                    focused={active && zone.kind === 'row' && zone.row === r && rowPos(r) === row.items.length}
+                    onClick={() =>
+                      active && zone.kind === 'row' && zone.row === r && rowPos(r) === row.items.length
+                        ? openBrowse(row.tag)
+                        : (setPos((p) => ({ ...p, [r]: row.items.length })), setZone({ kind: 'row', row: r }))
+                    }
+                  />
+                )}
               </StoreStrip>
             </section>
           ))}
@@ -522,81 +583,22 @@ function StoreStrip({ onRef, children }: { onRef: (el: HTMLDivElement | null) =>
   )
 }
 
-/**
- * Плитка игры магазина: обложка, отметки «можно скачать» и «в библиотеке», подпись с названием и оценкой.
- * «+» в углу обложки (при наведении и в фокусе) — сразу в библиотеку, без страницы игры
- */
-function StoreTile({
-  item,
-  focused,
-  inLibrary,
-  adding,
-  caption,
-  onAdd,
-  onClick
-}: {
-  item: StoreItem
-  focused: boolean
-  inLibrary: boolean
-  adding: boolean
-  caption?: boolean
-  onAdd: () => void
-  onClick: () => void
-}) {
-  const game = useMemo(() => storeGame(item), [item])
-  const tile = (
-    <div className={`tile store-tile ${focused ? 'is-focused' : ''}`} role="button" aria-label={item.title} onClick={onClick}>
-      <div className="tile-art">
-        <Cover game={game} />
-        {!inLibrary && (
-          <button
-            tabIndex={-1}
-            className={`store-quick ${adding ? 'is-busy' : ''}`}
-            aria-label={t('Добавить в библиотеку')}
-            title={t('Добавить в библиотеку')}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => {
-              e.stopPropagation()
-              onAdd()
-            }}
-          >
-            {adding ? <span className="spinner" /> : focused ? <QuickGlyph /> : <IconPlus />}
-          </button>
-        )}
-        {(inLibrary || !!item.options || item.store === 'gog') && (
-          <span className="store-badges">
-            {item.store === 'gog' && <span className="store-badge is-text">GOG</span>}
-            {!!item.options && (
-              <span className="store-badge is-dl" title={t('Можно скачать')}>
-                <IconDownload />
-              </span>
-            )}
-            {inLibrary && (
-              <span className="store-badge" title={t('Уже в библиотеке')}>
-                <IconCheck />
-              </span>
-            )}
-          </span>
-        )}
-      </div>
-    </div>
-  )
-  if (!caption) return tile
+/** Последняя плитка ряда жанра: все игры этого жанра в каталоге */
+function SeeAllTile({ title, focused, onClick }: { title: string; focused: boolean; onClick: () => void }) {
   return (
     <div className={`store-cell ${focused ? 'is-current' : ''}`}>
-      {tile}
+      <div className={`tile store-tile store-see-all ${focused ? 'is-focused' : ''}`} role="button" aria-label={t('Все игры жанра «{g}»', { g: title })} onClick={onClick}>
+        <div className="tile-art">
+          <IconGrid />
+          <span>{t('Все игры жанра')}</span>
+        </div>
+      </div>
       <div className="store-cap">
-        <span className="store-cap-title">{item.title}</span>
-        <span className="store-cap-note">{tileNote(item)}</span>
+        <span className="store-cap-title">{title}</span>
+        <span className="store-cap-note">{t('Каталог игр')}</span>
       </div>
     </div>
   )
-}
-
-/** На геймпаде «+» в фокусе показывает кнопку, которой добавляют (△), с клавиатуры и мышью — плюс */
-function QuickGlyph() {
-  const device = useLastDevice()
-  return device === 'pad' ? <Glyph name="menu" /> : <IconPlus />
 }
 
 /** Баннер с новинками: широкий арт, логотип, описание и метки; точки внизу — какая из пяти */

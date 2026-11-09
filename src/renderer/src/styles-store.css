@@ -285,6 +285,423 @@
   backdrop-filter: blur(0.8rem);
 }
 
+/* ── Каталог игр ── */
+/* Тот же каркас, что у витрины: шапка и тело на остаток высоты; в теле сетка и панель фильтров справа */
+.store-browse {
+  display: contents;
+}
+
+.store-browse-head {
+  gap: 1.6rem;
+}
+
+.cat-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.cat-title h2 {
+  font-size: 2.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.cat-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.5rem;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-sub .spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-width: 0.2rem;
+}
+
+.cat-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38rem;
+  gap: 2.4rem;
+  min-height: 0;
+}
+
+.cat-body > .grid-scroll,
+.cat-body > .empty {
+  min-height: 0;
+}
+
+/* С годом порядок один — по дате выхода: сортировка видна, но приглушена */
+.seg.is-muted .seg-item {
+  color: var(--faint);
+}
+
+.store-browse-more {
+  display: grid;
+  place-items: center;
+  min-height: 8rem;
+  padding: 1rem 0 4rem;
+}
+
+/* Панель фильтров: матовое стекло во всю высоту, свой скролл */
+.cat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Снизу — место Тиви на строке подсказок */
+  margin-bottom: 3.4rem;
+  border-radius: 2.4rem;
+  border: 1px solid var(--stroke);
+  background: rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: blur(2rem);
+  backdrop-filter: blur(2rem);
+  overflow: hidden;
+}
+
+.cat-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.6rem 1.8rem 1.2rem;
+  font-size: 1.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cat-panel-head > svg {
+  font-size: 2.2rem;
+  color: var(--mist);
+}
+
+.cat-panel-title {
+  font-weight: 600;
+}
+
+.cat-badge {
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border-radius: 1.1rem;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #0b0d12;
+  background: #fff;
+}
+
+.cat-reset {
+  margin-left: auto;
+  padding: 0.5rem 1.2rem;
+  border: 0;
+  border-radius: 1.2rem;
+  background: transparent;
+  color: var(--mist);
+  font: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.cat-reset:hover,
+.cat-reset:focus {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cat-reset:focus {
+  box-shadow: inset 0 0 0 0.2rem rgba(255, 255, 255, 0.85);
+}
+
+.cat-panel-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 0.6rem 1rem 2rem;
+}
+
+.cat-sec + .cat-sec {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cat-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  height: 4.6rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 1.2rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+.cat-sec-head > span:first-child {
+  flex: 1;
+}
+
+.cat-caret {
+  font-size: 1.6rem;
+  color: var(--faint);
+  transform: rotate(-90deg);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.cat-sec.is-open .cat-caret {
+  transform: none;
+}
+
+.cat-sec-body {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0 0 1.2rem;
+}
+
+.cat-sec.is-plain .cat-sec-body {
+  padding-top: 1rem;
+}
+
+.cat-row,
+.cat-more,
+.cat-step,
+.cat-year {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  width: 100%;
+  height: 4rem;
+  padding: 0 1rem;
+  border-radius: 1.2rem;
+  font-size: 1.55rem;
+  text-align: left;
+}
+
+.cat-sec-head:hover,
+.cat-sec-head:focus,
+.cat-row:hover,
+.cat-row:focus,
+.cat-more:hover,
+.cat-more:focus {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cat-sec-head:focus,
+.cat-row:focus,
+.cat-more:focus,
+.cat-step:focus,
+.cat-year:focus {
+  box-shadow: inset 0 0 0 0.2rem rgba(255, 255, 255, 0.85);
+}
+
+.cat-box {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  box-shadow: inset 0 0 0 0.15rem rgba(255, 255, 255, 0.35);
+}
+
+.cat-row.is-on .cat-box {
+  color: #0b0d12;
+  background: #fff;
+  box-shadow: none;
+}
+
+.cat-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-row:not(.is-on) .cat-name {
+  color: var(--mist);
+}
+
+.cat-count {
+  flex: none;
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+.cat-more {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 3.8rem;
+  padding: 0 1rem;
+  border-radius: 1.2rem;
+  font-size: 1.5rem;
+  color: var(--mist);
+  text-align: left;
+}
+
+.cat-more svg {
+  font-size: 1.5rem;
+}
+
+.cat-more svg.is-up {
+  transform: rotate(180deg);
+}
+
+/* Ступени: десятилетия, доля и число отзывов — капсула как у сортировки */
+.cat-steps {
+  display: flex;
+  gap: 0.2rem;
+  margin: 0.2rem 1rem 0.8rem;
+  padding: 0.3rem;
+  border-radius: 1.6rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cat-step {
+  flex: 1;
+  height: 3.4rem;
+  border-radius: 1.3rem;
+  font-size: 1.4rem;
+  color: var(--mist);
+  white-space: nowrap;
+}
+
+.cat-step:hover {
+  color: #fff;
+}
+
+.cat-step.is-on {
+  color: #0b0d12;
+  background: #fff;
+  font-weight: 600;
+}
+
+.cat-label {
+  margin: 0.6rem 1rem 0.4rem;
+  font-size: 1.35rem;
+  color: var(--faint);
+}
+
+.cat-years {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  margin: 0 1rem;
+}
+
+.cat-year {
+  height: 3.6rem;
+  border-radius: 1.1rem;
+  font-size: 1.45rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--mist);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cat-year.is-wide {
+  grid-column: span 2;
+}
+
+.cat-year:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cat-year.is-on {
+  color: #0b0d12;
+  background: #fff;
+  font-weight: 600;
+}
+
+/* Переключатель: капсула с бегунком */
+.cat-row-icon {
+  display: grid;
+  font-size: 1.8rem;
+  color: var(--mist);
+}
+
+.cat-toggle {
+  flex: none;
+  position: relative;
+  width: 4rem;
+  height: 2.4rem;
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.2s ease;
+}
+
+.cat-toggle::after {
+  content: '';
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.22s var(--ease-out);
+}
+
+.cat-switch.is-on .cat-toggle {
+  background: var(--accent, #3d7bff);
+}
+
+.cat-switch.is-on .cat-toggle::after {
+  transform: translateX(1.6rem);
+}
+
+/* Последняя плитка ряда жанра — все игры жанра в каталоге */
+.store-see-all .tile-art {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.2rem;
+  padding: 1.6rem;
+  text-align: center;
+  font-size: 1.7rem;
+  line-height: 1.3;
+  color: var(--mist);
+  background: rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.store-see-all .tile-art svg {
+  font-size: 4rem;
+}
+
+.store-see-all.is-focused .tile-art,
+.store-see-all:hover .tile-art {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
 /* Игра из каталога GOG — короткая подпись вместо значка */
 .store-badge.is-text {
   width: auto;

@@ -117,6 +117,8 @@ const api: PcsApi = {
   storeHome: (refresh) => ipcRenderer.invoke('store:home', refresh),
   onStoreHome: listen('store-home'),
   storeSearch: (q) => ipcRenderer.invoke('store:search', q),
+  storeBrowse: (q) => ipcRenderer.invoke('store:browse', q),
+  storeTagInfo: (ids) => ipcRenderer.invoke('store:tagInfo', ids),
   storePage: (appId) => ipcRenderer.invoke('store:page', appId),
   storeOptionCount: (appId, title) => ipcRenderer.invoke('store:optionCount', appId, title),
   storeHltb: (appId, title) => ipcRenderer.invoke('store:hltb', appId, title),
