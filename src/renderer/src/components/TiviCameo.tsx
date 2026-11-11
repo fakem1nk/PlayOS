@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Settings } from '@shared/types'
 import { ARRIVE, LEAVE } from '../lib/tivi-faces'
+import { play } from '../lib/sound'
 import { TiviArt } from './Tivi'
 
 /**
@@ -26,6 +27,9 @@ export function TiviCameo({ kind, size = 'small' }: { kind: 'arrive' | 'leave'; 
   const [i, setI] = useState(0)
   const root = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
+
+  // Его звук: искры и «привет» в интро, зевок в аутро (play сам молчит, если звуки выключены)
+  useEffect(() => play(kind === 'arrive' ? 'arrive' : 'yawn'), [kind])
 
   useEffect(() => {
     let k = 0

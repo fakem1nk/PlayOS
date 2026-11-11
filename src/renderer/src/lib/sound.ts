@@ -1,6 +1,7 @@
 import type { PadAction, SoundVolume } from '@shared/types'
 import { rumble } from './haptics'
 import { tiviSound } from './tivi'
+import { SETS, type Kit, type SetName, type ToneOpts, type BurstOpts, type StrikePart, type StrikeOpts } from './sound-sets'
 
 /**
  * Звуковой дизайн PlayOS: всё синтезируется на лету через WebAudio, без файлов.
@@ -30,6 +31,9 @@ export type SoundKind =
   | 'farewell'
   | 'shutdown'
   | 'installed'
+  // Тиви собрался в углу в конце интро; Тиви зевает в начале аутро (TiviCameo)
+  | 'arrive'
+  | 'yawn'
 
 const VOLUME: Record<SoundVolume, number> = { low: 0.45, mid: 0.8, high: 1.25 }
 
@@ -43,6 +47,11 @@ let wet: GainNode | null = null
 let enabled = true
 let volume: SoundVolume = 'mid'
 let lastMove = 0
+/** Набор звуков (sound-sets.ts): основной собран из нескольких, «стекло» — исходный, он в этом файле. Демо: ?sound=glass|crt|soft|chip|drop */
+let soundSet: SetName = (new URLSearchParams(location.search).get('sound') as SetName | null) ?? 'main'
+export function setSoundSet(name: SetName) {
+  soundSet = name
+}
 /** Последнее направление навигации — для панорамы и высоты тапа */
 let lastDir: 'up' | 'down' | 'left' | 'right' | null = null
 
@@ -137,6 +146,9 @@ interface VoiceOpts {
 
 function out(c: AudioContext, node: AudioNode, t: number, o: VoiceOpts) {
   const env = c.createGain()
+  // Тишина с самого начала, а не с момента t: у звука, назначенного на потом, первый отсчёт шума иначе
+  // успевал пройти в полную силу — одиночный щелчок
+  env.gain.value = 0.0001
   env.gain.setValueAtTime(0.0001, t)
   env.gain.exponentialRampToValueAtTime(o.gain, t + (o.attack ?? 0.005))
   env.gain.exponentialRampToValueAtTime(0.0001, t + o.dur)
@@ -280,6 +292,87 @@ function pad(freqs: number[], start: number, dur: number, gain: number, cutoff =
 }
 
 const n = (semitonesFromA4: number) => 440 * Math.pow(2, semitonesFromA4 / 12)
+
+/** Простой тон любой формы: с уходом высоты и срезом верха — кирпичик для наборов из sound-sets.ts */
+function tone(type: OscillatorType, freq: number, start: number, o: ToneOpts) {
+  const { c } = audio()
+  const t = c.currentTime + start
+  const osc = c.createOscillator()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t)
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + o.dur)
+  let node: AudioNode = osc
+  if (o.lp) {
+    const lp = c.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = o.lp
+    osc.connect(lp)
+    node = lp
+  }
+  out(c, node, t, { attack: 0.003, ...o })
+  osc.start(t)
+  osc.stop(t + o.dur + 0.05)
+}
+
+/** Кусок шума через фильтр: щелчок, треск или короткая «развёртка» */
+function burst(start: number, o: BurstOpts) {
+  const { c } = audio()
+  const t = c.currentTime + start
+  const src = c.createBufferSource()
+  src.buffer = noise(c)
+  src.loop = true
+  const f = c.createBiquadFilter()
+  f.type = o.type ?? 'bandpass'
+  f.Q.value = o.q ?? 0.9
+  f.frequency.setValueAtTime(o.freq, t)
+  if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + o.dur)
+  src.connect(f)
+  out(c, f, t, { attack: 0.001, ...o })
+  src.start(t, Math.random() * 0.5)
+  src.stop(t + o.dur + 0.05)
+}
+
+/**
+ * Удар по звучащему телу: несколько синусов-обертонов, каждый со своей громкостью и временем затухания,
+ * но с общим выходом — на ноту уходит вдвое меньше узлов, чем если играть обертоны по отдельности
+ */
+function strike(parts: StrikePart[], start: number, o: StrikeOpts) {
+  const { c } = audio()
+  const t = c.currentTime + start
+  const sum = c.createGain()
+  let tail: AudioNode = sum
+  if (o.pan) {
+    const p = c.createStereoPanner()
+    p.pan.value = Math.max(-1, Math.min(1, o.pan))
+    sum.connect(p)
+    tail = p
+  }
+  tail.connect(dry!)
+  if (o.space) {
+    const send = c.createGain()
+    send.gain.value = o.space
+    tail.connect(send).connect(wet!)
+  }
+  if (o.room) {
+    const send = c.createGain()
+    send.gain.value = o.room
+    tail.connect(send).connect(room!)
+  }
+  for (const part of parts) {
+    const osc = c.createOscillator()
+    osc.frequency.value = part.f
+    const env = c.createGain()
+    env.gain.value = 0.0001
+    env.gain.setValueAtTime(0.0001, t)
+    env.gain.exponentialRampToValueAtTime(part.gain, t + (o.attack ?? 0.002))
+    env.gain.exponentialRampToValueAtTime(0.0001, t + part.dur)
+    osc.connect(env).connect(sum)
+    osc.start(t)
+    osc.stop(t + part.dur + 0.05)
+  }
+}
+
+const kit = (): Kit => ({ dir: lastDir, pan: dirPan(), n, tone, burst, strike, bell, pad, air })
 // Ноты, которые используются чаще всего
 const C5 = n(3)
 const E5 = n(7)
@@ -305,11 +398,19 @@ export function play(kind: SoundKind) {
   tiviSound(kind)
   if (!enabled) return
   try {
+    if (kind === 'move') {
+      const now = performance.now()
+      if (now - lastMove < 32) return
+      lastMove = now
+    }
+    const own = SETS[soundSet]?.[kind]
+    if (own) {
+      audio()
+      own(kit())
+      return
+    }
     switch (kind) {
       case 'move': {
-        const now = performance.now()
-        if (now - lastMove < 32) return
-        lastMove = now
         // Вверх чуть выше, вниз чуть ниже, разброс ±1% — серия шагов звучит живо, а не как метроном
         const base = lastDir === 'up' ? 1290 : lastDir === 'down' ? 1080 : 1180
         tap(base * (1 + (Math.random() - 0.5) * 0.02), 0, 0.05, dirPan())
@@ -394,6 +495,15 @@ export function play(kind: SoundKind) {
         arp([G5, C6, E6, G6], 0.02, 0.075, { gain: 0.045, dur: 1.4, space: 0.6, ratio: 2, index: 0.55 }, 0.6)
         bell(C7, 0.36, { gain: 0.04, dur: 1.7, space: 0.8, ratio: 3, index: 0.6, pan: 0.15 })
         air(0.3, 0.7, 0.01, 4000, 8000, 0.8, 0.2)
+        break
+      case 'arrive':
+        // Тиви собрался в углу: искры — тапы вверх слева направо, потом его колокольчик
+        ;[0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach((t, i) => tap(1100 + i * 140, t, 0.022, -0.2 + i * 0.14))
+        bell(E6, 1.55, { gain: 0.04, dur: 0.9, space: 0.5, ratio: 2, index: 0.5, pan: 0.6 })
+        break
+      case 'yawn':
+        bell(G5, 0.15, { gain: 0.03, dur: 0.5, space: 0.3, ratio: 1, index: 0.3, pan: 0.6 })
+        bell(C5, 0.4, { gain: 0.03, dur: 0.7, space: 0.4, ratio: 1, index: 0.3, pan: 0.6 })
         break
       case 'boot':
         // Синхронизировано с интро: искра (0,12 с) → кольцо рисуется на подъёме пэда и шумового «вдоха»
