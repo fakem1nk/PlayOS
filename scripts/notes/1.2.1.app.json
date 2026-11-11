@@ -1,0 +1,25 @@
+{
+  "importance": "critical",
+  "ru": {
+    "new": [],
+    "fixed": [
+      "Облачные сохранения пишутся только в папки сохранений своей игры",
+      "Из облака восстанавливаются только ключи реестра самой игры",
+      "Повреждённый профиль или библиотека в облаке больше не ломают их на другом ПК",
+      "Слишком большие или битые файлы в облаке больше не подвешивают PlayOS",
+      "Синхронизация не останавливается, если сервер входа не отвечает",
+      "Параметры запуска игр теперь свои на каждом ПК"
+    ]
+  },
+  "en": {
+    "new": [],
+    "fixed": [
+      "Cloud saves are written only into their game's save folders",
+      "Only the game's own registry keys are restored from the cloud",
+      "A damaged profile or library in the cloud no longer breaks them on another PC",
+      "Huge or broken files in the cloud no longer freeze PlayOS",
+      "Sync no longer stops when the sign-in server doesn't respond",
+      "Game launch options now stay on each PC"
+    ]
+  }
+}
