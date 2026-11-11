@@ -23,9 +23,11 @@ const easeOut = [0.23, 1, 0.32, 1] as const
  * Экран запуска: обложка «всплывает», фон медленно наезжает, пока игра грузится.
  * Пока он открыт, меню под ним не управляется: работает только «назад» — отмена запуска.
  */
-export function LaunchScreen({ game, onCancel }: { game: Game; onCancel: () => void }) {
+/** syncing — ждём свежие сохранения из облака: ✕ запускает игру, не дожидаясь (onSkip) */
+export function LaunchScreen({ game, syncing, onSkip, onCancel }: { game: Game; syncing?: boolean; onSkip?: () => void; onCancel: () => void }) {
   useInputLayer((a) => {
     if (a === 'back') onCancel()
+    else if (a === 'confirm' && syncing) onSkip?.()
   }, 90)
   return (
     <motion.div
@@ -47,12 +49,13 @@ export function LaunchScreen({ game, onCancel }: { game: Game; onCancel: () => v
           <Cover game={game} />
         </div>
         <div className="launch-title">{game.title}</div>
-        <div className="launch-status">{t('Запуск игры')}</div>
+        <div className="launch-status">{syncing ? t('Синхронизация сохранений') : t('Запуск игры')}</div>
         <div className="launch-bar">
           <span />
         </div>
       </motion.div>
       <footer className="launch-hints">
+        {syncing && <Hint glyph="confirm" label={t('Играть без ожидания')} />}
         <Hint glyph="back" label={t('Отменить запуск')} />
       </footer>
     </motion.div>

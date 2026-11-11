@@ -170,6 +170,8 @@ let gameHwnd: bigint | null = null
 let launchTimer: NodeJS.Timeout | null = null
 /** Запуск этой игры отменили (○ на экране запуска), пока main ещё готовил его */
 let launchCancelled: string | null = null
+/** Запуск, который ждёт сохранения из облака: go — больше не ждать */
+let launchWait: { id: string; go: () => void } | null = null
 /** Замороженные (поставленные на паузу) процессы игры */
 let frozen: number[] = []
 /** Текущий слот PCSX2 в режиме горячих клавиш (каждый запуск эмулятор начинает с первого) */
@@ -1749,7 +1751,12 @@ function registerIpc() {
     }
     // Сначала свежие сохранения из облака; разошлись — решает пользователь, игра пока не запускается
     if (!opts?.skipSync && !launcher.running()) {
-      const conflict = await sync.beforeLaunch(game)
+      // Экран запуска показывает, что ждём облако, и даёт не ждать: молчаливый запуск со старыми сохранениями — это конфликт после игры
+      const waits = sync.syncsBeforeLaunch(game)
+      if (waits) sendTo(win, 'launch-stage', { id, stage: 'sync' })
+      const conflict = await sync.beforeLaunch(game, new Promise<void>((go) => (launchWait = { id, go })))
+      launchWait = null
+      if (waits) sendTo(win, 'launch-stage', { id, stage: 'start' })
       if (conflict) return { ok: false, conflict }
     }
     // VR-игра: сначала нужный рантайм (PlayOS VR или SteamVR) и opencomposite.ini
@@ -1781,8 +1788,12 @@ function registerIpc() {
     }
     return res
   })
+  ipcMain.handle('game:skipSync', (_e, id: string) => {
+    if (launchWait?.id === id) launchWait.go()
+  })
   ipcMain.handle('game:cancelLaunch', (_e, id: string) => {
     launchCancelled = id
+    if (launchWait?.id === id) launchWait.go()
     if (launcher.running()?.gameId === id) {
       log('INFO', 'Запуск отменён')
       launcher.abortLaunch()
@@ -2162,7 +2173,7 @@ function registerIpc() {
     cloudChanged()
   })
   ipcMain.handle('cloud:syncNow', async () => {
-    await sync.syncAll()
+    await sync.syncNow()
     await cloud.refreshAccount().catch(() => null)
     cloudChanged()
     return sync.status()

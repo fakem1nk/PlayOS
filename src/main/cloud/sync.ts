@@ -56,6 +56,10 @@ interface SyncStateFile {
   devices: Record<string, { modified: number; size?: number; file: DeviceFile }>
   /** Свои головы: что лежит на этом ПК по каждому ключу (копия devices/<свой id>.json) */
   mine: Record<string, string>
+  /** Когда этот ПК последний раз записал свой файл устройства */
+  mineAt?: number
+  /** Отметка формата из облака: время изменения файла и число в нём */
+  format?: { modified: number; value: number }
   /** Пользователь ответил на предложение подтянуть профиль из облака (или облако было пустым) */
   linked?: boolean
   seen: Seen
@@ -81,7 +85,21 @@ const SNAP = /^(\d{1,15})_([0-9a-f]{8})_([0-9a-f]{16})\.zip$/
  */
 const DEVICE_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.json$/i
 const POLL_MS = 10 * 60_000
-const LAUNCH_TIMEOUT = 10_000
+/** Запуск игры ждёт облако, пока пользователь не нажмёт «Играть без ожидания»; это — предел на случай зависшей сети */
+const LAUNCH_TIMEOUT = 120_000
+const DAY = 86_400_000
+/** ПК, который не появлялся в облаке дольше, списан: его «голова» больше не защищает старые снимки от удаления */
+const DEVICE_ALIVE_MS = 90 * DAY
+/** Свой файл устройства обновляется хотя бы раз в неделю, даже если сохранения не менялись, — иначе живой ПК выглядел бы списанным */
+const HEARTBEAT_MS = 7 * DAY
+/** Сколько места в облаке могут занять снимки «по одному за день и за неделю» сверх последних версий — на один набор */
+const HISTORY_BYTES = 2 ** 30
+/**
+ * Формат данных в облаке (meta/format.json). Версия PlayOS, которая меняет его несовместимо, поднимает число —
+ * и более старые версии перестают синхронизироваться вместо того, чтобы затирать поля, которых не понимают
+ */
+const FORMAT = 1
+const FORMAT_CHECK_MS = 3600_000
 /** Нет связи — повторяем раньше обычного опроса: через минуту, потом через три */
 const RETRY_MS = [60_000, 3 * 60_000]
 /** Имя аккаунта и место в облаке — раз в 6 часов (для полосы занятого места) */
@@ -135,6 +153,11 @@ let retries = 0
 let retryTimer: ReturnType<typeof setTimeout> | undefined
 let accountAt = 0
 let changeTimer: ReturnType<typeof setTimeout> | undefined
+let formatAt = 0
+/** «Синхронизировать» нажал сам пользователь: следующая синхронизация применит и массовое удаление игр из облака */
+let confirmDeletes = false
+/** Запуск игры не ждёт конца общей синхронизации: её наборы идут вне очереди, между наборами других игр */
+const urgent: { run: (r: Remote) => Promise<void>; skip: () => void }[] = []
 /** Состояние наборов сохранений: по ключу */
 const setStatus = new Map<string, { state: CloudSyncState; size?: number; error?: string; conflict?: SaveConflict; dirs?: string[] }>()
 
@@ -199,10 +222,11 @@ async function refreshHeads(r: Remote) {
 }
 
 async function writeMyDevice(r: Remote) {
-  if (!myDirty) return
+  if (!myDirty && Date.now() - (file.mineAt ?? 0) < HEARTBEAT_MS) return
   const body: DeviceFile = { id: account.deviceId(), name: account.deviceName(), seen: Date.now(), version: app.getVersion(), heads: file.mine }
   await r.write(`devices/${account.deviceId()}.json`, Buffer.from(JSON.stringify(body, null, 2)))
   myDirty = false
+  file.mineAt = Date.now()
 }
 
 function deviceLabel(short: string) {
@@ -211,16 +235,63 @@ function deviceLabel(short: string) {
   return d?.file.name || short
 }
 
-/** Старые снимки сверх лимита удаляются; «головы» всех ПК остаются всегда */
+/**
+ * Какие снимки остаются в истории (snaps — от новых к старым): последние keep и ещё по одному за каждый из 7 дней
+ * и за каждую из 5 недель. Одни «последние N» вытеснялись за вечер: пять коротких заходов в игру —
+ * и хорошего сохранения до поломки уже нет. Дополнительные — пока укладываются в HISTORY_BYTES
+ */
+export function retained(snaps: { name: string; at: number; size: number }[], keep: number, now: number) {
+  const out = new Set(snaps.slice(0, keep).map((s) => s.name))
+  const buckets = new Set<string>()
+  let budget = HISTORY_BYTES
+  for (const s of snaps) {
+    const age = now - s.at
+    const bucket = age < 7 * DAY ? `d${Math.floor(s.at / DAY)}` : age < 35 * DAY ? `w${Math.floor(s.at / (7 * DAY))}` : null
+    if (!bucket || buckets.has(bucket)) continue
+    buckets.add(bucket)
+    if (out.has(s.name) || s.size > budget) continue
+    budget -= s.size
+    out.add(s.name)
+  }
+  return out
+}
+
+/** Лишние снимки удаляются; «головы» этого ПК и всех живых ПК остаются всегда */
 async function prune(r: Remote, folder: string) {
   const keep = Math.max(1, deps.settings().cloud?.keepVersions ?? 5)
-  const protectedNames = new Set([file.mine[folder], ...Object.values(file.devices).map((d) => d.file.heads?.[folder])])
+  const alive = Object.values(file.devices).filter((d) => Date.now() - d.modified < DEVICE_ALIVE_MS)
+  const protectedNames = new Set([file.mine[folder], ...alive.map((d) => d.file.heads?.[folder])])
   const snaps = (await r.list(`saves/${folder}`))
-    .map((e) => parseSnap(e.name))
-    .filter((s): s is Head => !!s)
+    .map((e) => {
+      const s = parseSnap(e.name)
+      return s && { ...s, size: e.size }
+    })
+    .filter((s) => !!s)
     .sort((a, b) => b.at - a.at)
-  for (const s of snaps.slice(keep)) if (!protectedNames.has(s.name)) await r.remove(`saves/${folder}/${s.name}`)
+  const stay = retained(snaps, keep, Date.now())
+  for (const s of snaps) if (!stay.has(s.name) && !protectedNames.has(s.name)) await r.remove(`saves/${folder}/${s.name}`)
 }
+
+/** Отметка формата: облако записала более новая версия PlayOS — эта версия его не трогает */
+async function checkFormat(r: Remote) {
+  if (Date.now() - formatAt < FORMAT_CHECK_MS && file.format) return
+  const entry = (await r.list('meta')).find((e) => e.name === 'format.json')
+  if (!entry) {
+    await r.write('meta/format.json', Buffer.from(JSON.stringify({ format: FORMAT })))
+    file.format = { modified: 0, value: FORMAT }
+  } else if (file.format?.modified !== entry.modified) {
+    let value = FORMAT
+    try {
+      value = Number((JSON.parse((await r.read('meta/format.json', 65_536)).toString('utf8')) as { format?: unknown } | null)?.format) || FORMAT
+    } catch (e) {
+      if (e instanceof OfflineError) throw e
+    }
+    file.format = { modified: entry.modified, value }
+  }
+  formatAt = Date.now()
+}
+
+const formatError = () => new Error(t('Облако уже использует более новая версия PlayOS. Обновите PlayOS на этом ПК — до тех пор синхронизация здесь остановлена.'))
 
 const tooBig = (local: LocalState) => local.size > MAX_SET_BYTES
 
@@ -344,17 +415,36 @@ function retryLater() {
   }, RETRY_MS[retries++])
 }
 
+/** Наборы сохранений одной игры; done — наборы, уже пройденные в этой синхронизации (общая карта памяти PS2) */
+async function syncSets(r: Remote, game: Game, force?: 'local' | 'cloud', done?: Set<string>) {
+  let first: SaveConflict | null = null
+  for (const set of saveSetsFor(game, deps.settings())) {
+    if (done?.has(set.key)) continue
+    done?.add(set.key)
+    first ??= await syncSet(r, game, set, force)
+  }
+  return first
+}
+
+async function runUrgent(r: Remote) {
+  while (urgent.length) await urgent.shift()!.run(r)
+}
+
 /** Синхронизирует игры; возвращает первый конфликт (для запуска игры) */
 function syncGames(games: Game[], force?: 'local' | 'cloud'): Promise<SaveConflict | null> {
   return enqueue(async () => {
     const r = account.remote()
     if (!r || !cloudOn()) return null
     const gen = generation
+    const deletes = confirmDeletes
+    confirmDeletes = false
     busy++
     globalState = 'syncing'
     changed()
     let first: SaveConflict | null = null
     try {
+      await checkFormat(r)
+      if ((file.format?.value ?? FORMAT) > FORMAT) throw formatError()
       // Новый ПК или переустановка: если в облаке уже есть профиль — сначала спрашиваем, что подтянуть
       if (!file.linked) {
         offer = await cloudOffer(r)
@@ -378,7 +468,7 @@ function syncGames(games: Game[], force?: 'local' | 'cloud'): Promise<SaveConfli
         }
       }
       if (cloud?.profile !== false) await part('профиль', () => syncProfile(r, file.seen, hooks))
-      if (cloud?.library !== false) await part('библиотека', () => syncLibrary(r, file.seen, hooks))
+      if (cloud?.library !== false) await part('библиотека', () => syncLibrary(r, file.seen, hooks, deletes))
       if (!enabled()) {
         globalState = partError ? 'error' : 'synced'
         globalError = partError
@@ -390,12 +480,14 @@ function syncGames(games: Game[], force?: 'local' | 'cloud'): Promise<SaveConfli
       for (const game of games) {
         for (const set of saveSetsFor(game, deps.settings())) {
           if (done.has(set.key)) continue
+          await runUrgent(r)
           if (gen !== generation) return null
           done.add(set.key)
           const c = await syncSet(r, game, set, force)
           first ??= c
         }
       }
+      await runUrgent(r)
       await writeMyDevice(r)
       globalError = partError
       const states = [...setStatus.values()].map((s) => s.state)
@@ -412,6 +504,8 @@ function syncGames(games: Game[], force?: 'local' | 'cloud'): Promise<SaveConfli
       globalError = (e as Error).message
       if (globalState === 'offline') retryLater()
     } finally {
+      // Синхронизация оборвалась (нет сети, вход устарел) — ждущий запуск игры идёт с локальными сохранениями
+      for (const u of urgent.splice(0)) u.skip()
       busy--
       if (gen === generation) saveState()
       changed()
@@ -424,12 +518,33 @@ export function syncAll() {
   return syncGames(deps.games())
 }
 
-/** Перед запуском: свежие сохранения из облака. Нет сети или долго — запускаем с локальными */
-export async function beforeLaunch(game: Game): Promise<SaveConflict | null> {
-  if (!enabled() || !saveSetsFor(game, deps.settings()).length) return null
-  const timeout = new Promise<null>((r) => setTimeout(() => r(null), LAUNCH_TIMEOUT))
-  return Promise.race([syncGames([game]).catch(() => null), timeout])
+/** «Синхронизировать» в настройках: заодно подтверждает массовое удаление игр, отмеченное в облаке */
+export function syncNow() {
+  confirmDeletes = true
+  return syncAll()
 }
+
+/**
+ * Перед запуском: свежие сохранения из облака. Нет сети — запускаем с локальными.
+ * stop — пользователь не стал ждать («Играть без ожидания») или отменил запуск.
+ * Если уже идёт общая синхронизация, наборы этой игры проходят вне очереди, а не после всех остальных
+ */
+export async function beforeLaunch(game: Game, stop?: Promise<unknown>): Promise<SaveConflict | null> {
+  if (!enabled() || !saveSetsFor(game, deps.settings()).length) return null
+  const run = busy
+    ? new Promise<SaveConflict | null>((resolve) =>
+        urgent.push({
+          skip: () => resolve(null),
+          run: async (r) => resolve(await syncSets(r, game).catch(() => null))
+        })
+      )
+    : syncGames([game]).catch(() => null)
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), LAUNCH_TIMEOUT))
+  return Promise.race([run, timeout, ...(stop ? [stop.then(() => null)] : [])])
+}
+
+/** Есть ли что ждать перед запуском: облако включено и у игры есть сохранения */
+export const syncsBeforeLaunch = (game: Game) => enabled() && saveSetsFor(game, deps.settings()).length > 0
 
 /** Игру изменили в редакторе (папка игры, папка сохранений, AppID) — проверяем сразу, а не через 10 минут */
 export function syncGame(game: Game) {

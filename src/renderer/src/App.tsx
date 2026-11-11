@@ -149,6 +149,9 @@ export function App() {
   const downloads = useDownloads()
   useDownloadNotices(downloads)
   const [launching, setLaunching] = useState<string | null>(null)
+  // Запуск ждёт сохранения из облака: id игры
+  const [launchSync, setLaunchSync] = useState<string | null>(null)
+  useEffect(() => api.onLaunchStage((s) => setLaunchSync(s.stage === 'sync' ? s.id : null)), [])
   // Игра, чей запуск ещё ждёт ответа main, и отменённая на экране запуска: её закрываем, как только она стартует
   const launchPending = useRef<string | null>(null)
   const launchCancelled = useRef<string | null>(null)
@@ -877,7 +880,7 @@ export function App() {
           )}
         </AnimatePresence>
 
-        <AnimatePresence>{launchingGame && <LaunchScreen key="launch" game={launchingGame} onCancel={cancelLaunch} />}</AnimatePresence>
+        <AnimatePresence>{launchingGame && <LaunchScreen key="launch" game={launchingGame} syncing={launchSync === launchingGame.id} onSkip={() => void api.skipLaunchSync(launchingGame.id)} onCancel={cancelLaunch} />}</AnimatePresence>
 
         {/* Окно об обновлении — только когда вы не в игре и ничего другого не открыто */}
         <UpdateNotice blocked={modal || !!running || !!launching || saver} booting={booting || !!outro} />

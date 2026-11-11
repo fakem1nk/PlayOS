@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { t } from '@shared/i18n'
 import type { CloudRestoreOffer, Game, GameDone, Session, Settings } from '@shared/types'
 import { log } from '../log'
 import { artDir, dataDir, getDb, MAX_SESSIONS, saveDb } from '../store'
@@ -49,6 +50,10 @@ const DEVICE_KEYS = new Set<keyof Settings>([
   'gameDisplayLabel',
   'onboarded',
   'betaUpdates',
+  // Ключи API — секреты: в облаке они лежали бы открытым текстом. На каждом ПК вводятся свои (есть «Получить ключ»)
+  'steamKey',
+  'raKey',
+  'steamGridDbKey',
   'collections',
   'cloud'
 ])
@@ -76,6 +81,8 @@ export interface CloudGame {
   /** Полка и стопка профиля */
   done?: GameDone
   pile?: Record<string, number>
+  /** Время правки отдельных полей (см. Game.fieldAt); нет — все поля менялись в updatedAt */
+  fieldAt?: Record<string, number>
   addedAt: number
   updatedAt: number
   lastPlayed?: number
@@ -162,14 +169,25 @@ function toCloud(g: Game, key: string): CloudGame {
     art
   }
   for (const f of LWW) if (g[f] !== undefined) (out as unknown as Record<string, unknown>)[f] = g[f]
+  if (g.fieldAt) out.fieldAt = g.fieldAt
   return out
+}
+
+const json = (v: unknown) => String(JSON.stringify(v))
+/** Времена полей хранятся, только когда они разные: запись, где всё менялось разом, остаётся как у прошлых версий PlayOS */
+function setFieldAt(g: Game, at: Record<string, number>) {
+  g.updatedAt = Math.max(changedAt(g), ...LWW.map((f) => at[f] ?? 0))
+  if (LWW.every((f) => at[f] === g.updatedAt)) delete g.fieldAt
+  else g.fieldAt = Object.fromEntries(LWW.map((f) => [f, at[f]]))
 }
 
 /**
  * Слияние локальной библиотеки с облачной. Меняет локальные игры на месте и возвращает игры,
  * которым нужен арт (новые с другого ПК или с новыми ссылками). Чистая логика без сети.
  */
-export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: number }[], remote: CloudLibrary | null) {
+export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: number }[], remote: CloudLibrary | null, prev: CloudLibrary | null = null) {
+  // prev — библиотека на момент прошлой синхронизации: по ней видно, какие поля с тех пор поменяли на этом ПК
+  const prevByKey = new Map((prev?.games ?? []).map((g) => [g.key, g]))
   const deleted = new Map<string, number>()
   for (const d of [...deletedLocal, ...(remote?.deleted ?? [])]) deleted.set(d.key, Math.max(deleted.get(d.key) ?? 0, d.at))
   const remoteByKey = new Map((remote?.games ?? []).map((g) => [g.key, g]))
@@ -199,15 +217,28 @@ export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: num
     }
     if (tomb) deleted.delete(key)
     kept.push(g)
+    const fields = g as unknown as Record<string, unknown>
+    // Время каждого поля на этом ПК: изменилось с прошлой синхронизации — время правки игры, нет — прежнее
+    const at: Record<string, number> = {}
+    const p = prevByKey.get(key)
+    for (const f of LWW) {
+      const was = g.fieldAt?.[f] ?? p?.fieldAt?.[f] ?? p?.updatedAt
+      at[f] = was === undefined ? changedAt(g) : json(g[f]) !== json(p?.[f]) ? Math.max(changedAt(g), was + 1) : was
+    }
+    const localNewer = changedAt(g) >= (r?.updatedAt ?? 0)
     if (!r) {
+      setFieldAt(g, at)
       cloud.push(toCloud(g, key))
       continue
     }
-    const localNewer = changedAt(g) >= r.updatedAt
-    if (!localNewer) {
-      for (const f of LWW) (g as unknown as Record<string, unknown>)[f] = r[f]
-      g.updatedAt = r.updatedAt
+    // Каждое поле — от того, кто менял его позже; в то же мгновение — одно и то же значение на обоих ПК
+    for (const f of LWW) {
+      const theirs = r.fieldAt?.[f] ?? r.updatedAt
+      if (theirs > at[f] || (theirs === at[f] && json(r[f]) > json(g[f]))) fields[f] = r[f]
+      at[f] = Math.max(at[f], theirs)
     }
+    g.updatedAt = Math.max(changedAt(g), r.updatedAt)
+    setFieldAt(g, at)
     // Время: сброс побеждает всё, что было до него; иначе — счётчики по ПК (максимум) и объединение сессий
     const rl = g.resetAt ?? 0
     const rr = r.resetAt ?? 0
@@ -257,6 +288,7 @@ export function mergeLibrary(games: Game[], deletedLocal: { key: string; at: num
     }
     for (const f of LWW) if (r[f] !== undefined) (g as unknown as Record<string, unknown>)[f] = r[f]
     if (Object.keys(r.art).length) g.artSrc = { ...r.art }
+    if (r.fieldAt) g.fieldAt = { ...r.fieldAt }
     kept.push(g)
     cloud.push(r)
     needArt.push(g)
@@ -329,13 +361,33 @@ export interface Hooks {
   fillArt: (game: Game) => Promise<void>
 }
 
-export async function syncLibrary(r: Remote, seen: Seen, hooks: Hooks) {
+/** Копия library.json перед тем, как слияние с облаком уберёт игры: backups/library/, последние 5 */
+function backupLibrary() {
+  try {
+    const dir = path.join(dataDir(), 'backups', 'library')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.copyFileSync(path.join(dataDir(), 'library.json'), path.join(dir, `before-cloud-${Date.now()}.json`))
+    for (const f of fs.readdirSync(dir).sort().slice(0, -5)) fs.rmSync(path.join(dir, f), { force: true })
+  } catch (e) {
+    log('WARN', 'Облако: копия библиотеки не сохранилась', (e as Error).message)
+  }
+}
+
+/** Столько удалений за одно слияние — уже не «удалил пару игр на другом ПК»: без подтверждения не применяем */
+const massDelete = (removed: number, total: number) => removed >= 5 && removed > total * 0.3
+
+/** confirmDeletes — пользователь сам нажал «Синхронизировать»: массовое удаление из облака применяется */
+export async function syncLibrary(r: Remote, seen: Seen, hooks: Hooks, confirmDeletes = false) {
   const db = getDb()
   const remote = await readJson(r, 'library', 'library.json', seen.library, cleanLibrary)
   // Облако не менялось с прошлого раза — сравниваем только со своим прошлым снимком
   const base: CloudLibrary | null = remote.unchanged ? (seen.libraryJson ? (JSON.parse(seen.libraryJson) as CloudLibrary) : null) : remote.data
   const before = db.games.length
-  const m = mergeLibrary(db.games, db.deleted ?? [], base)
+  const m = mergeLibrary(db.games, db.deleted ?? [], base, seen.libraryJson ? (JSON.parse(seen.libraryJson) as CloudLibrary) : null)
+  if (!confirmDeletes && massDelete(m.removed.length, before)) {
+    throw new Error(t('В облаке отмечено удаление {n} игр из {total}. Если вы удалили их на другом ПК, нажмите «Синхронизировать» — иначе библиотека на этом ПК останется как есть.', { n: m.removed.length, total: before }))
+  }
+  if (m.removed.length) backupLibrary()
   const added = m.games.filter((g) => !g.path && !db.games.includes(g))
   db.games = m.games
   db.deleted = m.deleted

@@ -238,7 +238,7 @@ export function yandexRemote(token: TokenSource): Remote {
       }
       if (!res.ok) throw new Error(`${who}: не загрузить ${file} (HTTP ${res.status})`)
       const { href } = await readBody<{ href: string }>(res, who)
-      const put = await request(href, { method: 'PUT', body: new Uint8Array(data) }, uploadMs(data.length), who)
+      const put = await request(href, { method: 'PUT', body: data as unknown as BodyInit }, uploadMs(data.length), who)
       if (put.status === 507 || put.status === 413) throw new QuotaError(`${who}: нет места`)
       if (put.status >= 500) throw new OfflineError(`${who}: HTTP ${put.status}`)
       if (!put.ok) throw new Error(`${who}: загрузка не удалась (HTTP ${put.status})`)
@@ -332,7 +332,7 @@ export function googleRemote(token: TokenSource): Remote {
     const existing = await find(parent, name, false)
     if (existing) {
       // Тот же файл — новое содержимое, id и история остаются
-      return call(`${GD_UP}/files/${existing}?uploadType=media`, { method: 'PATCH', body: new Uint8Array(data) }, uploadMs(data.length))
+      return call(`${GD_UP}/files/${existing}?uploadType=media`, { method: 'PATCH', body: data as unknown as BodyInit }, uploadMs(data.length))
     }
     const boundary = `playos${Date.now()}`
     const body = Buffer.concat([
@@ -342,7 +342,7 @@ export function googleRemote(token: TokenSource): Remote {
     ])
     return call(
       `${GD_UP}/files?uploadType=multipart&fields=id`,
-      { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: new Uint8Array(body) },
+      { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: body as unknown as BodyInit },
       uploadMs(body.length)
     )
   }

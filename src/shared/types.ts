@@ -61,6 +61,8 @@ export interface Game {
   cloudSaves?: boolean
   /** Когда игру меняли в редакторе (или избранное) — для слияния библиотеки между ПК */
   updatedAt?: number
+  /** Когда меняли отдельные поля, если не вместе со всей записью: правки разных полей на двух ПК не затирают друг друга */
+  fieldAt?: Record<string, number>
   /** Время сыграно по ПК (короткий id → секунды) поверх playtimeBase: каждый ПК наращивает только свой счётчик */
   playtimeBy?: Record<string, number>
   /** Время до облака (импорт, старые версии PlayOS) */
@@ -598,6 +600,11 @@ export interface UninstallResult {
 /** Что поправить, чтобы игра запустилась: файл игры в редакторе или путь к эмулятору в настройках */
 export type LaunchFix = 'game' | 'emulator'
 
+export interface LaunchStage {
+  id: string
+  stage: 'sync' | 'start'
+}
+
 export interface LaunchResult {
   ok: boolean
   error?: string
@@ -723,6 +730,10 @@ export interface PcsApi {
   closeGame(): Promise<void>
   /** Отменить запуск: игра не стартует, а если уже стартовала — закрывается, время не идёт */
   cancelLaunch(id: string): Promise<void>
+  /** Не ждать облако: игра запускается с сохранениями этого ПК, синхронизация пройдёт после игры */
+  skipLaunchSync(id: string): Promise<void>
+  /** Этап запуска: sync — ждём свежие сохранения из облака, start — запускаем */
+  onLaunchStage(cb: (s: LaunchStage) => void): () => void
   resumeGame(): Promise<void>
   hideOverlay(): Promise<void>
   pickFile(kind: PickKind): Promise<string | null>

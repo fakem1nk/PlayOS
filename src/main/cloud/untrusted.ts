@@ -119,6 +119,7 @@ const GAME = new Map<string, Check>([
   ['accentV', num],
   ['done', done],
   ['pile', record(num, 200)],
+  ['fieldAt', record(time, 32)],
   ['addedAt', time],
   ['updatedAt', time],
   ['lastPlayed', time],

@@ -4,6 +4,7 @@ import type {
   AppState,
   ArtCandidate,
   CloudStatus,
+  LaunchStage,
   DownloadJob,
   DownloadOption,
   Game,
@@ -222,6 +223,8 @@ function createMockApi(): PcsApi {
   const cloudDemo = new URLSearchParams(location.search).get('cloud') as CloudStatus['state'] | null
   if (cloudDemo) cloud = { ...cloud, account: { provider: 'yandex', name: 'Игрок', used: 200 * 2 ** 30, total: 200 * 2 ** 30 }, state: cloudDemo, lastSync: Date.now() - 3600_000 }
   const cloudSubs = new Set<(s: CloudStatus) => void>()
+  const stageSubs = new Set<(s: LaunchStage) => void>()
+  let skipSync: () => void = () => {}
   const setCloud = (patch: Partial<CloudStatus>) => {
     cloud = { ...cloud, ...patch }
     cloudSubs.forEach((cb) => cb(cloud))
@@ -289,11 +292,28 @@ function createMockApi(): PcsApi {
       return state.settings
     },
     launch: async (id) => {
+      // ?launchsync — запуск ждёт облако, пока не нажмут «Играть без ожидания» (или 8 с)
+      if (new URLSearchParams(location.search).has('launchsync')) {
+        stageSubs.forEach((cb) => cb({ id, stage: 'sync' }))
+        await new Promise<void>((r) => {
+          skipSync = r
+          setTimeout(r, 8000)
+        })
+        stageSubs.forEach((cb) => cb({ id, stage: 'start' }))
+      }
       set({ running: { gameId: id, startedAt: Date.now(), phase: 'launching' } })
       setTimeout(() => state.running && set({ running: { ...state.running, phase: 'running' } }), 2500)
       return { ok: true }
     },
-    cancelLaunch: async () => set({ running: null }),
+    cancelLaunch: async () => {
+      skipSync()
+      set({ running: null })
+    },
+    skipLaunchSync: async () => skipSync(),
+    onLaunchStage: (cb) => {
+      stageSubs.add(cb)
+      return () => stageSubs.delete(cb)
+    },
     closeGame: async () => {
       const r = state.running
       if (!r) return

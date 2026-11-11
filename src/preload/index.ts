@@ -24,6 +24,8 @@ const api: PcsApi = {
   launch: (id, opts) => ipcRenderer.invoke('game:launch', id, opts),
   closeGame: () => ipcRenderer.invoke('game:close'),
   cancelLaunch: (id) => ipcRenderer.invoke('game:cancelLaunch', id),
+  skipLaunchSync: (id) => ipcRenderer.invoke('game:skipSync', id),
+  onLaunchStage: listen('launch-stage'),
   resumeGame: () => ipcRenderer.invoke('game:resume'),
   hideOverlay: () => ipcRenderer.invoke('overlay:home'),
   pickFile: (kind) => ipcRenderer.invoke('dialog:pick', kind),

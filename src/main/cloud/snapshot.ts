@@ -238,49 +238,58 @@ export async function localState(set: SaveSet): Promise<LocalState> {
 
 const deflate = promisify(zlib.deflateRaw)
 
-/** ZIP с deflate: сохранения хорошо сжимаются (карта памяти PS2 — 8 МБ почти пустых блоков). Сжатие — в пуле потоков, не в главном */
-async function zip(entries: { name: string; data: Buffer }[]) {
+/**
+ * ZIP с deflate: сохранения хорошо сжимаются (карта памяти PS2 — 8 МБ почти пустых блоков). Сжатие — в пуле потоков, не в главном.
+ * Файлы добавляются по одному: в памяти остаётся только сжатое, а не весь набор целиком рядом с архивом
+ */
+function zipWriter() {
   const parts: Buffer[] = []
   const central: Buffer[] = []
   let offset = 0
-  for (const e of entries) {
-    const name = Buffer.from(e.name, 'utf8')
-    const packed = await deflate(e.data)
-    const deflated = packed.length < e.data.length
-    const body = deflated ? packed : e.data
-    const crc = crc32(e.data)
-    const local = Buffer.alloc(30)
-    local.writeUInt32LE(0x04034b50, 0)
-    local.writeUInt16LE(20, 4)
-    local.writeUInt16LE(0x0800, 6)
-    local.writeUInt16LE(deflated ? 8 : 0, 8)
-    local.writeUInt32LE(crc, 14)
-    local.writeUInt32LE(body.length, 18)
-    local.writeUInt32LE(e.data.length, 22)
-    local.writeUInt16LE(name.length, 26)
-    const cd = Buffer.alloc(46)
-    cd.writeUInt32LE(0x02014b50, 0)
-    cd.writeUInt16LE(20, 4)
-    cd.writeUInt16LE(20, 6)
-    cd.writeUInt16LE(0x0800, 8)
-    cd.writeUInt16LE(deflated ? 8 : 0, 10)
-    cd.writeUInt32LE(crc, 16)
-    cd.writeUInt32LE(body.length, 20)
-    cd.writeUInt32LE(e.data.length, 24)
-    cd.writeUInt16LE(name.length, 28)
-    cd.writeUInt32LE(offset, 42)
-    parts.push(local, name, body)
-    central.push(cd, name)
-    offset += 30 + name.length + body.length
+  let count = 0
+  return {
+    async add(entryName: string, data: Buffer) {
+      const name = Buffer.from(entryName, 'utf8')
+      const packed = await deflate(data)
+      const deflated = packed.length < data.length
+      const body = deflated ? packed : data
+      const crc = crc32(data)
+      const local = Buffer.alloc(30)
+      local.writeUInt32LE(0x04034b50, 0)
+      local.writeUInt16LE(20, 4)
+      local.writeUInt16LE(0x0800, 6)
+      local.writeUInt16LE(deflated ? 8 : 0, 8)
+      local.writeUInt32LE(crc, 14)
+      local.writeUInt32LE(body.length, 18)
+      local.writeUInt32LE(data.length, 22)
+      local.writeUInt16LE(name.length, 26)
+      const cd = Buffer.alloc(46)
+      cd.writeUInt32LE(0x02014b50, 0)
+      cd.writeUInt16LE(20, 4)
+      cd.writeUInt16LE(20, 6)
+      cd.writeUInt16LE(0x0800, 8)
+      cd.writeUInt16LE(deflated ? 8 : 0, 10)
+      cd.writeUInt32LE(crc, 16)
+      cd.writeUInt32LE(body.length, 20)
+      cd.writeUInt32LE(data.length, 24)
+      cd.writeUInt16LE(name.length, 28)
+      cd.writeUInt32LE(offset, 42)
+      parts.push(local, name, body)
+      central.push(cd, name)
+      offset += 30 + name.length + body.length
+      count++
+    },
+    end() {
+      const cdSize = central.reduce((a, b) => a + b.length, 0)
+      const end = Buffer.alloc(22)
+      end.writeUInt32LE(0x06054b50, 0)
+      end.writeUInt16LE(count, 8)
+      end.writeUInt16LE(count, 10)
+      end.writeUInt32LE(cdSize, 12)
+      end.writeUInt32LE(offset, 16)
+      return Buffer.concat([...parts, ...central, end])
+    }
   }
-  const cdSize = central.reduce((a, b) => a + b.length, 0)
-  const end = Buffer.alloc(22)
-  end.writeUInt32LE(0x06054b50, 0)
-  end.writeUInt16LE(entries.length, 8)
-  end.writeUInt16LE(entries.length, 10)
-  end.writeUInt32LE(cdSize, 12)
-  end.writeUInt32LE(offset, 16)
-  return Buffer.concat([...parts, ...central, end])
 }
 
 /**
@@ -288,13 +297,19 @@ async function zip(entries: { name: string; data: Buffer }[]) {
  * а хэш в имени снимка должен точно описывать содержимое (по нему другой ПК проверяет скачанное)
  */
 export async function pack(state: LocalState): Promise<{ data: Buffer; hash: string }> {
-  const entries: { name: string; data: Buffer }[] = []
-  for (const f of state.files) entries.push({ name: f.name, data: await fs.promises.readFile(f.abs) })
-  const meta = { version: 1, files: Object.fromEntries(state.files.map((f) => [f.name, f.mtime])) }
+  const z = zipWriter()
+  await z.add(META, Buffer.from(JSON.stringify({ version: 1, files: Object.fromEntries(state.files.map((f) => [f.name, f.mtime])) })))
+  const hashes: { name: string; hash: string }[] = []
+  for (const f of state.files) {
+    const data = await fs.promises.readFile(f.abs)
+    hashes.push({ name: f.name, hash: sha(data) })
+    await z.add(f.name, data)
+  }
+  for (const r of state.registry) await z.add(r.name, r.data)
   return {
-    data: await zip([{ name: META, data: Buffer.from(JSON.stringify(meta)) }, ...entries, ...state.registry]),
+    data: z.end(),
     hash: snapshotHash(
-      entries.map((e) => ({ name: e.name, hash: sha(e.data) })),
+      hashes,
       state.registry.map((r) => ({ name: r.name, hash: sha(r.data) }))
     )
   }
@@ -312,14 +327,48 @@ function zipHash(files: Map<string, Buffer>) {
 const backupDir = (key: string) => path.join(dataDir(), 'backups', 'saves', key.replace(/[^\w.-]+/g, '_'))
 const KEEP_BACKUPS = 5
 
-/** Копия текущих сохранений перед перезаписью из облака: backups/saves/<ключ>/<время>.zip, последние 5 */
-async function backupLocal(set: SaveSet, state: LocalState) {
-  if (!state.hash) return
+/** Копия текущих сохранений перед перезаписью из облака: backups/saves/<ключ>/<время>.zip, последние 5. Возвращает архив копии */
+async function backupLocal(set: SaveSet, state: LocalState): Promise<Buffer | null> {
+  if (!state.hash) return null
   const dir = backupDir(set.key)
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, `${Date.now()}-${state.hash}.zip`), (await pack(state)).data)
+  const data = (await pack(state)).data
+  fs.writeFileSync(path.join(dir, `${Date.now()}-${state.hash}.zip`), data)
   const old = fs.readdirSync(dir).sort().slice(0, -KEEP_BACKUPS)
   for (const f of old) fs.rmSync(path.join(dir, f), { force: true })
+  return data
+}
+
+const fileTimes = (files: Map<string, Buffer>) => {
+  try {
+    const meta = JSON.parse(files.get(META)?.toString('utf8') ?? '{}') as { files?: unknown }
+    return meta.files && typeof meta.files === 'object' ? (meta.files as Record<string, unknown>) : {}
+  } catch {
+    // Без времени файлов снимок всё равно ложится
+    return {}
+  }
+}
+
+function setTime(abs: string, at: unknown) {
+  if (typeof at === 'number' && at > 0 && at < 8.64e15) fs.utimesSync(abs, new Date(at), new Date(at))
+}
+
+/** Снимок лёг не целиком: уже заменённые файлы возвращаются из копии, новые — убираются */
+function rollback(set: SaveSet, backup: Buffer | null, placed: string[]) {
+  const touched = new Set(placed.map((p) => p.toLowerCase()))
+  try {
+    const old = backup ? readZipBuffer(backup) : new Map<string, Buffer>()
+    const times = fileTimes(old)
+    for (const [name, buf] of old) {
+      const abs = name === META || name.startsWith(REG) ? null : fromPortable(name, set.ctx)
+      if (!abs || !touched.delete(abs.toLowerCase())) continue
+      fs.writeFileSync(abs, buf)
+      setTime(abs, times[name])
+    }
+    for (const abs of placed) if (touched.has(abs.toLowerCase())) fs.rmSync(abs, { force: true })
+  } catch {
+    // Копия осталась в backups/saves — вернуть можно вручную
+  }
 }
 
 /**
@@ -335,13 +384,7 @@ export async function apply(set: SaveSet, data: Buffer, current: LocalState, exp
     files = new Map()
   }
   if (!files.size || (expect && zipHash(files) !== expect)) throw new Error(t('Снимок в облаке повреждён — сохранения на этом ПК не тронуты'))
-  let times: Record<string, unknown> = {}
-  try {
-    const meta = JSON.parse(files.get(META)?.toString('utf8') ?? '{}') as { files?: unknown }
-    if (meta.files && typeof meta.files === 'object') times = meta.files as Record<string, unknown>
-  } catch {
-    // Без времени файлов снимок всё равно ложится
-  }
+  const times = fileTimes(files)
   // Сначала проверяем снимок целиком и только потом трогаем диск: содержимое облака — чужие данные.
   // Хэш в имени говорит лишь о целости, а не о том, что снимок собрал PlayOS
   const foreign = new Error(t('В снимке из облака есть файлы не из папок сохранений этой игры — сохранения на этом ПК не тронуты'))
@@ -358,25 +401,38 @@ export async function apply(set: SaveSet, data: Buffer, current: LocalState, exp
     if (!abs || UNSAFE_EXT.test(abs) || !covers(set, abs)) throw foreign
     write.push({ name, abs, buf })
   }
-  await backupLocal(set, current)
-  for (const buf of reg) {
-    const tmp = path.join(os.tmpdir(), `playos-reg-import-${process.pid}.reg`)
-    fs.writeFileSync(tmp, buf)
-    try {
-      await run(REG_EXE, ['import', tmp])
-    } finally {
-      fs.rmSync(tmp, { force: true })
-    }
-  }
+  const backup = await backupLocal(set, current)
+  // Всё или ничего. Шаг 1: файлы снимка пишутся рядом под временным именем — нет места или папка недоступна
+  // выясняется здесь, пока сохранения не тронуты. Шаг 2: быстрые переименования; сбой посередине — откат из копии
+  const TMP = '.playos-tmp'
+  const staged: string[] = []
+  const placed: string[] = []
   const keep = new Set<string>()
-  for (const { name, abs, buf } of write) {
-    keep.add(name.toLowerCase())
-    fs.mkdirSync(path.dirname(abs), { recursive: true })
-    const tmp = abs + '.playos-tmp'
-    fs.writeFileSync(tmp, buf)
-    fs.renameSync(tmp, abs)
-    const at = times[name]
-    if (typeof at === 'number' && at > 0 && at < 8.64e15) fs.utimesSync(abs, new Date(at), new Date(at))
+  try {
+    for (const { abs, buf } of write) {
+      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      staged.push(abs + TMP)
+      await fs.promises.writeFile(abs + TMP, buf)
+    }
+    for (const { name, abs } of write) {
+      fs.renameSync(abs + TMP, abs)
+      placed.push(abs)
+      keep.add(name.toLowerCase())
+      setTime(abs, times[name])
+    }
+    for (const buf of reg) {
+      const tmp = path.join(os.tmpdir(), `playos-reg-import-${process.pid}.reg`)
+      fs.writeFileSync(tmp, buf)
+      try {
+        await run(REG_EXE, ['import', tmp])
+      } finally {
+        fs.rmSync(tmp, { force: true })
+      }
+    }
+  } catch (e) {
+    for (const f of staged) fs.rmSync(f, { force: true })
+    if (placed.length) rollback(set, backup, placed)
+    throw e
   }
   for (const f of current.files) if (!keep.has(f.name.toLowerCase())) fs.rmSync(f.abs, { force: true })
 }

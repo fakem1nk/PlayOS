@@ -321,6 +321,9 @@ export function SaveConflictDialog({ conflict, title, onDone, onLater, onCancel 
       >
         <h2 className="dialog-title">{t('Сохранения разошлись')}</h2>
         <p className="dialog-text">{t('«{title}» сохранялась и на этом ПК, и на другом. Выберите, с какими сохранениями играть, — вторые останутся в истории версий.', { title })}</p>
+        {conflict.key.startsWith('ps2card:') && (
+          <p className="dialog-text">{t('Это общая карта памяти PS2: на ней сохранения всех игр сразу, поэтому выбор касается их всех. С папочной картой памяти в PCSX2 каждая игра синхронизируется отдельно.')}</p>
+        )}
         <div className="save-cards">
           <button data-nav className="save-card" disabled={busy} onClick={() => void choose('local')}>
             <span className="save-card-label">{t('Этот ПК')}</span>

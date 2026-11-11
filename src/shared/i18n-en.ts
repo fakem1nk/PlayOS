@@ -394,6 +394,10 @@ export const EN: Record<string, string> = {
   'Выключение компьютера': 'Shutting down',
   'Перезагрузка компьютера': 'Restarting',
   'Запуск игры': 'Starting game',
+  'Синхронизация сохранений': 'Syncing saves',
+  'Играть без ожидания': 'Play without waiting',
+  'Это общая карта памяти PS2: на ней сохранения всех игр сразу, поэтому выбор касается их всех. С папочной картой памяти в PCSX2 каждая игра синхронизируется отдельно.':
+    'This is a shared PS2 memory card: it holds the saves of every game, so your choice affects all of them. With a folder memory card in PCSX2, each game syncs on its own.',
   'Нижняя кнопка справа: ✕ на PlayStation, A на Xbox': 'Bottom face button: ✕ on PlayStation, A on Xbox',
   'Правая кнопка: ○ на PlayStation, B на Xbox': 'Right face button: ○ on PlayStation, B on Xbox',
   'Вверх': 'Up',
@@ -841,6 +845,10 @@ export const EN: Record<string, string> = {
   'Сохранения больше 512 МБ — в облако не загружаются': 'Saves over 512 MB aren’t uploaded to the cloud',
   'В снимке из облака есть файлы не из папок сохранений этой игры — сохранения на этом ПК не тронуты':
     'The cloud copy has files from outside this game’s save folders — saves on this PC were left as they are',
+  'В облаке отмечено удаление {n} игр из {total}. Если вы удалили их на другом ПК, нажмите «Синхронизировать» — иначе библиотека на этом ПК останется как есть.':
+    'The cloud marks {n} of {total} games as deleted. If you deleted them on another PC, press “Sync now” — otherwise the library on this PC stays as it is.',
+  'Облако уже использует более новая версия PlayOS. Обновите PlayOS на этом ПК — до тех пор синхронизация здесь остановлена.':
+    'The cloud is already used by a newer version of PlayOS. Update PlayOS on this PC — until then sync is paused here.',
   'В параметрах запуска .bat-файла нельзя использовать символы & | < > ^ % !': 'Launch options of a .bat file can’t contain the characters & | < > ^ % !',
   'Сохранения не найдены': 'No saves found',
   'Облако выключено': 'Cloud is off',
