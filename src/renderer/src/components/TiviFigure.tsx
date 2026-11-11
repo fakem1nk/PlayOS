@@ -102,14 +102,16 @@ const LOOKS: Record<FigureId, Look> = {
   }
 }
 
-/** Масштаб Тиви на подставке и его место: низ объёма корпуса встаёт на верх подставки */
+/** Масштаб Тиви на подставке и его место: ножки встают на верх подставки */
 const S = 0.62
 const BASE_Y = 216
+/** Низ ножек в координатах Тиви (корпус кончается на 224, его объём — на 231) */
+const FEET_BOT = 240
 
 export function TiviFigure({ id, locked = false, className = '' }: { id: FigureId; locked?: boolean; className?: string }) {
   const p = `f${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const look = LOOKS[id]
-  const ty = BASE_Y - 2 - 231 * S - (look.lift ?? 0)
+  const ty = BASE_Y - 2 - FEET_BOT * S - (look.lift ?? 0)
   const tx = 100 - 128 * S
   return (
     <svg className={`tfig tfig-${id} ${locked ? 'is-locked' : ''} ${className}`} viewBox="0 0 200 250" aria-hidden>
@@ -158,7 +160,7 @@ export function TiviFigure({ id, locked = false, className = '' }: { id: FigureI
         </linearGradient>
         {[0, 1].map((i) => (
           <clipPath key={i} id={`${p}win${i}`}>
-            <rect x={(i ? 192 : 64) - 8} y={32} width={16} height={42} rx={8} />
+            <rect x={(i ? 192 : 64) - 11} y={46} width={22} height={30} rx={11} />
           </clipPath>
         ))}
         <filter id={`${p}glow`} x="-30%" y="-30%" width="160%" height="160%">
@@ -206,6 +208,8 @@ export function TiviFigure({ id, locked = false, className = '' }: { id: FigureI
           {id === 'legend' && <Cape p={p} />}
           <Ear p={p} side={0} color={look.ears[0]} mat={look.mat} />
           <Ear p={p} side={1} color={look.ears[1]} mat={look.mat} />
+          <Foot p={p} x={64} mat={look.mat} />
+          <Foot p={p} x={158} mat={look.mat} />
           {/* Объём корпуса снизу и сам корпус */}
           <rect x="22" y="83" width="212" height="148" rx="38" fill={look.mat.side} />
           <rect x="22" y="76" width="212" height="148" rx="38" fill={`url(#${p}body)`} />
@@ -242,25 +246,35 @@ function Base({ p, id, no }: { p: string; id: FigureId; no: string }) {
   )
 }
 
-/** Ухо-капсула с «жидкостью» своего цвета, наклонено наружу, как у Тиви */
+/** Ухо — короткая толстая капсула с «жидкостью» своего цвета, наклонено наружу, как у Тиви */
 function Ear({ p, side, color, mat }: { p: string; side: 0 | 1; color: string; mat: Material }) {
   const x = side ? 192 : 64
   return (
-    <g transform={`rotate(${side ? 16 : -16} ${x} 90)`}>
-      <rect x={x - 15} y="29" width="30" height="64" rx="15" fill={mat.side} />
-      <rect x={x - 15} y="26" width="30" height="64" rx="15" fill={`url(#${p}body)`} />
-      <rect x={x - 14} y="27" width="28" height="62" rx="14" fill="none" stroke="#fff" strokeOpacity={mat.rim * 0.5} strokeWidth="1.5" />
-      <rect x={x - 8} y="32" width="16" height="42" rx="8" fill="#05070c" />
+    <g transform={`rotate(${side ? 20 : -20} ${x} 90)`}>
+      <rect x={x - 19} y="43" width="38" height="50" rx="19" fill={mat.side} />
+      <rect x={x - 19} y="40" width="38" height="50" rx="19" fill={`url(#${p}body)`} />
+      <rect x={x - 18} y="41" width="36" height="48" rx="18" fill="none" stroke="#fff" strokeOpacity={mat.rim * 0.5} strokeWidth="1.5" />
+      <rect x={x - 11} y="46" width="22" height="30" rx="11" fill="#05070c" />
       <g clipPath={`url(#${p}win${side})`}>
-        <rect x={x - 8} y="38" width="16" height="36" fill={color} />
-        <rect x={x - 8} y="38" width="16" height="3" fill="#fff" opacity=".45" />
-        <rect x={x - 6} y="42" width="2.5" height="26" rx="1.25" fill="#fff" opacity=".35" />
+        <rect x={x - 11} y="50" width="22" height="26" fill={color} />
+        <rect x={x - 11} y="50" width="22" height="3" fill="#fff" opacity=".45" />
       </g>
     </g>
   )
 }
 
-/** Экран: картинка точками с лёгким свечением и блик стекла */
+/** Ножка: короткая опора под корпусом, того же материала */
+function Foot({ p, x, mat }: { p: string; x: number; mat: Material }) {
+  return (
+    <>
+      <rect x={x} y="219" width="34" height="21" rx="9" fill={mat.side} />
+      <rect x={x} y="214" width="34" height="21" rx="9" fill={`url(#${p}body)`} />
+      <rect x={x + 1} y="215" width="32" height="19" rx="8" fill="none" stroke="#fff" strokeOpacity={mat.rim * 0.4} strokeWidth="1.5" />
+    </>
+  )
+}
+
+/** Экран: картинка точками с лёгким свечением */
 function Screen({ p, grid }: { p: string; grid: string[] }) {
   const dots: ReactNode[] = []
   for (let y = 0; y < 8; y++)
@@ -273,7 +287,6 @@ function Screen({ p, grid }: { p: string; grid: string[] }) {
     <>
       <rect x="34" y="88" width="188" height="124" rx="26" fill="#05070c" />
       <g filter={`url(#${p}glow)`}>{dots}</g>
-      <path d="M48 88L104 88L62 212L34 212L34 112Z" fill="#fff" opacity=".045" />
       <rect x="34.75" y="88.75" width="186.5" height="122.5" rx="25.25" fill="none" stroke="#fff" strokeOpacity=".1" strokeWidth="1.5" />
     </>
   )

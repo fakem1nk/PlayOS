@@ -15,6 +15,7 @@ const easeOut = [0.23, 1, 0.32, 1] as const
 const POWER = 1120 // волна по точкам от центра, вспыхивают искры
 const WELCOME = 2950 // логотип уходит вверх, приветствие
 const DONE = 4500
+const ARRIVE = 3700 // символы названия слетаются в угол, там собирается Тиви (TiviCameo)
 
 const FALLBACK_COLORS = ['#3d8bff', '#8a5cff', '#3fd0ff']
 
@@ -32,6 +33,8 @@ interface Props {
   lastGame?: string
   /** Цвета обложек последних игр — ими светится фон */
   colors?: string[]
+  /** Пора появляться Тиви — незадолго до конца заставки */
+  onArrive?: () => void
   onDone: () => void
 }
 
@@ -41,16 +44,18 @@ type Phase = 'logo' | 'welcome'
  * Заставка при старте PlayOS — единственный большой «момент» анимации в приложении.
  * Включается кинескоп: светящаяся линия раскрывается в экран из символов, по которому текут полосы света
  * в цветах ваших игр → символы мельтешат и застывают в название «playos» → со звуком включения от центра
- * расходится волна → логотип уходит вверх, появляется приветствие.
+ * расходится волна → логотип уходит вверх, появляется приветствие → символы слетаются в угол, где собирается Тиви.
  * Любая кнопка пропускает.
  */
-export function Intro({ userName, avatar, lastGame, colors, onDone }: Props) {
+export function Intro({ userName, avatar, lastGame, colors, onArrive, onDone }: Props) {
   const [phase, setPhase] = useState<Phase>('logo')
   // Окно создаётся скрытым и показывается после первой отрисовки: стартуем, только когда его видно,
   // иначе включение проиграется «за кадром», а звук разойдётся с картинкой
   const [ready, setReady] = useState(false)
   const done = useRef(onDone)
   done.current = onDone
+  const arrive = useRef(onArrive)
+  arrive.current = onArrive
   const palette = [...(colors ?? []), ...FALLBACK_COLORS].slice(0, 3)
 
   useEffect(() => {
@@ -74,7 +79,7 @@ export function Intro({ userName, avatar, lastGame, colors, onDone }: Props) {
   useEffect(() => {
     if (!ready) return
     play('boot')
-    const timers = [setTimeout(() => setPhase('welcome'), WELCOME), setTimeout(() => done.current(), DONE)]
+    const timers = [setTimeout(() => setPhase('welcome'), WELCOME), setTimeout(() => arrive.current?.(), ARRIVE), setTimeout(() => done.current(), DONE)]
     return () => timers.forEach(clearTimeout)
   }, [ready])
   useInputLayer(() => done.current(), 100)

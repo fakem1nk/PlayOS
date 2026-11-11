@@ -17,6 +17,7 @@ import { AnimatedCoversContext } from './components/Tile'
 import { UpdateInstall } from './components/UpdateInstall'
 import { UpdateNotice } from './components/UpdateNotice'
 import { Tivi } from './components/Tivi'
+import { TiviCameo } from './components/TiviCameo'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { WindowFrame } from './components/WindowFrame'
 import { api } from './lib/api'
@@ -130,7 +131,15 @@ export function App() {
   const [pageGameId, setPageGameId] = useState<string | null>(RESUME?.gameId ?? null)
   const [steamImport, setSteamImport] = useState(false)
   const [saver, setSaver] = useState(false)
-  const [outro, setOutro] = useState<PowerAction | null>(null)
+  // Тиви поверх конца интро: появляется раньше оболочки и держится, пока она не проявится под ним
+  const [arriving, setArriving] = useState(false)
+  useEffect(() => {
+    if (!arriving) return
+    const timer = setTimeout(() => setArriving(false), 2800)
+    return () => clearTimeout(timer)
+  }, [arriving])
+  // Демо: ?outro=quit|shutdown сразу показывает аутро
+  const [outro, setOutro] = useState<PowerAction | null>(() => new URLSearchParams(location.search).get('outro') as PowerAction | null)
   const [trophySummary, setTrophySummary] = useState<Record<string, AchievementSummaryItem>>({})
   const [settingsSection, setSettingsSection] = useState<string | undefined>(REOPEN_SETTINGS || undefined)
   const [power, setPower] = useState(false)
@@ -611,7 +620,7 @@ export function App() {
           </main>
 
           <footer className="hints">{hints}</footer>
-          {state.settings.tivi !== false && <Tivi playing={!!runningGame} greet={!booting} size={tab === 'home' ? state.settings.tiviSize : 'small'} />}
+          {state.settings.tivi !== false && <Tivi playing={!!runningGame} greet={!booting && !arriving} size={tab === 'home' ? state.settings.tiviSize : 'small'} />}
         </motion.div>
 
         <AnimatePresence>
@@ -929,10 +938,14 @@ export function App() {
               avatar={state.settings.avatar}
               lastGame={lastGame?.title}
               colors={introColors(games)}
+              onArrive={() => state.settings.tivi !== false && setArriving(true)}
               onDone={() => setBooting(false)}
             />
           )}
         </AnimatePresence>
+        {state.settings.tivi !== false && (arriving || (outro && outro !== 'sleep')) && (
+          <TiviCameo key={arriving ? 'arrive' : 'leave'} kind={arriving ? 'arrive' : 'leave'} size={tab === 'home' ? state.settings.tiviSize : 'small'} />
+        )}
       </div>
       </AnimatedCoversContext.Provider>
     </GlyphStyleContext.Provider>

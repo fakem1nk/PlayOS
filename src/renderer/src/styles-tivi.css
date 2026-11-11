@@ -53,7 +53,7 @@
 /* Потягивается от пола, машет левым ухом от его основания (точка поворота — в координатах рисунка) */
 .tivi svg.is-stretch {
   transform-origin: 50% 100%;
-  animation: tivi-stretch 0.9s step-end;
+  animation: tivi-stretch 0.96s step-end;
 }
 
 .tivi-ear-l {
@@ -87,13 +87,13 @@
   0% {
     transform: translateY(-0.2rem);
   }
-  17% {
+  16.667% {
     transform: translateY(-0.4rem);
   }
-  42% {
+  41.667% {
     transform: translateY(-0.2rem);
   }
-  58% {
+  58.333% {
     transform: translateY(0.06rem);
   }
   75%,
@@ -106,13 +106,13 @@
   0% {
     transform: scale(0.98, 1.03);
   }
-  15% {
+  12.5% {
     transform: scale(0.96, 1.07);
   }
-  70% {
+  66.667% {
     transform: scale(0.98, 1.03);
   }
-  85%,
+  83.333%,
   100% {
     transform: none;
   }
@@ -131,13 +131,57 @@
   75% {
     transform: rotate(8deg);
   }
-  90%,
+  91.667%,
   100% {
     transform: none;
   }
 }
 
+/* Тиви поверх интро и аутро (components/TiviCameo.tsx): та же рамка, что у оболочки, поэтому он стоит ровно на своём месте */
+.tivi-cameo {
+  position: absolute;
+  inset: 0;
+  z-index: 120;
+  pointer-events: none;
+}
+
+.tivi-cameo .tivi {
+  cursor: default;
+}
+
+/* Кинескоп аутро погас — на чёрном экране не остаётся и Тиви */
+.outro.is-done ~ .tivi-cameo {
+  display: none;
+}
+
+/* Корпус прорисовывается строкой сверху вниз, шесть ступеней */
+.tivi-cameo.is-arrive .tivi svg {
+  animation: tivi-scan-in 0.48s steps(6, end) both;
+}
+
+@keyframes tivi-scan-in {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(-20% -20% -20% -20%);
+  }
+}
+
+/* Символы названия, слетающиеся к экрану Тиви */
+.tivi-spark {
+  position: absolute;
+  margin: -0.8rem 0 0 -0.45rem;
+  font: 700 1.5rem/1 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  color: #fff;
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .tivi-cameo.is-arrive .tivi svg {
+    animation: none;
+  }
+
   .tivi svg,
   .tivi-ear-l {
     animation: none !important;

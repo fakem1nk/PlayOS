@@ -63,9 +63,13 @@ const CY = 150
 const PX = 7
 const BODY = '#1a1e27'
 const INSET = '#05070c'
-/** Окошко уха до поворота капсулы: 16×42, от y 32 до 74 */
-const WIN_TOP = 32
-const WIN_H = 42
+/** Ухо — короткая толстая капсула 38×50 (до поворота), окошко с жидкостью 22×30, от y 46 до 76 */
+const EAR_W = 38
+const EAR_TOP = 40
+const EAR_TILT = 20
+const WIN_W = 22
+const WIN_TOP = 46
+const WIN_H = 30
 const WIN_BOT = WIN_TOP + WIN_H
 /** Полосы над и под матрицей: на 0,9 шага от крайних рядов, по 14 точек */
 const STRIP_GAP = PITCH * 0.9
@@ -76,7 +80,7 @@ const SLEEP_MS = 240_000
 // Столько после последнего движения мыши Тиви ещё смотрит на неё, потом возвращается к фокусу
 const MOUSE_MS = 1600
 /** Взгляд переводится по клетке за кадр, а не прыжком */
-const GAZE_STEP_MS = 45
+const GAZE_STEP_MS = 40
 /** Своими делами Тиви занимается, только когда его давно не трогали */
 const CALM_MS = 4000
 const AHEAD: Gaze = { x: 0, y: 0 }
@@ -571,7 +575,7 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
   const isLoading = loading !== null
   useEffect(() => {
     if (!isLoading) return
-    const timer = window.setInterval(() => setTick((v) => !v), 380)
+    const timer = window.setInterval(() => setTick((v) => !v), 400)
     return () => clearInterval(timer)
   }, [isLoading])
 
@@ -754,8 +758,8 @@ const Matrix = memo(function Matrix({ face, gaze, blink, top, bottom }: { face: 
 
 /** Заливка окошка уха: жидкость с наклонённой или рябящей поверхностью, второй слой, полоски, пузырьки и капли (лишнее срезает маска окошка) */
 function EarFill({ e, x }: { e: Ear; x: number }) {
-  const x0 = x - 8
-  const x1 = x + 8
+  const x0 = x - WIN_W / 2
+  const x1 = x + WIN_W / 2
   const y = (v: number) => WIN_BOT - v * WIN_H
   const liquid = (v: number, c: string, op: number, key: string) => {
     if (v <= 0) return null
@@ -763,7 +767,7 @@ function EarFill({ e, x }: { e: Ear; x: number }) {
     const dy = (e.tilt ?? 0) * 5
     const w = e.wave ?? 0
     const edge = w
-      ? `L${x0} ${top + dy}Q${x - 4} ${top + dy / 2 + w} ${x} ${top}Q${x + 4} ${top - dy / 2 - w} ${x1} ${top - dy}`
+      ? `L${x0} ${top + dy}Q${x - WIN_W / 4} ${top + dy / 2 + w} ${x} ${top}Q${x + WIN_W / 4} ${top - dy / 2 - w} ${x1} ${top - dy}`
       : `L${x0} ${top + dy}L${x1} ${top - dy}`
     return <path key={key} d={`M${x0} ${WIN_BOT + 2}${edge}L${x1} ${WIN_BOT + 2}Z`} fill={c} opacity={op} />
   }
@@ -771,9 +775,9 @@ function EarFill({ e, x }: { e: Ear; x: number }) {
     <>
       {liquid(e.v, e.c, e.o, 'v')}
       {e.over && liquid(e.over.v, e.over.c, 1, 'over')}
-      {e.bands?.map(([a, b, c], i) => b > a && <rect key={`b${i}`} x={x0} y={y(b)} width={16} height={(b - a) * WIN_H} fill={c ?? e.c} />)}
-      {e.bubbles?.map((b, i) => b.y < e.v && <circle key={`u${i}`} cx={x + b.x * 5} cy={y(b.y)} r={b.r} fill={INSET} opacity={0.5} />)}
-      {e.drops?.map((d, i) => <circle key={`d${i}`} cx={x + (d.x ?? 0) * 4} cy={y(d.y)} r={d.r ?? 2.6} fill={d.c ?? e.c} />)}
+      {e.bands?.map(([a, b, c], i) => b > a && <rect key={`b${i}`} x={x0} y={y(b)} width={WIN_W} height={(b - a) * WIN_H} fill={c ?? e.c} />)}
+      {e.bubbles?.map((b, i) => b.y < e.v && <circle key={`u${i}`} cx={x + b.x * 7} cy={y(b.y)} r={b.r} fill={INSET} opacity={0.5} />)}
+      {e.drops?.map((d, i) => <circle key={`d${i}`} cx={x + (d.x ?? 0) * 5.5} cy={y(d.y)} r={d.r ?? 2.6} fill={d.c ?? e.c} />)}
     </>
   )
 }
@@ -783,9 +787,9 @@ function EarArt({ side, e }: { side: 'l' | 'r'; e: Ear }) {
   const x = side === 'l' ? 64 : 192
   return (
     <g className={`tivi-ear-${side}`}>
-      <g transform={`rotate(${side === 'l' ? -16 : 16} ${x} 90)`}>
-        <rect x={x - 15} y={26} width={30} height={64} rx={15} fill={BODY} stroke="url(#tivi-ear-rim)" strokeWidth={1.5} />
-        <rect x={x - 8} y={WIN_TOP} width={16} height={WIN_H} rx={8} fill={INSET} />
+      <g transform={`rotate(${(side === 'l' ? -1 : 1) * (EAR_TILT + (e.a ?? 0))} ${x} 90)`}>
+        <rect x={x - EAR_W / 2} y={EAR_TOP} width={EAR_W} height={90 - EAR_TOP} rx={EAR_W / 2} fill={BODY} stroke="url(#tivi-ear-rim)" strokeWidth={1.5} />
+        <rect x={x - WIN_W / 2} y={WIN_TOP} width={WIN_W} height={WIN_H} rx={WIN_W / 2} fill={INSET} />
         <g clipPath={`url(#tivi-win-${side})`}>
           <EarFill e={e} x={x} />
         </g>
@@ -842,7 +846,7 @@ export function TiviArt({
         </linearGradient>
         {(['l', 'r'] as const).map((side) => (
           <clipPath key={side} id={`tivi-win-${side}`}>
-            <rect x={(side === 'l' ? 64 : 192) - 8} y={WIN_TOP} width={16} height={WIN_H} rx={8} />
+            <rect x={(side === 'l' ? 64 : 192) - WIN_W / 2} y={WIN_TOP} width={WIN_W} height={WIN_H} rx={WIN_W / 2} />
           </clipPath>
         ))}
         <filter id="tivi-glow" x="-30%" y="-30%" width="160%" height="160%">
@@ -859,6 +863,9 @@ export function TiviArt({
       <g transform={pose?.x || pose?.y ? `translate(${pose.x ?? 0} ${pose.y ?? 0})` : undefined}>
         <EarArt side="l" e={ears.l} />
         <EarArt side="r" e={ears.r} />
+        {/* Ножки: две короткие опоры, выглядывают из-под корпуса и двигаются вместе с ним */}
+        <rect x="64" y={212 - (ears.feet?.l ?? 0)} width="34" height="23" rx="9" fill={BODY} stroke="url(#tivi-ear-rim)" strokeWidth={1.5} />
+        <rect x="158" y={212 - (ears.feet?.r ?? 0)} width="34" height="23" rx="9" fill={BODY} stroke="url(#tivi-ear-rim)" strokeWidth={1.5} />
         <rect x="22" y="76" width="212" height="148" rx="38" fill={BODY} />
         <rect x="22.75" y="76.75" width="210.5" height="146.5" rx="37.25" fill="none" stroke="url(#tivi-rim)" strokeWidth="1.5" />
         {cap !== 'off' && (

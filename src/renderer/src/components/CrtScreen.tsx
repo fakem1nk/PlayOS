@@ -4,7 +4,7 @@ import { WORDMARK_PATH, WORDMARK_SPARKS, WORDMARK_VIEWBOX } from './Logo'
 /**
  * Экран кинескопа для интро и аутро. Изображение собирается из символов, как ASCII-арт:
  * плотность символа — яркость точки. По экрану текут полосы света, а название «playos» рисуют сами символы —
- * перед появлением они мельтешат случайными знаками и «застывают» в буквы.
+ * оно проявляется дождём (столбцы падают сверху и «застывают» в буквы), а в аутро сжимается к своей середине.
  * Поверх — всё, что делает картинку кинескопом: RGB-триады люминофора, строки развёртки, зерно, мерцание,
  * бегущая полоса, мягкая виньетка, включение линией и выключение в точку.
  *
@@ -101,12 +101,18 @@ void main() {
   float cover = texture2D(uLogo, vec2(luv.x, 1.0 - luv.y)).r * inLogo;
   float rnd = hash(cell);
   float front = uReveal * 1.35 - 0.2;
-  float settled = smoothstep(front, front - 0.12, luv.x + rnd * 0.05);
-  float scrambleBand = (1.0 - settled) * smoothstep(front + 0.12, front, luv.x);
+  // Проявление — дождём: столбцы падают сверху, у каждого своя задержка. Рассыпание — сжатием к центру названия
+  vec2 lc = (cuv - (uRect.xy + uRect.zw * 0.5)) * vec2(uRes.x / uRes.y, 1.0);
+  float radial = length(lc) / (uRect.z * uRes.x / uRes.y * 0.56);
+  float colRnd = hash(vec2(cell.x, 7.0));
+  float along = (1.0 - luv.y) * 0.62 + colRnd * 0.38;
+  float away = (1.0 - clamp(radial, 0.0, 1.0)) * 0.85 + rnd * 0.15;
+  float settled = smoothstep(front, front - 0.12, along + rnd * 0.05);
+  float scrambleBand = (1.0 - settled) * smoothstep(front + 0.12, front, along);
 
-  // Рассыпание: символы исчезают в случайном порядке, перед этим мигают
-  float gone = step(rnd, uDissolve * 1.1 - 0.05);
-  float shaking = step(rnd, uDissolve * 1.1 + 0.12) * (1.0 - gone);
+  // Перед тем как исчезнуть, символы мигают
+  float gone = step(away, uDissolve * 1.1 - 0.05);
+  float shaking = step(away, uDissolve * 1.1 + 0.12) * (1.0 - gone);
 
   // Под проявившимися буквами поле гаснет — название читается на любом фоне
   // Поле — только «средние» символы, плотные и яркие остаются названию
@@ -114,21 +120,24 @@ void main() {
   float logoLum = cover * mix(1.0, 0.0, gone);
   float l = max(lum, logoLum * max(settled, scrambleBand * 0.8));
 
-  // Волна от центра
+  // Со звуком включения от центра расходится широкая волна: символы в ней не вспыхивают, а на миг перемешиваются
   vec2 cc = (cuv - 0.5) * vec2(uRes.x / uRes.y, 1.0);
   float dist = length(cc);
-  float wave = uPulse >= 0.0 ? band(dist - 0.05 - uPulse * 1.3, 0.04 + uPulse * 0.04) * exp(-uPulse * 1.5) : 0.0;
+  float ringScramble = uPulse >= 0.0 ? band(dist - 0.05 - uPulse * 1.3, 0.1 + uPulse * 0.05) * exp(-uPulse * 1.2) : 0.0;
+  float wave = ringScramble * 0.3;
   l = max(l, wave * 0.9);
+  // Над фронтом каждого столбца тянется гаснущий след
+  float trail = inLogo * smoothstep(front + 0.3, front, along) * (1.0 - settled) * (0.25 + 0.5 * hash(cell + floor(t * 20.0)));
+  l = max(l, trail);
 
   // Выбор символа: по яркости из «лестницы» плотности, а при мельтешении — любой случайный, каждые 50 мс новый
   float idx = floor(clamp(l, 0.0, 0.999) * uRamp);
   float flick = floor(t * 20.0 + rnd * 7.0);
-  float scramble = max(scrambleBand * cover, shaking * cover) + step(0.9985, hash(cell + flick)) * step(0.12, l);
+  float scramble = max(scrambleBand * cover, shaking * cover) + step(0.9985, hash(cell + flick)) * step(0.12, l) + step(0.5, ringScramble * (0.45 + hash(cell + flick)));
   if (scramble > 0.0) idx = floor(hash(cell + flick * 1.37) * uGlyphs);
   if (l < 0.04 && scramble <= 0.0) idx = 0.0;
 
   float glyph = texture2D(uAtlas, vec2((idx + clamp(local.x, 0.02, 0.98)) / uGlyphs, 1.0 - local.y)).r;
-
   // Цвет люминофора: серебро с оттенком полос, логотип — чистый белый
   vec3 phosphor = mix(vec3(0.82, 0.88, 1.0), normalize(tint + 0.0001) * 1.2, 0.35);
   phosphor = mix(phosphor, vec3(1.0), clamp(logoLum * settled, 0.0, 1.0));
