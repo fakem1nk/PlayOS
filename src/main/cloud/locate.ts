@@ -5,7 +5,7 @@ import { trackableDir } from '../launcher'
 import { pcsx2Config } from '../pcsx2'
 import { manifestFor, normTitle } from './ludusavi'
 import { expandManifestPath, type PathContext } from './paths'
-import { collect } from './snapshot'
+import { collect, safeRegistryKey } from './snapshot'
 
 /**
  * Что синхронизировать для игры. Единица синхронизации — «набор сохранений» (SaveSet) со своим ключом:
@@ -17,6 +17,12 @@ export interface SaveSet {
   title: string
   /** Абсолютные пути этого ПК, можно с масками * ** ? (папка — вместе со всем содержимым) */
   patterns: string[]
+  /**
+   * Куда ещё можно положить файлы снимка из облака: обычные места сохранений этой игры, которых в patterns нет
+   * (папки эмулятора Steam ещё не существует, на этом ПК свои папки сохранений, выключены быстрые сохранения PS2).
+   * Всё, что вне patterns и accept, из облака не пишется
+   */
+  accept?: string[]
   /** Ключи реестра HKEY_CURRENT_USER/… */
   registry: string[]
   ctx: PathContext
@@ -135,7 +141,8 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
     const ctx = { pcsx2: cfg.dataDir }
     const own: SaveSet = { key: `ps2:${game.serial}`, title: game.title, patterns: [], registry: [], ctx }
     const sets = [own]
-    if (settings.cloud?.ps2States) own.patterns.push(path.join(cfg.sstates, `${safe(game.serial)} (*).p2s`))
+    const states = path.join(cfg.sstates, `${safe(game.serial)} (*).p2s`)
+    if (settings.cloud?.ps2States) own.patterns.push(states)
     for (const card of cfg.cards) {
       let isDir = false
       try {
@@ -147,6 +154,7 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
       if (isDir) own.patterns.push(path.join(card, `*${safe(game.serial)}*`))
       else sets.push({ key: `ps2card:${path.basename(card)}`, title: path.basename(card), patterns: [card], registry: [], ctx })
     }
+    own.accept = [states, ...own.patterns]
     if (game.saveDirs?.length) own.patterns = [...game.saveDirs]
     return sets.filter((s) => s.patterns.length)
   }
@@ -154,8 +162,9 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
   if (game.platform === 'ps3') {
     const hdd = rpcs3Hdd(settings)
     if (!hdd || !game.serial) return []
-    const patterns = game.saveDirs?.length ? [...game.saveDirs] : [path.join(hdd, 'home', '00000001', 'savedata', `${game.serial}*`)]
-    return [{ key: `ps3:${game.serial}`, title: game.title, patterns, registry: [], ctx: { rpcs3: hdd } }]
+    const usual = path.join(hdd, 'home', '00000001', 'savedata', `${game.serial}*`)
+    const patterns = game.saveDirs?.length ? [...game.saveDirs] : [usual]
+    return [{ key: `ps3:${game.serial}`, title: game.title, patterns, accept: [usual], registry: [], ctx: { rpcs3: hdd } }]
   }
 
   // PC: свои папки → манифест Ludusavi → папки эмуляторов Steam по AppID
@@ -165,17 +174,14 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
   const base = found?.base ?? dir
   const ctx: PathContext = { game: base && trackableDir(base) ? base : undefined }
   const key = appId ? `pc:${appId}` : found ? `pc:m:${normTitle(found.entry.name)}` : `pc:t:${normTitle(game.title)}`
-  const set: SaveSet = { key, title: game.title, patterns: [], registry: [], ctx }
-  if (game.saveDirs?.length) {
-    set.patterns = [...game.saveDirs]
-    return [set]
-  }
+  const set: SaveSet = { key, title: game.title, patterns: [], accept: [], registry: [], ctx }
+  const own = !!game.saveDirs?.length
   if (found) {
     for (const f of found.entry.files) {
       const p = expandManifestPath(f, ctx.game, appId)
-      if (p) set.patterns.push(p)
+      if (p) (own ? set.accept! : set.patterns).push(p)
     }
-    set.registry = found.entry.registry.filter((r) => /^HKEY_CURRENT_USER\//i.test(r))
+    if (!own) set.registry = found.entry.registry.filter(safeRegistryKey)
   }
   if (appId) {
     for (const tpl of EMU_ROOTS) {
@@ -186,8 +192,15 @@ export function saveSetsFor(game: Game, settings: Settings): SaveSet[] {
             const root = envDir(token)
             return root ? [path.join(root, tpl.slice(token.length).replace('{id}', String(appId)))] : []
           })()
-      for (const p of paths) if (fs.existsSync(p) && !set.patterns.includes(p)) set.patterns.push(p)
+      for (const p of paths) {
+        if (!own && fs.existsSync(p) && !set.patterns.includes(p)) set.patterns.push(p)
+        else set.accept!.push(p)
+      }
     }
+  }
+  if (own) {
+    set.patterns = [...game.saveDirs!]
+    return [set]
   }
   return set.patterns.length || set.registry.length ? [set] : []
 }

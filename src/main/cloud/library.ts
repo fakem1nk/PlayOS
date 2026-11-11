@@ -6,6 +6,7 @@ import { log } from '../log'
 import { artDir, dataDir, getDb, MAX_SESSIONS, saveDb } from '../store'
 import { normTitle } from './ludusavi'
 import { OfflineError, type Remote } from './remote'
+import { AVATAR_SIG, cleanLibrary, cleanProfile, webUrl } from './untrusted'
 
 /**
  * Профиль и библиотека в облаке:
@@ -67,8 +68,6 @@ export interface CloudGame {
   serial?: string
   steamAppId?: number
   raGameId?: number
-  args?: string
-  trackProcess?: string
   favorite?: boolean
   overlay?: boolean
   cloudSaves?: boolean
@@ -119,7 +118,9 @@ export function libraryKey(g: Pick<Game, 'platform' | 'launcher' | 'steamAppId' 
   return `${g.platform}:t:${normTitle(g.title)}`
 }
 
-const LWW = ['title', 'launcher', 'serial', 'steamAppId', 'raGameId', 'args', 'trackProcess', 'favorite', 'overlay', 'cloudSaves', 'accent', 'accentV', 'done', 'pile'] as const
+// Параметры запуска и имя процесса (args, trackProcess) — у каждого ПК свои и в облако не идут:
+// параметр командной строки, пришедший из облака, мог бы запустить на этом ПК чужую программу
+const LWW = ['title', 'launcher', 'serial', 'steamAppId', 'raGameId', 'favorite', 'overlay', 'cloudSaves', 'accent', 'accentV', 'done', 'pile'] as const
 const sum = (by: Record<string, number>) => Object.values(by).reduce((a, b) => a + b, 0)
 const baseOf = (g: Game) => g.playtimeBase ?? Math.max(0, g.playtime - sum(g.playtimeBy ?? {}))
 const changedAt = (g: Game) => g.updatedAt ?? g.addedAt
@@ -134,6 +135,8 @@ function artSig(file?: string): string | null {
     const hit = sigCache.get(file)
     if (hit && hit.size === st.size && hit.mtime === st.mtimeMs) return hit.sig
     const sig = createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 16) + path.extname(file).toLowerCase()
+    // Подпись становится именем файла на другом ПК: необычное расширение туда не уходит
+    if (!AVATAR_SIG.test(sig)) return null
     sigCache.set(file, { size: st.size, mtime: st.mtimeMs, sig })
     return sig
   } catch {
@@ -142,7 +145,9 @@ function artSig(file?: string): string | null {
 }
 
 function toCloud(g: Game, key: string): CloudGame {
-  const art: CloudGame['art'] = { ...(g.artSrc ?? {}) }
+  // Те же правила, что при чтении из облака: ссылку, которую другой ПК отбросит, не отправляем
+  const art: CloudGame['art'] = {}
+  for (const [f, url] of Object.entries(g.artSrc ?? {}) as [ArtField, string][]) if (ART.includes(f) && webUrl(url)) art[f] = url
   const out: CloudGame = {
     key,
     title: g.title,
@@ -292,17 +297,18 @@ export function mergeProfile(settings: Settings, settingsAt: number, remote: Clo
 
 // ── Сеть ──
 
-async function readJson<T>(r: Remote, dir: string, name: string, seen: number | undefined): Promise<{ data: T | null; modified?: number; unchanged: boolean }> {
+/** clean — проверка содержимого: файл в облаке мог записать не PlayOS */
+async function readJson<T>(r: Remote, dir: string, name: string, seen: number | undefined, clean: (raw: unknown) => T): Promise<{ data: T | null; modified?: number; unchanged: boolean }> {
   const entry = (await r.list(dir)).find((e) => e.name === name)
   if (!entry) return { data: null, unchanged: false }
   if (seen && entry.modified === seen) return { data: null, modified: entry.modified, unchanged: true }
-  return { data: JSON.parse((await r.read(`${dir}/${name}`)).toString('utf8')) as T, modified: entry.modified, unchanged: false }
+  return { data: clean(JSON.parse((await r.read(`${dir}/${name}`)).toString('utf8'))), modified: entry.modified, unchanged: false }
 }
 
 /** Есть ли в облаке профиль — для предложения восстановить его */
 export async function cloudOffer(r: Remote): Promise<CloudRestoreOffer | null> {
-  const prof = await readJson<CloudProfile>(r, 'profile', 'profile.json', undefined)
-  const lib = await readJson<CloudLibrary>(r, 'library', 'library.json', undefined)
+  const prof = await readJson(r, 'profile', 'profile.json', undefined, cleanProfile)
+  const lib = await readJson(r, 'library', 'library.json', undefined, cleanLibrary)
   if (!prof.data && !lib.data) return null
   return {
     name: prof.data?.settings.userName ?? '',
@@ -325,7 +331,7 @@ export interface Hooks {
 
 export async function syncLibrary(r: Remote, seen: Seen, hooks: Hooks) {
   const db = getDb()
-  const remote = await readJson<CloudLibrary>(r, 'library', 'library.json', seen.library)
+  const remote = await readJson(r, 'library', 'library.json', seen.library, cleanLibrary)
   // Облако не менялось с прошлого раза — сравниваем только со своим прошлым снимком
   const base: CloudLibrary | null = remote.unchanged ? (seen.libraryJson ? (JSON.parse(seen.libraryJson) as CloudLibrary) : null) : remote.data
   const before = db.games.length
@@ -361,19 +367,23 @@ function dropOldAvatars(keep: string) {
 
 export async function syncProfile(r: Remote, seen: Seen, hooks: Hooks) {
   const db = getDb()
-  const remote = await readJson<CloudProfile>(r, 'profile', 'profile.json', seen.profile)
+  const remote = await readJson(r, 'profile', 'profile.json', seen.profile, cleanProfile)
   const base = remote.unchanged ? (seen.profileJson ? (JSON.parse(seen.profileJson) as CloudProfile) : null) : remote.data
   const m = mergeProfile(db.settings, db.settingsAt ?? 0, base)
   if (m.remoteWins) {
     db.settingsAt = m.cloud.updatedAt
     if (m.cloud.avatar && m.cloud.avatar !== artSig(db.settings.avatar)) {
       try {
-        const data = await r.read(`profile/avatar${path.extname(m.cloud.avatar)}`)
-        // Имя с подписью: новый аватар — новый файл, без старой картинки из кэша
-        const file = path.join(dataDir(), `avatar-cloud-${m.cloud.avatar}`)
-        fs.writeFileSync(file, data)
-        m.patch.avatar = file
-        dropOldAvatars(file)
+        // Подпись проверена (AVATAR_SIG): в имени файла только буквы, цифры и точка — путь из папки данных не выйдет
+        const data = await r.read(`profile/avatar${path.extname(m.cloud.avatar)}`, MAX_ART)
+        // Это та самая картинка, а не подменённый файл: хэш содержимого совпадает с подписью в профиле
+        if (createHash('sha1').update(data).digest('hex').slice(0, 16) === m.cloud.avatar.slice(0, 16)) {
+          // Имя с подписью: новый аватар — новый файл, без старой картинки из кэша
+          const file = path.join(dataDir(), `avatar-cloud-${m.cloud.avatar}`)
+          fs.writeFileSync(file, data)
+          m.patch.avatar = file
+          dropOldAvatars(file)
+        }
       } catch (e) {
         if (e instanceof OfflineError) throw e
       }

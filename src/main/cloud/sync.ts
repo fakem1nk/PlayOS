@@ -73,7 +73,7 @@ interface Deps {
   setCloudSettings: (patch: Partial<NonNullable<Settings['cloud']>>, resetSettingsAt: boolean) => void
 }
 
-const SNAP = /^(\d+)_([0-9a-f]{8})_([0-9a-f]{16})\.zip$/
+const SNAP = /^(\d{1,15})_([0-9a-f]{8})_([0-9a-f]{16})\.zip$/
 /**
  * Файл устройства — <uuid>.json, внутри тот же id. Копии-конфликты клиентов синхронизации
  * (OneDrive «<id>-ИМЯПК.json», Dropbox «(conflicted copy)», Syncthing «.sync-conflict-…») — не устройства:
@@ -88,6 +88,29 @@ const RETRY_MS = [60_000, 3 * 60_000]
 const ACCOUNT_MS = 6 * 3600_000
 /** Больше — в облако не загружаем: снимок целиком в памяти, а у облаков лимиты на файл */
 const MAX_SET_BYTES = 512 * 2 ** 20
+/** Архив снимка из облака: больше набора он быть не может (несжимаемые файлы + заголовки ZIP) */
+const MAX_SNAP_BYTES = MAX_SET_BYTES + 64 * 2 ** 20
+const MAX_DEVICE_BYTES = 4 * 2 ** 20
+const MAX_HEADS = 50_000
+
+/** devices/<id>.json — чужие данные: берём только поля нужных типов, а из голов — только имена снимков */
+function readDevice(raw: unknown, id: string): DeviceFile | null {
+  const d = raw as Partial<DeviceFile> | null
+  if (!d || typeof d !== 'object' || typeof d.id !== 'string' || d.id.toLowerCase() !== id) return null
+  const heads: Record<string, string> = {}
+  if (d.heads && typeof d.heads === 'object') {
+    for (const [folder, name] of Object.entries(d.heads).slice(0, MAX_HEADS)) {
+      if (typeof name === 'string' && SNAP.test(name) && folder === folderOf(folder)) heads[folder] = name
+    }
+  }
+  return {
+    id,
+    name: typeof d.name === 'string' ? d.name.slice(0, 64) : '',
+    seen: typeof d.seen === 'number' ? d.seen : 0,
+    version: typeof d.version === 'string' ? d.version.slice(0, 32) : '',
+    heads
+  }
+}
 
 const folderOf = (key: string) => key.replace(/[^\w.-]+/g, '_')
 const parseSnap = (name: string): Head | null => {
@@ -157,8 +180,8 @@ async function refreshHeads(r: Remote) {
     // Время и размер: у Яндекса время с точностью до секунды
     if (known && known.modified === e.modified && (known.size ?? e.size) === e.size) continue
     try {
-      const dev = JSON.parse((await r.read(`devices/${e.name}`)).toString('utf8')) as DeviceFile
-      if (dev.id?.toLowerCase() !== id) continue
+      const dev = readDevice(JSON.parse((await r.read(`devices/${e.name}`, MAX_DEVICE_BYTES)).toString('utf8')), id)
+      if (!dev) continue
       file.devices[id] = { modified: e.modified, size: e.size, file: dev }
     } catch (err) {
       if (err instanceof OfflineError) throw err
@@ -185,7 +208,7 @@ async function writeMyDevice(r: Remote) {
 function deviceLabel(short: string) {
   if (short === dev8()) return account.deviceName()
   const d = Object.values(file.devices).find((x) => x.file.id.replace(/-/g, '').startsWith(short))
-  return d?.file.name ?? short
+  return d?.file.name || short
 }
 
 /** Старые снимки сверх лимита удаляются; «головы» всех ПК остаются всегда */
@@ -233,7 +256,7 @@ async function park(r: Remote, set: SaveSet, local: LocalState, head: Head) {
 /** false — пока снимок качался, запустили игру этого набора: файлы не трогаем */
 async function download(r: Remote, set: SaveSet, local: LocalState, head: Head) {
   const folder = folderOf(set.key)
-  const data = await r.read(`saves/${folder}/${head.name}`)
+  const data = await r.read(`saves/${folder}/${head.name}`, MAX_SNAP_BYTES)
   if (blocked(set)) return false
   await apply(set, data, local, head.hash)
   file.mine[folder] = head.name
@@ -524,6 +547,12 @@ export function initSync(d: Deps) {
     file = { sets: {}, devices: {}, mine: {}, seen: {}, ...(JSON.parse(fs.readFileSync(stateFile(), 'utf8')) as Partial<SyncStateFile>) }
   } catch {
     // Первый запуск
+  }
+  // Файлы устройств, запомненные прошлыми версиями без проверки содержимого
+  for (const [id, d] of Object.entries(file.devices)) {
+    const dev = readDevice(d?.file, id)
+    if (dev) d.file = dev
+    else delete file.devices[id]
   }
   setTimeout(() => {
     void updateManifest().finally(() => void syncAll())

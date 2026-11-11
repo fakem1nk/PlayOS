@@ -10,7 +10,8 @@ import { httpFetch } from '../http'
 export interface Remote {
   id: CloudProviderId
   list(dir: string): Promise<RemoteEntry[]>
-  read(file: string): Promise<Buffer>
+  /** max — наибольший размер в байтах: файл больше не читается (в облаке мог оказаться чужой файл на гигабайты) */
+  read(file: string, max?: number): Promise<Buffer>
   write(file: string, data: Buffer): Promise<void>
   remove(file: string): Promise<void>
   account(): Promise<CloudAccount>
@@ -28,6 +29,11 @@ export class OfflineError extends Error {}
 export class QuotaError extends Error {}
 /** Вход отозван или устарел: без нового входа синхронизация не пойдёт */
 export class AuthError extends Error {}
+
+/** Файл в облаке больше, чем PlayOS готов держать в памяти */
+export class TooBigError extends Error {}
+/** Служебные файлы (профиль, библиотека, устройства) заведомо меньше; снимкам сохранений лимит задаёт sync */
+const MAX_READ = 128 * 2 ** 20
 
 /** Токен облака; force — обновить, даже если срок ещё не вышел (облако ответило 401) */
 export type TokenSource = (force?: boolean) => Promise<string>
@@ -55,23 +61,32 @@ async function readBody<T>(res: Response, who: string): Promise<T> {
 }
 
 /** Скачивание файла: таймаут не на весь файл, а на паузу в передаче — медленный канал не обрывает большое сохранение */
-async function download(url: string, headers: Record<string, string>, who: string): Promise<{ res: Response; data?: Buffer }> {
+async function download(url: string, headers: Record<string, string>, who: string, max: number): Promise<{ res: Response; data?: Buffer }> {
   const ctl = new AbortController()
   let timer = setTimeout(() => ctl.abort(), API_MS)
   try {
     const res = await httpFetch(url, { headers, signal: ctl.signal })
     if (!res.ok || !res.body) return { res }
+    const big = () => new TooBigError(`${who}: файл больше ${Math.round(max / 2 ** 20)} МБ`)
+    if (Number(res.headers.get('content-length')) > max) throw big()
     const chunks: Buffer[] = []
+    let size = 0
     const reader = res.body.getReader()
     for (;;) {
       clearTimeout(timer)
       timer = setTimeout(() => ctl.abort(), API_MS)
       const { done, value } = await reader.read()
       if (done) break
+      size += value.length
+      if (size > max) throw big()
       chunks.push(Buffer.from(value))
     }
     return { res, data: Buffer.concat(chunks) }
   } catch (e) {
+    if (e instanceof TooBigError) {
+      ctl.abort()
+      throw e
+    }
     throw new OfflineError(`${who}: ${(e as Error).message}`)
   } finally {
     clearTimeout(timer)
@@ -87,6 +102,7 @@ export function folderRemote(root: string): Remote {
   }
   // Файла нет — настоящая ошибка; остальное временно: файл «только в облаке» у OneDrive без сети, файл занят клиентом облака
   const fsError = (e: unknown) => {
+    if (e instanceof TooBigError) return e
     const code = (e as NodeJS.ErrnoException).code
     if (code === 'ENOSPC' || code === 'EDQUOT') return new QuotaError(`Нет места: ${root}`)
     return code === 'ENOENT' ? (e as Error) : new OfflineError((e as Error).message)
@@ -115,9 +131,10 @@ export function folderRemote(root: string): Remote {
       }
       return out
     },
-    async read(file) {
+    async read(file, max = MAX_READ) {
       ensureRoot()
       try {
+        if ((await fs.promises.stat(abs(file))).size > max) throw new TooBigError(`Файл больше ${Math.round(max / 2 ** 20)} МБ: ${file}`)
         return await fs.promises.readFile(abs(file))
       } catch (e) {
         throw fsError(e)
@@ -199,11 +216,13 @@ export function yandexRemote(token: TokenSource): Remote {
         if (items.length < 1000) return out
       }
     },
-    async read(file) {
+    async read(file, max = MAX_READ) {
       const res = await call(`${YA}/resources/download?path=${q(file)}`)
       if (!res.ok) throw new Error(`${who}: не скачать ${file} (HTTP ${res.status})`)
       const { href } = await readBody<{ href: string }>(res, who)
-      const got = await download(href, {}, who)
+      // Ссылку выдаёт Яндекс; токен на неё не уходит, а адрес — только https
+      if (!/^https:\/\//i.test(href ?? '')) throw new Error(`${who}: не скачать ${file}`)
+      const got = await download(href, {}, who, max)
       if (!got.data) throw new OfflineError(`${who}: HTTP ${got.res.status}`)
       return got.data
     },
@@ -271,7 +290,8 @@ export function googleRemote(token: TokenSource): Remote {
     const q = `name = ${quote(name)} and ${quote(parent)} in parents and trashed = false and mimeType ${folder ? '=' : '!='} '${FOLDER}'`
     const res = await call(`${GD}/files?spaces=drive&q=${encodeURIComponent(q)}&fields=files(id)&orderBy=createdTime&pageSize=10`)
     if (!res.ok) throw new Error(`${who}: HTTP ${res.status}`)
-    return (await readBody<{ files: { id: string }[] }>(res, who)).files[0]?.id
+    const id = (await readBody<{ files?: { id: string }[] }>(res, who)).files?.[0]?.id
+    return typeof id === 'string' && /^[\w-]+$/.test(id) ? id : undefined
   }
   const dirId = async (dir: string, create: boolean): Promise<string | undefined> => {
     const parts = ['PlayOS', ...dir.split('/').filter(Boolean)]
@@ -343,12 +363,12 @@ export function googleRemote(token: TokenSource): Remote {
       } while (page)
       return out
     },
-    async read(file) {
+    async read(file, max = MAX_READ) {
       const id = await fileId(file)
       if (!id) throw new Error(`${who}: нет файла ${file}`)
       const headers = { Authorization: `Bearer ${await token()}` }
-      let got = await download(`${GD}/files/${id}?alt=media`, headers, who)
-      if (got.res.status === 401) got = await download(`${GD}/files/${id}?alt=media`, { Authorization: `Bearer ${await token(true)}` }, who)
+      let got = await download(`${GD}/files/${id}?alt=media`, headers, who, max)
+      if (got.res.status === 401) got = await download(`${GD}/files/${id}?alt=media`, { Authorization: `Bearer ${await token(true)}` }, who, max)
       if (got.res.status === 401) throw new AuthError(`${who}: вход устарел`)
       if (got.res.status >= 500 || got.res.status === 429 || got.res.status === 403) throw new OfflineError(`${who}: HTTP ${got.res.status}`)
       if (!got.data) throw new Error(`${who}: не скачать ${file} (HTTP ${got.res.status})`)

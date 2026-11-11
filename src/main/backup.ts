@@ -99,7 +99,11 @@ function writeZip(out: string, entries: { name: string; data: Buffer }[]) {
 /** Читает все файлы ZIP (store и deflate) */
 const readZip = (file: string) => readZipBuffer(fs.readFileSync(file))
 
-export function readZipBuffer(buf: Buffer) {
+/**
+ * limit — для архивов из чужих рук (снимок из облака): не больше стольких файлов и распакованных байт,
+ * иначе «zip-бомба» в пару килобайт заняла бы всю память
+ */
+export function readZipBuffer(buf: Buffer, limit?: { files: number; bytes: number }) {
   let eocd = -1
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
     if (buf.readUInt32LE(i) === 0x06054b50) {
@@ -111,6 +115,8 @@ export function readZipBuffer(buf: Buffer) {
   const count = buf.readUInt16LE(eocd + 10)
   let p = buf.readUInt32LE(eocd + 16)
   const out = new Map<string, Buffer>()
+  if (limit && count > limit.files) throw new Error(t('Файл повреждён'))
+  let left = limit?.bytes ?? Infinity
   for (let i = 0; i < count; i++) {
     if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error(t('Файл повреждён'))
     const method = buf.readUInt16LE(p + 10)
@@ -124,7 +130,12 @@ export function readZipBuffer(buf: Buffer) {
     const lxlen = buf.readUInt16LE(local + 28)
     const start = local + 30 + lnlen + lxlen
     const raw = buf.subarray(start, start + csize)
-    out.set(name, method === 8 ? zlib.inflateRawSync(raw) : Buffer.from(raw))
+    if (raw.length > left) throw new Error(t('Файл повреждён'))
+    // maxOutputLength: распаковка обрывается ошибкой, как только выходит за остаток лимита
+    const data = method === 8 ? zlib.inflateRawSync(raw, Number.isFinite(left) ? { maxOutputLength: Math.max(1, left) } : undefined) : Buffer.from(raw)
+    left -= data.length
+    if (left < 0) throw new Error(t('Файл повреждён'))
+    out.set(name, data)
     p += 46 + nlen + xlen + clen
   }
   return out

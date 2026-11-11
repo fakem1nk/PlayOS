@@ -839,6 +839,9 @@ export const EN: Record<string, string> = {
   'Войти снова': 'Sign in again',
   'Снимок в облаке повреждён — сохранения на этом ПК не тронуты': 'The cloud copy is damaged — saves on this PC were left as they are',
   'Сохранения больше 512 МБ — в облако не загружаются': 'Saves over 512 MB aren’t uploaded to the cloud',
+  'В снимке из облака есть файлы не из папок сохранений этой игры — сохранения на этом ПК не тронуты':
+    'The cloud copy has files from outside this game’s save folders — saves on this PC were left as they are',
+  'В параметрах запуска .bat-файла нельзя использовать символы & | < > ^ % !': 'Launch options of a .bat file can’t contain the characters & | < > ^ % !',
   'Сохранения не найдены': 'No saves found',
   'Облако выключено': 'Cloud is off',
   'Не удалось подключить облако': 'Couldn’t connect the cloud',

@@ -40,6 +40,7 @@ export type DownloadResult = { file: string } | { error: 'cancelled' | 'stalled'
 
 const STALL_MS = 15000 // ни одного байта за это время — считаем, что загрузка зависла
 const MAX_MS = 90000 // и в любом случае не дольше полутора минут на файл
+const MAX_BYTES = 64 * 2 ** 20 // картинка больше — не арт: ссылка могла прийти из облака или чужого каталога
 
 /**
  * Скачивает картинку в папку арта игры потоком: видно прогресс, зависшая загрузка
@@ -67,6 +68,8 @@ export async function downloadArt(url: string, dir: string, name: string, opts: 
     ctrl.abort()
   }, MAX_MS)
   try {
+    // Только сеть: net.fetch умеет и file:, а ссылка — чужие данные
+    if (!isRemote(url)) return { error: 'failed' }
     kick()
     const r = await httpFetch(url, { signal: ctrl.signal })
     if (!r.ok || !r.body) return { error: 'failed' }
@@ -82,6 +85,10 @@ export async function downloadArt(url: string, dir: string, name: string, opts: 
       if (done) break
       chunks.push(value)
       received += value.length
+      if (received > MAX_BYTES) {
+        ctrl.abort()
+        return { error: 'failed' }
+      }
       kick()
       const now = Date.now()
       if (now - lastReport > 100) {

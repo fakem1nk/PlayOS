@@ -29,6 +29,59 @@ const META = '_playos.json'
 const REG = '%REG%/'
 const MAX_FILES = 20_000
 const MAX_DEPTH = 12
+/** Распакованный снимок из облака: лимит набора (512 МБ) с запасом на реестр и служебный файл */
+const MAX_UNPACKED = 576 * 2 ** 20
+/**
+ * Программы, скрипты и ярлыки — не сохранения: в облако не идут и из облака не пишутся.
+ * Иначе тот, кто получил доступ к облаку, подложил бы в папку игры свой DLL или скрипт
+ */
+const UNSAFE_EXT = /\.(exe|dll|com|scr|pif|cpl|sys|msi|msp|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|jar|lnk|url|reg|inf)$/i
+/** Имя из чужого архива: без потоков NTFS («a.sav:x»), управляющих символов и частей с точкой или пробелом на конце */
+const safeName = (name: string) => !/[\0-\x1f:*?"<>|\\]/.test(name.replace(/^%[A-Z0-9]+%/, '')) && !name.split('/').some((s) => /[. ]$/.test(s))
+
+const REG_EXE = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'reg.exe')
+/** Ветки HKCU, где лежит не игра, а Windows: автозапуск, ассоциации файлов, политики */
+const REG_DENY = [
+  'software\\classes',
+  'software\\policies',
+  'software\\microsoft\\windows',
+  'software\\microsoft\\windows nt',
+  'software\\microsoft\\command processor',
+  'software\\microsoft\\internet explorer',
+  'software\\microsoft\\office',
+  'software\\wow6432node\\classes',
+  'software\\wow6432node\\policies',
+  'software\\wow6432node\\microsoft\\windows',
+  'software\\wow6432node\\microsoft\\windows nt'
+]
+const regPath = (k: string) => k.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+
+/** Ключ реестра игры: только HKEY_CURRENT_USER\Software\<…>, не системная ветка и не её родитель */
+export function safeRegistryKey(key: string) {
+  const sub = /^hkey_current_user\\(software\\.+)$/.exec(regPath(key))?.[1]
+  if (!sub || /[*?\0-\x1f]/.test(sub)) return false
+  return !REG_DENY.some((d) => sub === d || sub.startsWith(d + '\\') || d.startsWith(sub + '\\'))
+}
+
+/**
+ * .reg из облака импортируется, только если это экспорт reg.exe и каждый его раздел лежит в ключах этой игры.
+ * Иначе снимок записал бы что угодно в реестр — например, программу в автозапуск
+ */
+export function regFileAllowed(data: Buffer, keys: string[]) {
+  if (data.length < 4 || data[0] !== 0xff || data[1] !== 0xfe) return false
+  const text = data.subarray(2).toString('utf16le')
+  if (text.includes('\0')) return false
+  const lines = text.split(/[\r\n\v\f\u0085\u2028\u2029]+/).map((l) => l.trim())
+  if (lines[0] !== 'Windows Registry Editor Version 5.00') return false
+  const allowed = keys.filter(safeRegistryKey).map(regPath)
+  for (const l of lines) {
+    if (!l.startsWith('[')) continue
+    // «[-Ключ]» — удаление ключа: экспорт таких строк не пишет
+    const key = /^\[([^-].*)\]$/.exec(l)?.[1].toLowerCase()
+    if (!key || !allowed.some((a) => key === a || key.startsWith(a + '\\'))) return false
+  }
+  return true
+}
 
 // Хэш файла пересчитывается, только если поменялись размер или время — опрос раз в несколько минут почти бесплатный
 const fileHashes = new Map<string, { size: number; mtime: number; hash: string }>()
@@ -79,10 +132,29 @@ function matchPattern(pattern: string): string[] {
   return all.filter((f) => re.test(f.rel)).map((f) => f.abs)
 }
 
+/**
+ * Путь лежит в папках сохранений набора (те же правила, что у matchPattern, но без обхода диска).
+ * Снимок из облака пишется только туда: метки вроде %APPDATA% или %HOME% сами по себе покрывают
+ * весь профиль пользователя, включая автозагрузку и данные других программ
+ */
+export function covers(set: SaveSet, abs: string) {
+  const full = path.resolve(abs)
+  const low = full.toLowerCase()
+  return [...set.patterns, ...(set.accept ?? [])].some((pattern) => {
+    const parts = path.normalize(pattern).split(/[\\/]+/)
+    const first = parts.findIndex((p) => /[*?]/.test(p))
+    const base = path.resolve(first < 0 ? pattern : parts.slice(0, first).join(path.sep) + path.sep).toLowerCase().replace(/\\+$/, '')
+    if (first < 0) return low === base || low.startsWith(base + path.sep)
+    if (!low.startsWith(base + path.sep)) return false
+    return globRe(parts.slice(first)).test(full.slice(base.length + 1).replace(/\\/g, '/'))
+  })
+}
+
 export function collect(set: SaveSet): LocalFile[] {
   const seen = new Map<string, LocalFile>()
   for (const pattern of set.patterns) {
     for (const abs of matchPattern(pattern)) {
+      if (UNSAFE_EXT.test(abs)) continue
       const name = toPortable(abs, set.ctx)
       if (!name || seen.has(name.toLowerCase())) continue
       try {
@@ -125,7 +197,7 @@ async function exportRegistry(set: SaveSet): Promise<{ name: string; data: Buffe
   for (const [i, key] of set.registry.entries()) {
     const tmp = path.join(os.tmpdir(), `playos-reg-${process.pid}-${i}.reg`)
     try {
-      await run('reg', ['export', regKey(key), tmp, '/y'])
+      await run(REG_EXE, ['export', regKey(key), tmp, '/y'])
       out.push({ name: `${REG}${i}-${key.replace(/[^\w.-]+/g, '_').slice(-80)}.reg`, data: fs.readFileSync(tmp) })
     } catch {
       // Ключа нет — игра ещё не сохраняла в реестр
@@ -258,35 +330,53 @@ async function backupLocal(set: SaveSet, state: LocalState) {
 export async function apply(set: SaveSet, data: Buffer, current: LocalState, expect?: string) {
   let files: Map<string, Buffer>
   try {
-    files = readZipBuffer(data)
+    files = readZipBuffer(data, { files: MAX_FILES + 64, bytes: MAX_UNPACKED })
   } catch {
     files = new Map()
   }
   if (!files.size || (expect && zipHash(files) !== expect)) throw new Error(t('Снимок в облаке повреждён — сохранения на этом ПК не тронуты'))
-  const meta = JSON.parse(files.get(META)?.toString('utf8') ?? '{"files":{}}') as { files: Record<string, number> }
-  await backupLocal(set, current)
-  const keep = new Set<string>()
+  let times: Record<string, unknown> = {}
+  try {
+    const meta = JSON.parse(files.get(META)?.toString('utf8') ?? '{}') as { files?: unknown }
+    if (meta.files && typeof meta.files === 'object') times = meta.files as Record<string, unknown>
+  } catch {
+    // Без времени файлов снимок всё равно ложится
+  }
+  // Сначала проверяем снимок целиком и только потом трогаем диск: содержимое облака — чужие данные.
+  // Хэш в имени говорит лишь о целости, а не о том, что снимок собрал PlayOS
+  const foreign = new Error(t('В снимке из облака есть файлы не из папок сохранений этой игры — сохранения на этом ПК не тронуты'))
+  const write: { name: string; abs: string; buf: Buffer }[] = []
+  const reg: Buffer[] = []
   for (const [name, buf] of files) {
     if (name === META) continue
     if (name.startsWith(REG)) {
-      const tmp = path.join(os.tmpdir(), `playos-reg-import-${process.pid}.reg`)
-      fs.writeFileSync(tmp, buf)
-      try {
-        await run('reg', ['import', tmp])
-      } finally {
-        fs.rmSync(tmp, { force: true })
-      }
+      if (!regFileAllowed(buf, set.registry)) throw foreign
+      reg.push(buf)
       continue
     }
-    const abs = fromPortable(name, set.ctx)
-    if (!abs) continue
+    const abs = safeName(name) ? fromPortable(name, set.ctx) : null
+    if (!abs || UNSAFE_EXT.test(abs) || !covers(set, abs)) throw foreign
+    write.push({ name, abs, buf })
+  }
+  await backupLocal(set, current)
+  for (const buf of reg) {
+    const tmp = path.join(os.tmpdir(), `playos-reg-import-${process.pid}.reg`)
+    fs.writeFileSync(tmp, buf)
+    try {
+      await run(REG_EXE, ['import', tmp])
+    } finally {
+      fs.rmSync(tmp, { force: true })
+    }
+  }
+  const keep = new Set<string>()
+  for (const { name, abs, buf } of write) {
     keep.add(name.toLowerCase())
     fs.mkdirSync(path.dirname(abs), { recursive: true })
     const tmp = abs + '.playos-tmp'
     fs.writeFileSync(tmp, buf)
     fs.renameSync(tmp, abs)
-    const t = meta.files[name]
-    if (t) fs.utimesSync(abs, new Date(t), new Date(t))
+    const at = times[name]
+    if (typeof at === 'number' && at > 0 && at < 8.64e15) fs.utimesSync(abs, new Date(at), new Date(at))
   }
   for (const f of current.files) if (!keep.has(f.name.toLowerCase())) fs.rmSync(f.abs, { force: true })
 }

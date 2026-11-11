@@ -70,6 +70,9 @@ const OAUTH: Record<'yandex' | 'google', OAuthApp> = {
   }
 }
 
+/** Сервер входа молчит дольше — считаем, что связи нет: иначе обновление токена навсегда остановило бы очередь синхронизации */
+const OAUTH_MS = 30_000
+
 const file = () => path.join(dataDir(), 'cloud.json')
 let state: CloudFile | null = null
 let pending: (CloudDeviceCode & { cancel: () => void }) | null = null
@@ -123,7 +126,8 @@ async function oauthToken(app: OAuthApp, params: Record<string, string>) {
     res = await httpFetch(app.tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ ...params, client_id: app.id, client_secret: app.secret }).toString()
+      body: new URLSearchParams({ ...params, client_id: app.id, client_secret: app.secret }).toString(),
+      signal: AbortSignal.timeout(OAUTH_MS)
     })
   } catch (e) {
     throw new OfflineError((e as Error).message)
@@ -217,19 +221,22 @@ export async function signInDevice(provider: 'yandex' | 'google', onChange: () =
     res = await httpFetch(app.codeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: app.id, ...app.codeParams() }).toString()
+      body: new URLSearchParams({ client_id: app.id, ...app.codeParams() }).toString(),
+      signal: AbortSignal.timeout(OAUTH_MS)
     })
   } catch (e) {
     throw new OfflineError((e as Error).message)
   }
-  const code = (await res.json()) as { device_code: string; user_code: string; verification_url: string; interval?: number; expires_in?: number }
-  if (!res.ok || !code.device_code) throw new Error('Облако не выдало код входа')
+  const code = (await res.json().catch(() => ({}))) as { device_code?: string; user_code?: string; verification_url?: string; interval?: number; expires_in?: number }
+  // Адрес показывается пользователю и открывается в браузере — только https
+  if (!res.ok || !code.device_code || typeof code.user_code !== 'string' || !/^https:\/\//i.test(code.verification_url ?? '')) throw new Error('Облако не выдало код входа')
+  const device = code.device_code
   let cancelled = false
-  let interval = Math.max(5, code.interval ?? 5)
+  let interval = Math.max(5, Number(code.interval) || 5)
   pending = {
-    url: code.verification_url,
+    url: code.verification_url!,
     code: code.user_code,
-    expiresAt: Date.now() + (code.expires_in ?? 300) * 1000,
+    expiresAt: Date.now() + Math.min(Number(code.expires_in) || 300, 1800) * 1000,
     cancel: () => (cancelled = true)
   }
   onChange()
@@ -239,7 +246,7 @@ export async function signInDevice(provider: 'yandex' | 'google', onChange: () =
       while (!cancelled && Date.now() < current.expiresAt) {
         await new Promise((r) => setTimeout(r, interval * 1000))
         if (cancelled) return
-        const { ok, body } = await oauthToken(app, { grant_type: app.grant, [app.codeParam]: code.device_code }).catch(() => ({
+        const { ok, body } = await oauthToken(app, { grant_type: app.grant, [app.codeParam]: device }).catch(() => ({
           ok: false,
           body: { error: 'authorization_pending' } as { error?: string; access_token?: string; refresh_token?: string; expires_in?: number }
         }))

@@ -126,7 +126,12 @@ function buildSpec(game: Game, settings: Settings): LaunchSpec | SpecError {
     const cwd = game.workDir || path.dirname(game.path)
     const args = parseCommand(game.args ?? '')
     if (ext === '.url' || ext === '.lnk') return { exe: game.path, args: [], cwd, viaShell: true }
-    if (ext === '.bat' || ext === '.cmd') return { exe: 'cmd.exe', args: ['/c', game.path, ...args], cwd }
+    if (ext === '.bat' || ext === '.cmd') {
+      // cmd.exe разбирает строку по-своему: «&», «|», «%» в параметре запустили бы вторую команду.
+      // Параметры запуска синхронизируются между ПК, то есть могут прийти из облака
+      if (args.some((a) => /[&|<>^%!"\r\n]/.test(a))) return { error: t('В параметрах запуска .bat-файла нельзя использовать символы & | < > ^ % !'), fix: 'game' }
+      return { exe: 'cmd.exe', args: ['/d', '/c', game.path, ...args], cwd }
+    }
     return { exe: game.path, args, cwd }
   }
 
