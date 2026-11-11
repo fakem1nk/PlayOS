@@ -1,0 +1,37 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Новый Тиви: короткие уши и ножки, уши шевелятся, ножки топают",
+      "Новый значок приложения",
+      "Новое интро: название проявляется дождём, а в конце в углу появляется Тиви",
+      "При выходе Тиви зевает и гаснет первым",
+      "Вторая сценка на экране установки обновления",
+      "История облачных сохранений: по одному за день и за неделю",
+      "Игра ждёт сохранения из облака, ожидание можно пропустить"
+    ],
+    "fixed": [
+      "Повреждённый файл библиотеки больше не оставляет PlayOS с пустой библиотекой",
+      "Правки одной игры на двух ПК больше не затирают друг друга",
+      "PlayOS дожидается синхронизации перед выходом и обновлением",
+      "Быстро скачанные торренты больше не раздаются бесконечно"
+    ]
+  },
+  "en": {
+    "new": [
+      "New Tivi: short ears and feet, the ears move and the feet stomp",
+      "New app icon",
+      "New intro: the name rains into place, and Tivi appears in the corner at the end",
+      "On exit Tivi yawns and goes dark first",
+      "A second scene on the update install screen",
+      "Cloud save history: one save per day and per week",
+      "Games wait for cloud saves at launch, and you can skip the wait"
+    ],
+    "fixed": [
+      "A damaged library file no longer leaves PlayOS with an empty library",
+      "Edits of one game on two PCs no longer overwrite each other",
+      "PlayOS finishes cloud sync before quitting and updating",
+      "Quickly downloaded torrents are no longer seeded forever"
+    ]
+  }
+}
