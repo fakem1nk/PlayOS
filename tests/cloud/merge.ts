@@ -39,7 +39,7 @@ app.whenReady().then(async () => {
       out.retained = kept.join(',')
       out.retainedOk = ['s0-0', 's0-1', 's0-2', 's1-0', 's2-0', 's6-0', 's20-0'].every((n) => kept.includes(n)) && !kept.includes('s0-3') && !kept.includes('s1-1') && !kept.includes('s40-0')
       // Большие снимки: дополнительные не выходят за бюджет
-      const big = [mk(0, 0, 600 * 2 ** 20), mk(1, 0, 600 * 2 ** 20), mk(2, 0, 600 * 2 ** 20), mk(3, 0, 600 * 2 ** 20)]
+      const big = [mk(0, 0, 150 * 2 ** 20), mk(1, 0, 150 * 2 ** 20), mk(2, 0, 150 * 2 ** 20), mk(3, 0, 150 * 2 ** 20)]
       out.budget = sync.retained(big, 1, now).size === 2
       // Откат: второй файл снимка не ложится (на его месте папка) — первый возвращается к прежнему содержимому
       const dir = path.join(process.env.APPDATA!, 'RollGame')
