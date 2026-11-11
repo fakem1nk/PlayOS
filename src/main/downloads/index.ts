@@ -614,6 +614,8 @@ function startSeed(job: DownloadJob) {
 
 function seedStatus(job: DownloadJob, s: TorrentStatus) {
   if (!job.seeding) return
+  // Раздача, скачанная быстрее первого отчёта клиента, осталась без размера — а без него рейтинг не считается и раздача не кончается
+  if (s.total && !job.size) job.size = s.total
   job.uploaded = s.up
   job.upSpeed = s.uprate || undefined
   if (reached(job)) return endSeed(job, true)

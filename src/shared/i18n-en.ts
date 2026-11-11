@@ -849,6 +849,13 @@ export const EN: Record<string, string> = {
     'The cloud marks {n} of {total} games as deleted. If you deleted them on another PC, press “Sync now” — otherwise the library on this PC stays as it is.',
   'Облако уже использует более новая версия PlayOS. Обновите PlayOS на этом ПК — до тех пор синхронизация здесь остановлена.':
     'The cloud is already used by a newer version of PlayOS. Update PlayOS on this PC — until then sync is paused here.',
+  'Библиотека восстановлена из копии': 'Library restored from a copy',
+  'Файл библиотеки был повреждён. Взята копия от {v} — проверьте недавние изменения.': 'The library file was damaged. A copy from {v} was used — check your recent changes.',
+  'Библиотека не прочиталась': 'The library couldn’t be read',
+  'Файл библиотеки повреждён, копии нет. Он сохранён в папке данных PlayOS — пришлите его с отчётом об ошибках.':
+    'The library file is damaged and there’s no copy. It was kept in the PlayOS data folder — send it along with an error report.',
+  'Синхронизация с облаком': 'Syncing with the cloud',
+  'PlayOS закроется, как только сохранения загрузятся.': 'PlayOS will close as soon as your saves are uploaded.',
   'В параметрах запуска .bat-файла нельзя использовать символы & | < > ^ % !': 'Launch options of a .bat file can’t contain the characters & | < > ^ % !',
   'Сохранения не найдены': 'No saves found',
   'Облако выключено': 'Cloud is off',

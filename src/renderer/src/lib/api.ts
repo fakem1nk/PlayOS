@@ -596,6 +596,9 @@ function createMockApi(): PcsApi {
     },
     cloudCancelSignIn: async () => setCloud({ pending: undefined }),
     cloudSignOut: async () => setCloud({ account: null, state: 'off', lastSync: undefined }),
+    // ?cloudbusy — перед выходом есть что дождаться (3 с)
+    cloudPending: async () => new URLSearchParams(location.search).has('cloudbusy'),
+    cloudFlush: () => new Promise<void>((r) => setTimeout(r, 3000)),
     cloudSyncNow: async () => {
       setCloud({ state: 'syncing' })
       await new Promise((r) => setTimeout(r, 1200))

@@ -24,7 +24,7 @@ import { apply, localState, pack, type LocalState } from './snapshot'
 
 export type Action = 'none' | 'synced' | 'upload' | 'download' | 'conflict'
 
-/** Чистая логика сравнения — её же проверяет скрипт в .claude/tools */
+/** Чистая логика сравнения — её же проверяют тесты в tests/cloud */
 export function decide(local: string | null, base: string | undefined, cloud: string | null): Action {
   if (!local && !cloud) return 'none'
   if (!cloud) return 'upload'
@@ -554,7 +554,34 @@ export function syncGame(game: Game) {
 /** После выхода из игры: процессы закрылись, но игра могла дописывать файлы — ждём пару секунд */
 export function afterExit(game: Game) {
   if (!enabled()) return
-  setTimeout(() => void syncGames([game]), 4000)
+  clearTimeout(exitTimers.get(game.id)?.timer)
+  exitTimers.set(game.id, {
+    game,
+    timer: setTimeout(() => {
+      exitTimers.delete(game.id)
+      void syncGames([game])
+    }, 4000)
+  })
+}
+
+/** Игры, которые только что закрыли: их сохранения ещё ждут отправки в облако */
+const exitTimers = new Map<string, { game: Game; timer: ReturnType<typeof setTimeout> }>()
+
+/** Идёт синхронизация или сохранения только что закрытой игры ещё не ушли в облако */
+export const pending = () => cloudOn() && (busy > 0 || exitTimers.size > 0)
+
+/**
+ * Перед выходом из PlayOS и выключением ПК: сохранения закрытых игр уходят сразу, без паузы, и ждём конца очереди
+ * (не дольше ms). Иначе загрузка откладывалась до следующего запуска, а на другом ПК за это время получался конфликт
+ */
+export async function flush(ms = 20_000) {
+  if (!cloudOn()) return
+  for (const [id, e] of exitTimers) {
+    clearTimeout(e.timer)
+    exitTimers.delete(id)
+    if (enabled()) void syncGames([e.game])
+  }
+  await Promise.race([queue, new Promise((r) => setTimeout(r, ms))])
 }
 
 export function resolve(game: Game, choice: 'local' | 'cloud') {

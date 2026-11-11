@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -67,21 +67,97 @@ let db: DB
 /** Сколько последних сессий хранить у игры: хватает на год календаря активности в профиле */
 export const MAX_SESSIONS = 600
 
-export function loadDb(): DB {
+/** Копия library.json с прошлого удачного запуска: из неё библиотека восстанавливается, если основной файл повреждён */
+const lastGoodFile = () => path.join(dataDir(), 'library.last-good.json')
+
+/**
+ * Ключи API на диске шифруются средствами Windows (safeStorage → DPAPI), как токены облака в cloud.json:
+ * в library.json остаётся только зашифрованный блок secrets, прочитать который может лишь этот пользователь Windows.
+ * В памяти они лежат в настройках, как раньше
+ */
+const SECRET_KEYS = ['steamKey', 'raKey', 'steamGridDbKey'] as const
+type FileDb = Partial<DB> & { secrets?: string }
+
+function readSecrets(sealed: string | undefined): Partial<Settings> {
+  if (!sealed) return {}
   try {
-    const raw = JSON.parse(fs.readFileSync(dbFile(), 'utf8')) as Partial<DB>
-    db = {
-      games: (raw.games ?? []).map((g) => ({ ...g, sessions: g.sessions ?? [], playtime: g.playtime ?? 0 })),
-      // Кто пользовался PlayOS до появления мастера первого запуска, его не увидит
-      settings: { ...defaultSettings(), onboarded: true, ...raw.settings },
-      activeSession: raw.activeSession,
-      deleted: raw.deleted,
-      settingsAt: raw.settingsAt
-    }
+    const raw = JSON.parse(safeStorage.decryptString(Buffer.from(sealed, 'base64'))) as Record<string, unknown>
+    return Object.fromEntries(SECRET_KEYS.filter((k) => typeof raw[k] === 'string').map((k) => [k, raw[k]]))
   } catch {
-    db = { games: [], settings: defaultSettings() }
+    // Файл принесли с другого ПК или из-под другого пользователя Windows — ключи придётся ввести заново
+    return {}
   }
-  return db
+}
+
+/** Содержимое library.json. plain — с ключами открытым текстом: для копии данных, которую переносят на другой ПК */
+export function dbJson(plain = false) {
+  const secrets = Object.fromEntries(SECRET_KEYS.filter((k) => db.settings[k]).map((k) => [k, db.settings[k]]))
+  if (plain || !Object.keys(secrets).length || !safeStorage.isEncryptionAvailable()) return JSON.stringify(db, null, 2)
+  const out: FileDb = { ...db, settings: { ...db.settings, ...Object.fromEntries(SECRET_KEYS.map((k) => [k, ''])) }, secrets: safeStorage.encryptString(JSON.stringify(secrets)).toString('base64') }
+  return JSON.stringify(out, null, 2)
+}
+
+function parseDb(text: string): DB {
+  const raw = JSON.parse(text) as FileDb | null
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || (raw.games !== undefined && !Array.isArray(raw.games))) throw new Error('не библиотека PlayOS')
+  return {
+    games: (raw.games ?? []).map((g) => ({ ...g, sessions: g.sessions ?? [], playtime: g.playtime ?? 0 })),
+    // Кто пользовался PlayOS до появления мастера первого запуска, его не увидит
+    settings: { ...defaultSettings(), onboarded: true, ...raw.settings, ...readSecrets(raw.secrets) },
+    activeSession: raw.activeSession,
+    deleted: raw.deleted,
+    settingsAt: raw.settingsAt
+  }
+}
+
+/** Что случилось с библиотекой при запуске: восстановлена из копии (at — её время) или начата заново; broken — куда отложен повреждённый файл */
+export interface LoadIssue {
+  restored: boolean
+  at?: number
+  broken: string
+}
+let issue: LoadIssue | null = null
+export const loadIssue = () => issue
+
+export function loadDb(): DB {
+  issue = null
+  let text: string | null = null
+  try {
+    text = fs.readFileSync(dbFile(), 'utf8')
+  } catch (e) {
+    // Файла нет — первый запуск. Есть, но не читается — разбираемся ниже, как с повреждённым
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') text = ''
+  }
+  if (text === null) {
+    db = { games: [], settings: defaultSettings() }
+    return db
+  }
+  try {
+    db = parseDb(text)
+    // Файл цел — он и становится копией на случай порчи (раз за запуск)
+    try {
+      fs.copyFileSync(dbFile(), lastGoodFile())
+    } catch {
+      // Без копии работаем как раньше
+    }
+    return db
+  } catch {
+    // Повреждённый файл не затираем пустой библиотекой: откладываем его и берём копию с прошлого запуска
+    const broken = path.join(dataDir(), `library.broken-${Date.now()}.json`)
+    try {
+      fs.copyFileSync(dbFile(), broken)
+    } catch {
+      // Не скопировался — восстановление всё равно пробуем
+    }
+    try {
+      db = parseDb(fs.readFileSync(lastGoodFile(), 'utf8'))
+      issue = { restored: true, at: fs.statSync(lastGoodFile()).mtimeMs, broken }
+    } catch {
+      db = { games: [], settings: defaultSettings() }
+      issue = { restored: false, broken }
+    }
+    return db
+  }
 }
 
 export const getDb = () => db
@@ -96,7 +172,7 @@ export function saveDbNow() {
   }
   fs.mkdirSync(dataDir(), { recursive: true })
   const tmp = dbFile() + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(db, null, 2), 'utf8')
+  fs.writeFileSync(tmp, dbJson(), 'utf8')
   fs.renameSync(tmp, dbFile())
 }
 

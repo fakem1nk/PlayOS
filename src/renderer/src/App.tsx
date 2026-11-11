@@ -271,6 +271,15 @@ export function App() {
     }
   }
 
+  /** Выход и выключение ждут, пока сохранения уйдут в облако: иначе на другом ПК они разошлись бы с этими */
+  const powerOff = async (action: PowerAction) => {
+    if (action !== 'sleep' && (await api.cloudPending().catch(() => false))) {
+      toast({ title: t('Синхронизация с облаком'), message: t('PlayOS закроется, как только сохранения загрузятся.'), history: false })
+      await api.cloudFlush().catch(() => undefined)
+    }
+    setOutro(action)
+  }
+
   /** ○ на экране запуска: игра не стартует, а если уже стартовала (или ещё стартует через Steam) — закрывается */
   const cancelLaunch = () => {
     if (!launching) return
@@ -664,7 +673,7 @@ export function App() {
             />
           )}
           {notices && <NoticeCenter key="notices" settings={state.settings} onClose={() => setNotices(false)} />}
-          {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={setOutro} />}
+          {power && <PowerMenu key="power" update={update.phase === 'ready' ? update.version : undefined} onClose={() => setPower(false)} onPower={(a) => void powerOff(a)} />}
         </AnimatePresence>
 
         <AnimatePresence>

@@ -165,7 +165,8 @@ const stamp = () => {
 }
 
 /** Создаёт копию данных; по умолчанию — на рабочем столе. Возвращает путь к файлу. */
-export function exportData(dataDir: string, gamesCount: number, out = path.join(app.getPath('desktop'), t('PlayOS-копия-{v}.playos', { v: stamp() }))) {
+/** library — содержимое library.json с ключами API открытым текстом: на диске они зашифрованы под этого пользователя Windows и на другом ПК не прочитались бы */
+export function exportData(dataDir: string, gamesCount: number, library?: string, out = path.join(app.getPath('desktop'), t('PlayOS-копия-{v}.playos', { v: stamp() }))) {
   const from = new RegExp(escapeRe(inJson(dataDir)), 'gi')
   const entries: { name: string; data: Buffer }[] = []
   entries.push({
@@ -175,7 +176,7 @@ export function exportData(dataDir: string, gamesCount: number, out = path.join(
   for (const f of JSON_FILES) {
     const file = path.join(dataDir, f)
     if (!fs.existsSync(file)) continue
-    const text = fs.readFileSync(file, 'utf8').replace(from, TOKEN)
+    const text = (f === 'library.json' && library ? library : fs.readFileSync(file, 'utf8')).replace(from, TOKEN)
     entries.push({ name: f, data: Buffer.from(text, 'utf8') })
   }
   // Аватар лежит в корне папки данных
@@ -209,7 +210,7 @@ export function inspectBackup(file: string) {
 export function importData(file: string, dataDir: string, currentGames: number) {
   const files = readZip(file)
   inspectBackup(file)
-  const safety = exportData(dataDir, currentGames, path.join(dataDir, 'backups', t('до-восстановления-{v}.playos', { v: stamp() })))
+  const safety = exportData(dataDir, currentGames, undefined, path.join(dataDir, 'backups', t('до-восстановления-{v}.playos', { v: stamp() })))
   fs.rmSync(path.join(dataDir, 'art'), { recursive: true, force: true })
   for (const f of fs.readdirSync(dataDir)) if (/^avatar-/.test(f)) fs.rmSync(path.join(dataDir, f), { force: true })
   // Источники магазина — как в копии; в старых копиях их нет, тогда текущие остаются

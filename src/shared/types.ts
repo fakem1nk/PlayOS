@@ -832,6 +832,10 @@ export interface PcsApi {
   cloudCancelSignIn(): Promise<void>
   cloudSignOut(): Promise<void>
   cloudSyncNow(): Promise<CloudStatus>
+  /** Идёт синхронизация или сохранения только что закрытой игры ещё не ушли в облако */
+  cloudPending(): Promise<boolean>
+  /** Дождаться конца синхронизации перед выходом (не дольше 20 с) */
+  cloudFlush(): Promise<void>
   gameCloud(gameId: string): Promise<GameCloudStatus>
   cloudResolve(gameId: string, choice: 'local' | 'cloud'): Promise<void>
   cloudVersions(gameId: string): Promise<SaveVersion[]>

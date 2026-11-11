@@ -2,7 +2,6 @@ import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut,
 import { exec } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pathToFileURL } from 'node:url'
@@ -12,12 +11,9 @@ import type {
   AppState,
   ImportProgress,
   SystemNotice,
-  SystemInfo,
   ControllerInfo,
   EmuActionResult,
   EmuState,
-  CloudProviderId,
-  CloudRestoreChoice,
   Game,
   GameDraft,
   OverlayEvent,
@@ -60,10 +56,12 @@ import { checkForUpdates, installUpdate, setBetaUpdates, startUpdater, updateSta
 import { endUpdateSplash, showUpdateSplash, updateFinished } from './splash'
 import { exportData, importData, inspectBackup } from './backup'
 import { gameFiles } from './files'
-import * as cloud from './cloud/account'
 import * as sync from './cloud/sync'
 import { isPortableSetting, libraryKey, stamp } from './cloud/library'
 import { savePreview } from './cloud/locate'
+import { registerCloud } from './cloud/wiring'
+import { importRpcs3, scanPs2Folder } from './scan'
+import { systemInfo } from './sysinfo'
 import { pruneThumbs, thumbFile } from './thumbs'
 import { getLang, setLang, t } from '@shared/i18n'
 import { dsxStatus, flashLightbar, holdLightbar, pulseLightbar, startDsx } from './dsx'
@@ -76,7 +74,7 @@ import * as uninstall from './uninstall'
 import * as vr from './vr'
 import { enablePineInIni, listSlots, pcsx2Config, slotTime, type Pcsx2Config } from './pcsx2'
 import { pineGameId, pineLoad, pineSave, pineStatus } from './pine'
-import { artDir, dataDir, findGame, getDb, loadDb, saveDb, saveDbNow, setDevice } from './store'
+import { artDir, dataDir, dbJson, findGame, getDb, loadDb, loadIssue, saveDb, saveDbNow } from './store'
 import { setAudioDevice, setBrightness, setMute, setVolume, stopHelper, systemState } from './system'
 import {
   forceForeground,
@@ -269,7 +267,9 @@ function hideToTray() {
 }
 
 /** «Выйти» в меню значка — сразу, без аутро: окно в это время обычно спрятано */
-function quitFromTray() {
+async function quitFromTray() {
+  // Сохранения только что закрытой игры успевают уйти в облако
+  await sync.flush(15_000).catch(() => undefined)
   allowQuit = true
   app.quit()
 }
@@ -534,28 +534,6 @@ function resumeFromHome() {
 function overlayAllowed() {
   const run = launcher.running()
   return getDb().settings.overlayEnabled !== false && (!run || findGame(run.gameId)?.overlay !== false)
-}
-
-/**
- * Игры из облака приходят без файлов: ищем, где они установлены на этом ПК.
- * Steam — по AppID в библиотеках Steam, PS3 — по ID игры в dev_hdd0 RPCS3. Остальным путь укажет пользователь.
- */
-async function locateCloudGames(games: Game[]) {
-  const steamGames = games.filter((g) => g.launcher === 'steam' && g.steamAppId)
-  if (steamGames.length) {
-    const installed = await scanSteam(getDb().games).catch(() => [])
-    for (const g of steamGames) {
-      const hit = installed.find((s) => s.appId === g.steamAppId)
-      if (hit) g.path = hit.dir
-    }
-  }
-  const { rpcs3Path } = getDb().settings
-  if (rpcs3Path) {
-    for (const g of games.filter((x) => x.platform === 'ps3' && x.serial)) {
-      const eboot = path.join(path.dirname(rpcs3Path), 'dev_hdd0', 'game', g.serial!, 'USRDIR', 'EBOOT.BIN')
-      if (fs.existsSync(eboot)) g.path = eboot
-    }
-  }
 }
 
 let adoptedAt = 0
@@ -1219,71 +1197,6 @@ function cleanupArt(game: Game) {
       log('WARN', `Не удалось удалить старый арт ${p}: ${(err as Error).message}`)
     }
   }
-}
-
-const knownPaths = () => new Set(getDb().games.map((g) => g.path.toLowerCase()))
-
-function walk(dir: string, exts: string[], depth = 3, out: string[] = []) {
-  let entries: fs.Dirent[] = []
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return out
-  }
-  for (const e of entries) {
-    const p = path.join(dir, e.name)
-    if (e.isDirectory() && depth > 0) walk(p, exts, depth - 1, out)
-    else if (e.isFile() && exts.includes(path.extname(e.name).toLowerCase())) out.push(p)
-  }
-  return out
-}
-
-async function scanPs2Folder() {
-  const res = await dialog.showOpenDialog(win!, { title: t('Папка с играми PS2'), properties: ['openDirectory'] })
-  if (res.canceled || !res.filePaths[0]) return 0
-  const known = knownPaths()
-  const files = walk(res.filePaths[0], media.PS2_EXTENSIONS).filter((f) => !known.has(f.toLowerCase()))
-  toast(t('Сканирование'), t('Найдено новых образов: {length}', { length: files.length }), false)
-  let added = 0
-  // Небольшими пачками, чтобы не забивать сеть при загрузке обложек
-  for (let i = 0; i < files.length; i += 4) {
-    await Promise.all(
-      files.slice(i, i + 4).map(async (file) => {
-        const info = await media.inspectPs2(file, getDb().settings.pcsx2Path)
-        await saveGame({ title: info.title ?? media.cleanTitle(file), platform: 'ps2', path: file, serial: info.serial, cover: info.cover })
-        added++
-      })
-    )
-  }
-  return added
-}
-
-async function importRpcs3() {
-  const { rpcs3Path } = getDb().settings
-  if (!rpcs3Path || !fs.existsSync(rpcs3Path)) throw new Error(t('Сначала укажите путь к rpcs3.exe в настройках'))
-  const root = path.dirname(rpcs3Path)
-  const targets = new Set<string>()
-  for (const yml of [path.join(root, 'config', 'games.yml'), path.join(root, 'games.yml')]) {
-    if (!fs.existsSync(yml)) continue
-    for (const m of fs.readFileSync(yml, 'utf8').matchAll(/^[A-Z]{4}\d{5}:\s*"?(.+?)"?\s*$/gm)) targets.add(m[1])
-  }
-  const hdd = path.join(root, 'dev_hdd0', 'game')
-  if (fs.existsSync(hdd)) {
-    for (const d of fs.readdirSync(hdd)) {
-      const sfo = path.join(hdd, d, 'PARAM.SFO')
-      if (fs.existsSync(sfo) && media.readSfo(sfo).CATEGORY === 'HG') targets.add(path.join(hdd, d))
-    }
-  }
-  const known = knownPaths()
-  let added = 0
-  for (const t of targets) {
-    if (!fs.existsSync(t)) continue
-    const info = await media.inspectPs3(t)
-    if (!info.path || !fs.existsSync(info.path) || known.has(info.path.toLowerCase())) continue
-    await saveGame({ title: info.title ?? t, platform: 'ps3', path: info.path, serial: info.serial, cover: info.cover, hero: info.hero })
-    added++
-  }
-  return added
 }
 
 const pickFilters = (): Record<PickKind, Electron.OpenDialogOptions> => ({
@@ -2039,6 +1952,7 @@ function registerIpc() {
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:install', async (_e, splash?: UpdateSplash) => {
     if (updateState().phase !== 'ready') return false
+    await sync.flush(15_000).catch(() => undefined)
     // Пока установщик работает молча, экран держит заставка — иначе PlayOS будто просто выключился
     if (splash && alive(win))
       await showUpdateSplash(win, splash, updateState().version).catch((e) => log('WARN', '[обновления] без заставки:', (e as Error)?.message ?? e))
@@ -2046,13 +1960,13 @@ function registerIpc() {
     allowQuit = true
     return installUpdate()
   })
-  ipcMain.handle('sys:info', () => systemInfo())
+  ipcMain.handle('sys:info', () => systemInfo(win, controllers()))
   ipcMain.handle('fs:exists', (_e, p: string) => !!p && fs.existsSync(p))
   ipcMain.handle('log:report', () => saveReport(getDb().settings as unknown as Record<string, unknown>, getDb().games.length))
   // Перенос на другой компьютер: копия данных одним файлом и восстановление из неё
   ipcMain.handle('data:export', () => {
     saveDbNow()
-    const file = exportData(dataDir(), getDb().games.length)
+    const file = exportData(dataDir(), getDb().games.length, dbJson(true))
     log('INFO', 'Копия данных сохранена:', file)
     return file
   })
@@ -2138,92 +2052,14 @@ function registerIpc() {
     const [disc, found] = await Promise.all([media.discCandidate(platform, serial), search])
     return disc ? [disc, ...found] : found
   })
-  ipcMain.handle('scan:ps2', () => scanPs2Folder())
+  ipcMain.handle('scan:ps2', () => scanPs2Folder({ win: win!, toast, saveGame }))
   // VR
   ipcMain.handle('vr:status', () => vr.vrStatus())
   ipcMain.handle('vr:quest', () => vr.questLive())
   ipcMain.handle('vr:installOc', (e) => vr.installOc((p) => e.sender.send('vr-progress', p)))
   ipcMain.handle('vr:checkOc', () => vr.checkOcUpdate())
-  ipcMain.handle('scan:rpcs3', () => importRpcs3())
-  // ── Облако ──
-  const cloudChanged = () => send('cloud-status', sync.status())
-  ipcMain.handle('cloud:status', () => sync.status())
-  ipcMain.handle('cloud:signIn', async (_e, provider: CloudProviderId, folder?: string) => {
-    const before = cloud.cachedAccount()
-    if (provider === 'folder' && folder) await cloud.signInFolder(folder)
-    else if (provider !== 'folder') await cloud.signInDevice(provider, () => {
-      const now = cloud.cachedAccount()
-      // «Войти снова» в другой аккаунт: базы и головы прошлого к нему не относятся
-      if (before && now && (now.provider !== before.provider || now.name !== before.name)) sync.forget()
-      cloudChanged()
-      if (cloud.remote()) sync.kick()
-    })
-    if (provider === 'folder') sync.kick()
-    cloudChanged()
-    return sync.status()
-  })
-  ipcMain.handle('cloud:cancelSignIn', () => {
-    cloud.cancelSignIn()
-    cloudChanged()
-  })
-  ipcMain.handle('cloud:restoreChoice', (_e, choice: CloudRestoreChoice | null) => sync.restoreChoice(choice))
-  ipcMain.handle('cloud:signOut', () => {
-    cloud.signOut()
-    sync.forget()
-    cloudChanged()
-  })
-  ipcMain.handle('cloud:syncNow', async () => {
-    await sync.syncNow()
-    await cloud.refreshAccount().catch(() => null)
-    cloudChanged()
-    return sync.status()
-  })
-  ipcMain.handle('cloud:game', (_e, id: string) => {
-    const game = findGame(id)
-    return game ? sync.gameStatus(game) : { state: 'off' }
-  })
-  ipcMain.handle('cloud:resolve', async (_e, id: string, choice: 'local' | 'cloud') => {
-    const game = findGame(id)
-    if (game) await sync.resolve(game, choice)
-  })
-  ipcMain.handle('cloud:versions', (_e, id: string) => {
-    const game = findGame(id)
-    return game ? sync.versions(game) : []
-  })
-  ipcMain.handle('cloud:restore', async (_e, id: string, name: string) => {
-    const game = findGame(id)
-    if (game) await sync.restoreVersion(game, name)
-  })
-  sync.initSync({
-    games: () => getDb().games,
-    settings: () => getDb().settings,
-    runningGame: () => {
-      const run = launcher.running()
-      return run ? findGame(run.gameId) : undefined
-    },
-    onChange: cloudChanged,
-    hooks: {
-      // Настройки из облака: те же побочные эффекты, что и при смене в интерфейсе (язык, тема, экран)
-      applySettings: (patch) => {
-        const db = getDb()
-        const prev = db.settings
-        db.settings = { ...prev, ...patch }
-        applySettings(prev, db.settings)
-      },
-      changed: broadcast,
-      locate: locateCloudGames,
-      fillArt: fillCloudArt
-    },
-    setCloudSettings: (patch, resetSettingsAt) => {
-      const db = getDb()
-      db.settings = { ...db.settings, cloud: { saves: true, keepVersions: 5, ...db.settings.cloud, ...patch } }
-      // «Профиль» при восстановлении — облако главнее настроек свежей установки
-      if (resetSettingsAt) db.settingsAt = 0
-      saveDb()
-      broadcast()
-    }
-  })
-  setDevice(cloud.deviceId().replace(/-/g, '').slice(0, 8))
+  ipcMain.handle('scan:rpcs3', () => importRpcs3({ saveGame }))
+  registerCloud({ send, broadcast, applySettings, fillArt: fillCloudArt })
 
   ipcMain.handle('game:save-preview', (_e, draft: GameDraft) => {
     try {
@@ -2260,106 +2096,6 @@ function registerIpc() {
     }[action]
     exec(cmd)
   })
-}
-
-/** Сколько занимает папка данных: арт, видео живого фона и всё вместе */
-function dataUsage() {
-  let art = 0
-  let video = 0
-  let total = 0
-  const walk = (dir: string, inArt: boolean) => {
-    let entries: fs.Dirent[] = []
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const e of entries) {
-      const p = path.join(dir, e.name)
-      if (e.isDirectory()) walk(p, inArt || (dir === dataDir() && e.name === 'art'))
-      else {
-        let size = 0
-        try {
-          size = fs.statSync(p).size
-        } catch {
-          continue
-        }
-        total += size
-        if (inArt && /\.(mp4|webm)$/i.test(e.name)) video += size
-        else if (inArt) art += size
-      }
-    }
-  }
-  walk(dataDir(), false)
-  return { art, video, total }
-}
-
-/** Сведения для окна «О системе» */
-/** Диски C:–Z: с объёмом и свободным местом. Сетевой или уснувший диск, который не ответил за 1,5 с, пропускаем */
-async function disks(): Promise<SystemInfo['disks']> {
-  const letters = Array.from({ length: 24 }, (_, i) => `${String.fromCharCode(67 + i)}:`)
-  const found = await Promise.all(
-    letters.map((name) =>
-      Promise.race([
-        fs.promises
-          .statfs(`${name}\\`)
-          .then((s) => ({ name, total: s.blocks * s.bsize, free: s.bavail * s.bsize }))
-          .catch(() => null),
-        new Promise<null>((r) => setTimeout(() => r(null), 1500))
-      ])
-    )
-  )
-  return found.filter((d): d is SystemInfo['disks'][number] => !!d && d.total > 0)
-}
-
-async function systemInfo(): Promise<SystemInfo> {
-  let gpu = t('Не удалось определить')
-  try {
-    const info = (await app.getGPUInfo('complete')) as { auxAttributes?: { glRenderer?: string } }
-    // «ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)» → «NVIDIA GeForce RTX 3070»
-    const raw = info.auxAttributes?.glRenderer ?? ''
-    const m = /ANGLE \([^,]+,\s*(.+?)(?:\s+Direct3D|\s*\(0x|,)/.exec(raw)
-    gpu = (m?.[1] ?? raw) || gpu
-  } catch {
-    /* оставим «не удалось» */
-  }
-  const cpus = os.cpus()
-  const primary = screen.getPrimaryDisplay().id
-  const here = win ? screen.getDisplayMatching(win.getBounds()).id : primary
-  const db = getDb()
-  const usage = dataUsage()
-  const name = os.version().replace(/^Microsoft\s+/, '')
-  return {
-    app: {
-      version: app.getVersion(),
-      electron: process.versions.electron,
-      chrome: process.versions.chrome,
-      installDir: path.dirname(process.execPath),
-      dataDir: dataDir(),
-      packaged: app.isPackaged
-    },
-    os: { name, build: os.release(), uptimeMin: Math.floor(os.uptime() / 60) },
-    cpu: { model: cpus[0]?.model.trim() ?? '—', threads: cpus.length },
-    gpu,
-    memory: { total: os.totalmem(), free: os.freemem() },
-    disks: await disks(),
-    displays: screen.getAllDisplays().map((d, i) => ({
-      name: d.label || t('Экран {v}', { v: i + 1 }),
-      width: Math.round(d.size.width * d.scaleFactor),
-      height: Math.round(d.size.height * d.scaleFactor),
-      hz: Math.round(d.displayFrequency),
-      primary: d.id === primary,
-      current: d.id === here
-    })),
-    pads: controllers().map((c) => ({ name: c.name, kind: c.kind, via: c.via, percent: c.percent, battery: c.battery })),
-    library: {
-      games: db.games.length,
-      hours: Math.round(db.games.reduce((a, g) => a + g.playtime, 0) / 360) / 10,
-      artBytes: usage.art,
-      videoBytes: usage.video,
-      totalBytes: usage.total
-    }
-  }
 }
 
 /** Ярлык в меню «Пуск» с AppUserModelId — без него Windows не подписывает уведомления именем PlayOS */
@@ -2552,6 +2288,20 @@ app.whenReady().then(() => {
   win?.on('unmaximize', sendWindowMode)
   // Прошлый запуск упал — подсказываем, где взять отчёт (после интро, один раз).
   // Из исходников не подсказываем: electron-vite перезапускает приложение, просто завершая процесс
+  // library.json не прочитался: говорим, что библиотека взята из копии (или начата заново) и где лежит повреждённый файл
+  const lost = loadIssue()
+  if (lost) {
+    log('WARN', `library.json повреждён, отложен как ${lost.broken}; ${lost.restored ? 'библиотека восстановлена из копии' : 'копии нет — библиотека пустая'}`)
+    win?.webContents.once('did-finish-load', () =>
+      setTimeout(
+        () =>
+          lost.restored
+            ? toast(t('Библиотека восстановлена из копии'), t('Файл библиотеки был повреждён. Взята копия от {v} — проверьте недавние изменения.', { v: new Date(lost.at ?? 0).toLocaleString(getDb().settings.language === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) }))
+            : toast(t('Библиотека не прочиталась'), t('Файл библиотеки повреждён, копии нет. Он сохранён в папке данных PlayOS — пришлите его с отчётом об ошибках.')),
+        7000
+      )
+    )
+  }
   if (lastRunCrashed() && app.isPackaged) {
     win?.webContents.once('did-finish-load', () =>
       setTimeout(() => toast(t('PlayOS в прошлый раз закрылся с ошибкой'), t('Если это повторяется, сохраните отчёт: Настройки → Система → «Сохранить отчёт об ошибках».')), 6000)
