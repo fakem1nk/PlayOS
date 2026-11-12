@@ -1,0 +1,33 @@
+{
+  "importance": "normal",
+  "ru": {
+    "new": [
+      "Праздничное оформление: Новый год, Хэллоуин и 14 февраля — с украшениями и своими звуками",
+      "Тиви живёт по сезонам и наряжается к праздникам",
+      "Новые занятия Тиви: камин на экране, аквариум, змейка, танец и другие",
+      "7 новых фигурок Тиви, у каждой свой вид и своя сценка",
+      "Новые звуки интерфейса и фоновая музыка — мягче",
+      "Тиви в конце интро собирается из символов названия"
+    ],
+    "fixed": [
+      "Главный экран больше не мелькает перед интро",
+      "Звук интро больше не расходится с картинкой",
+      "Убран щелчок в начале некоторых звуков"
+    ]
+  },
+  "en": {
+    "new": [
+      "Holiday decorations: New Year, Halloween and Valentine's Day, each with its own sounds",
+      "Tivi follows the seasons and dresses up for holidays",
+      "New things Tivi does: a fireplace on his screen, an aquarium, snake, a dance and more",
+      "7 new Tivi figures, each with its own look and scene",
+      "New, softer interface sounds and background music",
+      "At the end of the intro Tivi is built from the symbols of the name"
+    ],
+    "fixed": [
+      "The home screen no longer flashes before the intro",
+      "The intro sound no longer drifts away from the picture",
+      "Removed a click at the start of some sounds"
+    ]
+  }
+}
