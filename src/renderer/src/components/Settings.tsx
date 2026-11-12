@@ -19,6 +19,7 @@ import { ConfirmDialog } from './Menus'
 import { installNow } from './UpdateNotice'
 import { gamesCount } from '../lib/format'
 import { THEMES, themeName } from '../lib/theme'
+import { FESTIVE, festiveName } from '../lib/festive'
 import { IconDisc, IconDownload, IconFolder, IconGamepad, IconGrid, IconImage, IconInfo, IconMonitor, IconTrophy, IconVolume } from './Icons'
 import { getLang, locale, t } from '@shared/i18n'
 
@@ -429,6 +430,13 @@ export function Settings({ state, active, onExitTop, initialSection, onSteamImpo
                 value={s.theme ?? 'dark'}
                 options={THEMES.map((id) => ({ id, label: themeName(id) }))}
                 onChange={(v) => save({ theme: v })}
+              />
+              <Cycler
+                label={t('Праздничное оформление')}
+                hint={t('Снег и гирлянда под Новый год, летучие мыши на Хэллоуин, сердечки 14 февраля — и Тиви празднует вместе с вами')}
+                value={s.festive ?? 'auto'}
+                options={FESTIVE.map((id) => ({ id, label: festiveName(id) }))}
+                onChange={(v) => save({ festive: v })}
               />
               <Toggle
                 label={t('Цвет интерфейса под игру')}

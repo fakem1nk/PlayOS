@@ -869,6 +869,12 @@
   margin-bottom: 3rem;
 }
 
+/* Свет от ушей на подставке — только у открытых; закрытая стоит в темноте */
+.tfig.is-locked .tfig-haze,
+.tfig.is-locked .tfig-sparks {
+  display: none;
+}
+
 .fig-label {
   max-width: 100%;
   font-size: 1.25rem;
@@ -885,11 +891,30 @@
 
 /* Фигурка крупно */
 .figd.dialog {
+  --tier: #cfd6e4;
   width: 84rem;
   display: grid;
   grid-template-columns: 34rem minmax(0, 1fr);
   gap: 3.6rem;
   align-items: center;
+  overflow: hidden;
+}
+
+.figd-tier2 {
+  --tier: #7fc4ff;
+}
+
+.figd-tier3 {
+  --tier: #b79bff;
+}
+
+.figd-tier4 {
+  --tier: #ffd35c;
+}
+
+.figd-tier {
+  font-weight: 600;
+  color: var(--tier);
 }
 
 .figd-stage {
@@ -898,10 +923,32 @@
   place-items: center;
 }
 
+/* Свет сверху, как над витриной: включается первым */
 .figd-light {
   position: absolute;
   inset: -4rem -2rem 0;
-  background: radial-gradient(45% 55% at 50% 10%, rgba(255, 255, 255, 0.12), transparent 70%);
+  background: radial-gradient(45% 55% at 50% 10%, color-mix(in srgb, var(--tier) 22%, transparent), transparent 70%);
+  animation: figd-light 500ms ease-out both;
+}
+
+/* Лучи за редкой фигуркой: медленно поворачиваются; у обычной их нет */
+.figd-rays {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 46rem;
+  height: 46rem;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier) 16%, transparent) 0deg 7deg, transparent 7deg 22deg);
+  mask-image: radial-gradient(closest-side, #000 10%, transparent 72%);
+  opacity: 0;
+}
+
+.figd.is-earned:not(.figd-tier1) .figd-rays {
+  animation:
+    figd-rays-in 900ms 500ms ease-out both,
+    figd-spin 40s linear infinite;
 }
 
 .figd-art {
@@ -911,8 +958,449 @@
   filter: drop-shadow(0 2rem 2.4rem rgba(0, 0, 0, 0.5));
 }
 
+/* Фигурка падает на подставку и пружинит; подставка уже стоит */
+.figd.is-earned .tfig-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: figd-drop 760ms 120ms cubic-bezier(0.3, 0, 0.3, 1) both;
+}
+
+/* Картинка на экране загорается строка за строкой — ступенями, как у Тиви */
+.figd.is-earned .tfig-dots {
+  animation: figd-scan 480ms 820ms steps(8, end) both;
+}
+
+/* Уши наливаются снизу вверх */
+.figd.is-earned .tfig-liquid {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: figd-fill 520ms 1050ms steps(6, end) both;
+}
+
+.figd.is-earned .tfig-haze {
+  animation: figd-light 600ms 1100ms ease-out both;
+}
+
+/* Блик пробегает по корпусу — сразу после появления и потом раз в несколько секунд */
+.figd.is-earned .tfig-sweep {
+  animation: figd-sweep 5200ms 1500ms ease-in-out infinite;
+}
+
+.figd.is-earned .tfig-sparks path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: figd-twinkle 2400ms 1400ms ease-in-out infinite both;
+}
+
+.figd.is-earned .tfig-sparks path:nth-child(2n) {
+  animation-delay: 2100ms;
+}
+
+/* Искры цвета редкости разлетаются в момент приземления */
+.figd-burst {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 0;
+  height: 0;
+}
+
+.figd-burst i {
+  position: absolute;
+  left: -0.45rem;
+  top: -0.45rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  background: var(--tier);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: figd-burst 900ms calc(560ms + var(--d)) cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* Закрытая: силуэт покачивается, как запертая дверца */
+.figd.is-locked .tfig-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: figd-locked 2800ms 400ms ease-in-out infinite;
+}
+
 .figd .dialog-actions {
   justify-content: flex-start;
+}
+
+.figd-progress {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin: 0.4rem 0 2.2rem;
+  font-size: 1.4rem;
+  color: var(--mist);
+}
+
+.figd-bar {
+  flex: 1;
+  max-width: 24rem;
+  height: 0.6rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.figd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 1rem;
+  background: var(--tier);
+}
+
+@keyframes figd-light {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes figd-rays-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes figd-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes figd-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-62%) rotate(-7deg) scale(0.86);
+  }
+  18% {
+    opacity: 1;
+  }
+  52% {
+    transform: translateY(0) rotate(0deg) scale(1.06, 0.9);
+  }
+  68% {
+    transform: translateY(-5%) scale(0.97, 1.04);
+  }
+  84% {
+    transform: translateY(0) scale(1.02, 0.98);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes figd-scan {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes figd-fill {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes figd-sweep {
+  0% {
+    opacity: 1;
+    transform: skewX(-18deg) translateX(0);
+  }
+  22%,
+  100% {
+    opacity: 1;
+    transform: skewX(-18deg) translateX(430px);
+  }
+}
+
+@keyframes figd-twinkle {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.35) rotate(45deg);
+    opacity: 0.4;
+  }
+}
+
+@keyframes figd-burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.2) rotate(0deg);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--x), var(--y)) scale(var(--s)) rotate(160deg);
+  }
+}
+
+@keyframes figd-locked {
+  0%,
+  78%,
+  100% {
+    transform: none;
+  }
+  82% {
+    transform: rotate(-2.2deg);
+  }
+  86% {
+    transform: rotate(2.2deg);
+  }
+  90% {
+    transform: rotate(-1.4deg);
+  }
+  94% {
+    transform: rotate(0.8deg);
+  }
+}
+
+/* ───── Своя сценка каждой фигурки: реквизит двигается только в окне фигурки (.is-live), ступенями ───── */
+.tfig.is-live [class*='tfa-'] {
+  transform-box: fill-box;
+  transform-origin: var(--o, 50% 50%);
+}
+
+.tfig.is-live .tfa-sway {
+  animation: tfa-sway var(--ms, 1000ms) steps(4, jump-none) var(--del, 0ms) infinite alternate;
+}
+
+.tfig.is-live .tfa-flag {
+  animation: tfa-flag var(--ms, 400ms) steps(3, jump-none) var(--del, 0ms) infinite alternate;
+}
+
+.tfig.is-live .tfa-bob {
+  animation: tfa-bob var(--ms, 1400ms) steps(5, jump-none) var(--del, 0ms) infinite alternate;
+}
+
+.tfig.is-live .tfa-float {
+  --y: -12px;
+  animation: tfa-bob 1800ms 1300ms steps(6, jump-none) infinite alternate;
+}
+
+.tfig.is-live .tfa-run {
+  animation: tfa-run 320ms step-end infinite;
+}
+
+.tfig.is-live .tfa-kick {
+  animation: tfa-kick 320ms step-end var(--del, 0ms) infinite;
+}
+
+.tfig.is-live .tfa-blink {
+  animation: tfa-blink var(--ms, 1000ms) step-end var(--del, 0ms) infinite;
+}
+
+.tfig.is-live .tfa-pulse {
+  animation: tfa-pulse 900ms ease-in-out infinite alternate;
+}
+
+.tfig.is-live .tfa-dash {
+  animation: tfa-dash var(--ms, 420ms) linear infinite;
+}
+
+.tfig.is-live .tfa-scan {
+  animation: tfa-scan 2600ms steps(13) infinite;
+}
+
+.tfig.is-live .tfa-spin {
+  animation: tfa-spin 3200ms steps(8) infinite;
+}
+
+.tfig.is-live .tfa-drain,
+.tfig.is-live .tfa-pile {
+  transform-origin: 50% 100%;
+  animation: tfa-drain 3600ms steps(9) infinite;
+}
+
+.tfig.is-live .tfa-pile {
+  animation-direction: reverse;
+}
+
+.tfig.is-live .tfa-rise {
+  animation: tfa-rise 1800ms steps(9) var(--del, 0ms) infinite;
+}
+
+.tfig.is-live .tfa-fall {
+  animation: tfa-fall 3100ms steps(16) var(--del, 0ms) infinite;
+}
+
+.tfig.is-live .tfa-pop {
+  animation: tfa-pop 2100ms steps(14) var(--del, 0ms) infinite;
+}
+
+.tfig.is-live .tfa-slide {
+  animation: tfa-slide 2640ms step-end infinite;
+}
+
+.tfig.is-live .tfa-shine {
+  animation: tfa-shine 1800ms step-end var(--del, 0ms) infinite;
+}
+
+@keyframes tfa-sway {
+  from {
+    transform: rotate(calc(var(--a, 4deg) * -1));
+  }
+  to {
+    transform: rotate(var(--a, 4deg));
+  }
+}
+
+@keyframes tfa-flag {
+  from {
+    transform: skewY(calc(var(--a, 6deg) * -1));
+  }
+  to {
+    transform: skewY(var(--a, 6deg));
+  }
+}
+
+@keyframes tfa-bob {
+  to {
+    transform: translateY(var(--y, -5px));
+  }
+}
+
+@keyframes tfa-run {
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes tfa-kick {
+  50% {
+    transform: translate(-8px, -14px);
+  }
+}
+
+@keyframes tfa-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes tfa-pulse {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 0.8;
+  }
+}
+
+@keyframes tfa-dash {
+  to {
+    stroke-dashoffset: var(--len, 24px);
+  }
+}
+
+@keyframes tfa-scan {
+  to {
+    transform: translateY(130px);
+  }
+}
+
+@keyframes tfa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tfa-drain {
+  to {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes tfa-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--y, -70px));
+  }
+}
+
+@keyframes tfa-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  8%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--x, 0px), var(--y, 150px)) rotate(320deg);
+  }
+}
+
+@keyframes tfa-pop {
+  0% {
+    opacity: 0;
+    transform: translate(var(--x), var(--y)) scale(0.3);
+  }
+  10% {
+    opacity: 1;
+  }
+  42%,
+  82% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@keyframes tfa-slide {
+  16%,
+  32% {
+    transform: translateX(12px);
+  }
+  0%,
+  48% {
+    transform: none;
+  }
+}
+
+@keyframes tfa-shine {
+  0%,
+  12% {
+    filter: brightness(1.7);
+  }
+  13%,
+  100% {
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tfig [class*='tfa-'] {
+    animation: none !important;
+  }
+
+  .figd *,
+  .figd-burst i {
+    animation: none !important;
+  }
 }
 
 .shelf-empty {

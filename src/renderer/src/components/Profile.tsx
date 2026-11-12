@@ -171,7 +171,7 @@ export function Profile({ state, active, onExitTop, onLaunch }: Props) {
   const confirmDone = async (mood: GameMood, full: boolean, from: DOMRect | null) => {
     const game = byId(completing)
     if (!game) return
-    const figures = newFigures(shelfGames, full)
+    const figures = newFigures(shelfGames, game, full)
     const next = list[0]?.id === game.id ? list[1]?.id : undefined
     if (!from) {
       await shelf.complete(game, mood, full)

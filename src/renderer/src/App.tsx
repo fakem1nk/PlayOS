@@ -18,6 +18,8 @@ import { UpdateInstall } from './components/UpdateInstall'
 import { UpdateNotice } from './components/UpdateNotice'
 import { Tivi } from './components/Tivi'
 import { TiviCameo } from './components/TiviCameo'
+import { SeasonDecor } from './components/SeasonDecor'
+import { holidayOf, setFestive } from './lib/festive'
 import { TABS, TopBar, type Tab } from './components/TopBar'
 import { WindowFrame } from './components/WindowFrame'
 import { api } from './lib/api'
@@ -26,7 +28,7 @@ import { useDownloadNotices, useDownloads } from './lib/downloads'
 import { setPadMaps, setUnknownPadHandler, useInputLayer } from './lib/input'
 import { pressFx } from './lib/nav'
 import { setNoticeOpener, toast, useAppState } from './lib/state'
-import { holdMusic, play, setMusic, setMusicVolume } from './lib/sound'
+import { holdMusic, play, setMusic, setMusicVolume, setSoundHoliday } from './lib/sound'
 import { useTrophyWatcher } from './lib/trophies'
 import { setInstalling, useFinished, useInstalling, useUpdate } from './lib/update'
 import { storeGame } from './lib/shop'
@@ -135,7 +137,7 @@ export function App() {
   const [arriving, setArriving] = useState(false)
   useEffect(() => {
     if (!arriving) return
-    const timer = setTimeout(() => setArriving(false), 2800)
+    const timer = setTimeout(() => setArriving(false), 3900)
     return () => clearTimeout(timer)
   }, [arriving])
   // Демо: ?outro=quit|shutdown сразу показывает аутро
@@ -374,7 +376,12 @@ export function App() {
     setTabFocus(TABS.findIndex((t) => t.id === tab))
   }
 
-  if (!state) return <div className="app" />
+  // Пока нет состояния, а потом пока грузится кусок с интро, экран закрыт чёрным — главный экран не мелькает
+  if (!state) return <div className="app">{booting && <div className="intro-hold" />}</div>
+  // Праздник для оформления и для Тиви — из одной настройки
+  setFestive(state.settings.festive)
+  const holiday = holidayOf(state.settings.festive)
+  setSoundHoliday(holiday)
 
   const launchingGame = launching ? games.find((g) => g.id === launching) : undefined
   const lastGame = [...games].filter((g) => g.lastPlayed).sort((a, b) => b.lastPlayed! - a.lastPlayed!)[0]
@@ -491,7 +498,7 @@ export function App() {
     <MotionConfig reducedMotion="user">
     <GlyphStyleContext.Provider value={state.settings.glyphs}>
       <AnimatedCoversContext.Provider value={state.settings.animatedCovers}>
-      <div className={`app tinted ${tabFocus !== null && !modal ? 'is-tabs-zone' : ''}`} data-tab={tab} style={{ '--game-accent': accent } as React.CSSProperties}>
+      <div className={`app tinted ${tabFocus !== null && !modal ? 'is-tabs-zone' : ''}`} data-tab={tab} data-arriving={arriving || undefined} style={{ '--game-accent': accent } as React.CSSProperties}>
         <WindowFrame mode={windowMode} />
         <Background
           game={bgTarget}
@@ -499,6 +506,7 @@ export function App() {
           // Живой фон — только на главной и в библиотеке, когда ничего не открыто и не идёт игра
           live={state.settings.liveBackground && !calm && !modal && !saver && !running}
         />
+        {holiday && !running && <SeasonDecor holiday={holiday} />}
 
         <motion.div
           className="shell"
@@ -696,7 +704,7 @@ export function App() {
               }}
               onConfirm={(mood, full) => {
                 // Не в профиле полки не видно — коротко скажем, куда делась игра, и про новую фигурку
-                const figures = newFigures(shelfOf(games), full).filter((f) => !state.settings.figuresSeen?.includes(f.id))
+                const figures = newFigures(shelfOf(games), doneGame, full).filter((f) => !state.settings.figuresSeen?.includes(f.id))
                 void shelf.complete(doneGame, mood, full)
                 setDoneGameId(null)
                 play('toggleOn')
@@ -930,6 +938,7 @@ export function App() {
             />
           )}
         </AnimatePresence>
+        {booting && !finished && <div className="intro-hold" />}
         <AnimatePresence>
           {booting && !finished && (
             <Intro

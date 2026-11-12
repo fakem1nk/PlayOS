@@ -314,9 +314,10 @@ export function CrtScreen({ colors, phase, pulseAt = -1, className = '' }: Props
       last = now
       const ph = phaseRef.current
       if (!isOutro) {
-        // Интро: включение 80–720 мс, проявление названия 650–1550 мс
+        // Интро: включение 80–720 мс; название проявляется дождём 580–1280 мс с ровной скоростью — первые столбцы
+        // встают на 0,68 с, последние на 1,20 с (под это расписаны ноты звука boot), и на 1,25 с идёт волна
         s.open = reduce ? 1 : ease((ms - 80) / 640)
-        s.reveal = reduce ? 1 : ease((ms - 650) / 900)
+        s.reveal = reduce ? 1 : Math.max(0, Math.min(1, (ms - 580) / 700))
       }
       const welcome = ph === 'welcome'
       s.y = approach(s.y, welcome ? 0.77 : 0.5, dt, 5)

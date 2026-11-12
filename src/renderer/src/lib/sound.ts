@@ -34,6 +34,8 @@ export type SoundKind =
   // Тиви собрался в углу в конце интро; Тиви зевает в начале аутро (TiviCameo)
   | 'arrive'
   | 'yawn'
+  // Фигурка встала на подставку в своём окне
+  | 'figure'
 
 const VOLUME: Record<SoundVolume, number> = { low: 0.45, mid: 0.8, high: 1.25 }
 
@@ -51,6 +53,11 @@ let lastMove = 0
 let soundSet: SetName = (new URLSearchParams(location.search).get('sound') as SetName | null) ?? 'main'
 export function setSoundSet(name: SetName) {
   soundSet = name
+}
+/** Праздничный набор поверх основного (lib/festive); null — обычные звуки. Набор из ?sound= в демо важнее */
+let holidaySet: SetName | null = null
+export function setSoundHoliday(name: 'newyear' | 'halloween' | 'valentine' | null) {
+  holidaySet = name
 }
 /** Последнее направление навигации — для панорамы и высоты тапа */
 let lastDir: 'up' | 'down' | 'left' | 'right' | null = null
@@ -116,6 +123,21 @@ function audio() {
   }
   if (ctx.state === 'suspended') void ctx.resume()
   return { c: ctx, dry: dry!, wet: wet! }
+}
+
+/** Завести звуковой движок заранее (перед интро): его запуск занимает десятки миллисекунд */
+export function warmAudio() {
+  if (!enabled) return
+  try {
+    audio()
+  } catch {
+    /* без звука так без звука */
+  }
+}
+/** Задержка от «сыграть» до динамиков, мс — на столько картинку интро придерживают после звука */
+export function audioLag() {
+  if (!enabled || !ctx) return 0
+  return Math.round(((ctx.baseLatency || 0) + ((ctx as AudioContext & { outputLatency?: number }).outputLatency || 0)) * 1000)
 }
 
 export function setSoundEnabled(v: boolean) {
@@ -403,7 +425,7 @@ export function play(kind: SoundKind) {
       if (now - lastMove < 32) return
       lastMove = now
     }
-    const own = SETS[soundSet]?.[kind]
+    const own = SETS[soundSet === 'main' && holidaySet ? holidaySet : soundSet]?.[kind]
     if (own) {
       audio()
       own(kit())
@@ -501,6 +523,10 @@ export function play(kind: SoundKind) {
         ;[0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach((t, i) => tap(1100 + i * 140, t, 0.022, -0.2 + i * 0.14))
         bell(E6, 1.55, { gain: 0.04, dur: 0.9, space: 0.5, ratio: 2, index: 0.5, pan: 0.6 })
         break
+      case 'figure':
+        tap(1320, 0, 0.03, 0, 0.2)
+        arp([G5, C6, E6], 0.04, 0.07, { gain: 0.04, dur: 0.9, space: 0.5, ratio: 2, index: 0.5 }, 0.4)
+        break
       case 'yawn':
         bell(G5, 0.15, { gain: 0.03, dur: 0.5, space: 0.3, ratio: 1, index: 0.3, pan: 0.6 })
         bell(C5, 0.4, { gain: 0.03, dur: 0.7, space: 0.4, ratio: 1, index: 0.3, pan: 0.6 })
@@ -525,17 +551,19 @@ export function play(kind: SoundKind) {
 // ───────────────────────── Фоновая музыка ─────────────────────────
 
 /**
- * Генеративный эмбиент: медленная смена мягких аккордов и редкие колокольчики
- * из пентатоники. Каждый раз звучит немного по-разному.
+ * Генеративный эмбиент: медленная смена мягких аккордов и редкие округлые ноты из пентатоники — иногда парой,
+ * как короткая фраза. Каждый раз звучит немного по-разному.
+ * Тональность — до мажор, та же, что у звуков меню: шаг, выбор и «назад» попадают в аккорд, а не спорят с ним.
  */
 
 const CHORDS = [
-  [-19, -12, -7, -3, 2], // Dmaj9
-  [-22, -15, -10, -5, -1], // Bm9
-  [-26, -19, -14, -10, -5], // Gmaj9
-  [-24, -17, -12, -8, -3] // A6/9
+  [-21, -14, -9, -5, 0], // Cmaj9
+  [-24, -17, -12, -7, -3], // Am9
+  [-28, -21, -16, -12, -7], // Fmaj9
+  [-26, -19, -14, -10, -5] // G6/9
 ]
-const SPARKLE = [17, 19, 21, 24, 26, 29, 31] // D6 E6 F#6 A6 B6 D7 E7
+// Октавой ниже прежних колокольчиков: C5 D5 E5 G5 A5 C6 D6
+const SPARKLE = [3, 5, 7, 10, 12, 15, 17]
 
 // Уровень музыки на выходе; «средне» — как было, пока музыка шла через мастер-громкость
 const MUSIC: Record<SoundVolume, number> = { low: 0.22, mid: 0.44, high: 0.7 }
@@ -598,27 +626,39 @@ function musicChord() {
   chordTimer = window.setTimeout(musicChord, 9000)
 }
 
+/** Мягкая нота музыки: синус с тихой октавой сверху, без щелчка в начале, со своим местом в стерео */
+function musicNote(c: AudioContext, bus: GainNode, f: number, t: number, gain: number, pan: number) {
+  const p = c.createStereoPanner()
+  p.pan.value = pan
+  p.connect(bus)
+  for (const [mul, g, dur] of [
+    [1, gain, 3.6],
+    [2, gain * 0.22, 1.6]
+  ]) {
+    const osc = c.createOscillator()
+    osc.frequency.value = f * mul
+    const env = c.createGain()
+    env.gain.value = 0.0001
+    env.gain.setValueAtTime(0.0001, t)
+    env.gain.exponentialRampToValueAtTime(g, t + 0.03)
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+    osc.connect(env).connect(p)
+    osc.start(t)
+    osc.stop(t + dur + 0.1)
+  }
+}
+
 function musicSparkle() {
   const { c, bus } = musicBus()
   const t = c.currentTime + 0.05
-  const f = n(SPARKLE[Math.floor(Math.random() * SPARKLE.length)])
-  const car = c.createOscillator()
-  const mod = c.createOscillator()
-  const mg = c.createGain()
-  car.frequency.value = f
-  mod.frequency.value = f * 2
-  mg.gain.setValueAtTime(f * 0.5, t)
-  mg.gain.exponentialRampToValueAtTime(1, t + 2)
-  mod.connect(mg).connect(car.frequency)
-  const env = c.createGain()
-  env.gain.setValueAtTime(0.0001, t)
-  env.gain.exponentialRampToValueAtTime(0.018, t + 0.01)
-  env.gain.exponentialRampToValueAtTime(0.0001, t + 3)
-  car.connect(env).connect(bus)
-  car.start(t)
-  mod.start(t)
-  car.stop(t + 3.1)
-  mod.stop(t + 3.1)
+  const i = Math.floor(Math.random() * SPARKLE.length)
+  const pan = Math.random() * 1.2 - 0.6
+  musicNote(c, bus, n(SPARKLE[i]), t, 0.024, pan)
+  // Примерно каждая третья нота — фраза: за ней соседняя ступень, чуть тише и с другой стороны
+  if (Math.random() < 0.35) {
+    const j = Math.max(0, Math.min(SPARKLE.length - 1, i + (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 2))))
+    musicNote(c, bus, n(SPARKLE[j]), t + 0.45 + Math.random() * 0.3, 0.018, -pan * 0.7)
+  }
   sparkleTimer = window.setTimeout(musicSparkle, 2500 + Math.random() * 4500)
 }
 

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { useInputLayer } from '../lib/input'
-import { play } from '../lib/sound'
+import { audioLag, play, warmAudio } from '../lib/sound'
 import { Avatar } from './Avatar'
 import { CrtScreen } from './CrtScreen'
 import { t } from '@shared/i18n'
@@ -12,7 +12,7 @@ const easeOut = [0.23, 1, 0.32, 1] as const
  * Хореография (мс от старта). Звук 'boot' синхронизирован с моментом POWER.
  * Тайминги названия и искр заданы в CSS теми же числами — см. styles-intro.css.
  */
-const POWER = 1120 // волна по точкам от центра, вспыхивают искры
+const POWER = 1250 // название встало — от центра расходится волна, в звуке колокол и аккорд
 const WELCOME = 2950 // логотип уходит вверх, приветствие
 const DONE = 4500
 const ARRIVE = 3700 // символы названия слетаются в угол, там собирается Тиви (TiviCameo)
@@ -52,11 +52,16 @@ export function Intro({ userName, avatar, lastGame, colors, onArrive, onDone }: 
   // Окно создаётся скрытым и показывается после первой отрисовки: стартуем, только когда его видно,
   // иначе включение проиграется «за кадром», а звук разойдётся с картинкой
   const [ready, setReady] = useState(false)
+  // Картинка стартует чуть позже звука — на задержку звукового выхода, чтобы они совпали на слух
+  const [go, setGo] = useState(false)
   const done = useRef(onDone)
   done.current = onDone
   const arrive = useRef(onArrive)
   arrive.current = onArrive
   const palette = [...(colors ?? []), ...FALLBACK_COLORS].slice(0, 3)
+
+  // Звуковой движок заводится заранее, пока окно ещё не показано: иначе первый звук опаздывает на время его запуска
+  useEffect(() => warmAudio(), [])
 
   useEffect(() => {
     let raf = 0
@@ -79,14 +84,19 @@ export function Intro({ userName, avatar, lastGame, colors, onArrive, onDone }: 
   useEffect(() => {
     if (!ready) return
     play('boot')
+    const timer = setTimeout(() => setGo(true), Math.min(150, audioLag()))
+    return () => clearTimeout(timer)
+  }, [ready])
+  useEffect(() => {
+    if (!go) return
     const timers = [setTimeout(() => setPhase('welcome'), WELCOME), setTimeout(() => arrive.current?.(), ARRIVE), setTimeout(() => done.current(), DONE)]
     return () => timers.forEach(clearTimeout)
-  }, [ready])
+  }, [go])
   useInputLayer(() => done.current(), 100)
 
   const style = { '--a1': palette[0], '--a2': palette[1], '--a3': palette[2] } as React.CSSProperties
 
-  if (!ready) return <motion.div className="intro" exit={{ opacity: 0 }} />
+  if (!go) return <motion.div className="intro" exit={{ opacity: 0 }} />
 
   return (
     <motion.div

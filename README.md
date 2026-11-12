@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/en/hero.webp" width="100%" alt="PlayOS. Your PC. Now a console. The PlayOS home screen on a TV."></a>
+  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/en/hero.webp" width="100%" alt="PlayOS. Your PC. Now a console. The PlayOS home screen with Tivi, its mascot, in the corner."></a>
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 
 <a name="overview"></a>
 <p align="center">
-  <img src="docs/assets/readme/en/stats.webp" width="100%" alt="The highlights. 5 kinds of games in one library: PC, Steam, PS2, PS3 and VR. Its own overlay with handy tools over any game. Up to 30 versions of every save, kept in your cloud. 3 ways to sync: Yandex Disk, Google Drive or a folder.">
+  <img src="docs/assets/readme/en/stats.webp" width="100%" alt="The highlights. One launcher. Everything you play. 5 kinds of games in one library: PC, Steam, PS2, PS3 and VR. Up to 30 versions of every save, kept in your own cloud. 3 ways to sync: Yandex Disk, Google Drive or a folder. 14 Tivi figures to collect for the games you finish.">
 </p>
 
 <br>
@@ -73,6 +73,16 @@
 <br>
 
 <p align="center">
+  <img src="docs/assets/readme/en/store.webp" width="100%" alt="Store. Find a game. Keep it in your library. The PlayOS store with a featured game and top sellers.">
+</p>
+
+<p align="center">
+  A built-in <b>store with the Steam and GOG catalogues</b>: browse by genre, filter by tags, years and reviews, and add any game to your library with one button. Connect your own download sources and PlayOS <b>downloads, unpacks and installs</b> the game for you — with a queue, speed limits and a pause while you play.
+</p>
+
+<br>
+
+<p align="center">
   <img src="docs/assets/readme/en/overlay.webp" width="100%" alt="Its own overlay. Press PS. The game waits. The PlayOS overlay over a paused PlayStation 2 game with quick saves and the control center.">
 </p>
 
@@ -95,14 +105,24 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/readme/en/profile.webp" width="100%" alt="Trophies. Go for platinum. From retro to AAA. The PlayOS profile and a game page with HowLongToBeat and session history.">
+  <img src="docs/assets/readme/en/profile.webp" width="100%" alt="Profile. Finish a game. Put it on the shelf. The PlayOS profile with the shelf of finished games and the collection of Tivi figures.">
 </p>
 
 <p align="center">
-  Chasing a platinum? <b>RetroAchievements bring trophies to PlayStation&nbsp;2 classics</b>, and <b>Steam achievements cover PC games</b>, including games running on Steam emulators. Collect every trophy in a game and its platinum is yours. Trophies pop up the moment they unlock, the trophy list keeps a screenshot of that moment, and every session counts toward your play time, with HowLongToBeat on the game page.
+  Finished a game? <b>Put it on your shelf</b>, rate it with one of Tivi’s faces and collect <b>14 Tivi figures</b> — for the first game, for a hundred, for a game beaten in three days or at night. Chasing a platinum? <b>RetroAchievements bring trophies to PlayStation&nbsp;2 classics</b>, and <b>Steam achievements cover PC games</b>, including games running on Steam emulators. Collect every trophy in a game and its platinum is yours. Trophies pop up the moment they unlock, the trophy list keeps a screenshot of that moment, and every session counts toward your play time, with HowLongToBeat on the game page.
 </p>
 
 <p align="center"><a href="docs/FAQ.en.md#trophies">Learn more about trophies&nbsp;›</a></p>
+
+<br>
+
+<p align="center">
+  <img src="docs/assets/readme/en/tivi.webp" width="100%" alt="Tivi. Meet Tivi. He lives in the corner. Five Tivis: winking, wearing shades, in love with your trophies, showing a fireplace on his screen, and in a holiday hat.">
+</p>
+
+<p align="center">
+  Tivi is the little TV that lives in the corner of PlayOS. <b>He follows what you do</b>, cheers for trophies, naps when you are away and keeps himself busy: lights a fireplace on his screen, plays a round of pong, catches snowflakes in winter. For <b>New Year, Halloween and Valentine’s Day</b> he dresses up and the whole interface gets decorations and its own sounds. Not your thing? One switch turns him off.
+</p>
 
 <br>
 
@@ -162,7 +182,7 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/en/cta.webp" width="100%" alt="Ready when you are."></a>
+  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/en/cta.webp" width="100%" alt="Ready when you are. Download for Windows."></a>
 </p>
 
 <p align="center">

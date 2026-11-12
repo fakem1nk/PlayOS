@@ -154,9 +154,28 @@
   display: none;
 }
 
-/* Корпус прорисовывается строкой сверху вниз, шесть ступеней */
+/*
+ * Появление в конце интро: сперва Тиви собран из символов (.tivi-ascii), потом сверху вниз проходит строка развёртки —
+ * символы под ней гаснут, а настоящий корпус проявляется. Восемь ступеней по 40 мс, начало — ARRIVE_SCAN_MS (1000 мс)
+ */
 .tivi-cameo.is-arrive .tivi svg {
-  animation: tivi-scan-in 0.48s steps(6, end) both;
+  /* Вторая часть — вспышка, когда развёртка дошла до низа: корпус на три такта светится и остывает */
+  animation:
+    tivi-scan-in 0.32s 1s steps(8, end) both,
+    tivi-born 0.32s 1.32s steps(4, end);
+}
+
+@keyframes tivi-born {
+  from {
+    filter: brightness(2.4) drop-shadow(0 0 2rem #a891ff);
+  }
+  to {
+    filter: brightness(1) drop-shadow(0 0 0 transparent);
+  }
+}
+
+.tivi-cameo.is-arrive.is-still .tivi svg {
+  animation: none;
 }
 
 @keyframes tivi-scan-in {
@@ -168,13 +187,87 @@
   }
 }
 
-/* Символы названия, слетающиеся к экрану Тиви */
+/* Тиви из символов: клетки стоят по сетке поверх рисунка, цвет — по части тела */
+.tivi-ascii {
+  position: absolute;
+  inset: 0;
+  font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-weight: 700;
+  line-height: 1;
+  color: #cfd6e4;
+  text-shadow: 0 0 0.5em currentColor;
+  pointer-events: none;
+}
+
+.tivi-ascii span {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+}
+
+.tivi-ascii .is-earL,
+.tivi-ascii .is-eye {
+  color: #fff;
+}
+
+.tivi-ascii .is-earR,
+.tivi-ascii .is-screen {
+  color: #a891ff;
+}
+
+/* Светящаяся строка развёртки едет вместе с границей между символами и корпусом */
+.tivi-cameo.is-arrive:not(.is-still) .tivi::after {
+  content: '';
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  top: 0;
+  height: 0.28rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow:
+    0 0 1.2rem 0.3rem rgba(168, 145, 255, 0.9),
+    0 0 0.4rem #fff;
+  opacity: 0;
+  /* Без fill: строка видна только пока едет */
+  animation: tivi-scan-line 0.32s 1s steps(8, end);
+}
+
+@keyframes tivi-scan-line {
+  from {
+    top: 0;
+    opacity: 1;
+  }
+  to {
+    top: 100%;
+    opacity: 1;
+  }
+}
+
+/* Символы названия, летящие к Тиви: место и сам символ задаёт сценка, по такту */
 .tivi-spark {
   position: absolute;
+  left: 0;
+  top: 0;
   margin: -0.8rem 0 0 -0.45rem;
-  font: 700 1.5rem/1 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font: 700 1.9rem/1 'Cascadia Mono', Consolas, 'Courier New', monospace;
   color: #fff;
+  text-shadow: 0 0 0.6rem currentColor;
   opacity: 0;
+}
+
+/* Пока Тиви собирается поверх интро, настоящий под ним не показывается */
+.app[data-arriving] .shell .tivi {
+  visibility: hidden;
+}
+
+/* Интро подгружается отдельным куском: до него экран закрыт чёрным, иначе на миг виден главный экран */
+.intro-hold {
+  position: absolute;
+  inset: 0;
+  z-index: 99;
+  background: #000;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -186,4 +279,13 @@
   .tivi-ear-l {
     animation: none !important;
   }
+}
+
+/* Праздничное оформление (SeasonDecor): холст с точками между фоном и интерфейсом */
+.season-decor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }

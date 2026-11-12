@@ -6,7 +6,7 @@ import { useSpatialNav } from '../lib/nav'
 import { play } from '../lib/sound'
 import { tivi } from '../lib/tivi'
 import { SPIN, type Frame, type Sprite } from '../lib/tivi-faces'
-import { FACES, figureEarnedAt, figureName, FIGURES, hoursLeft, MOODS, moodOf, type FigureDef } from '../lib/shelf'
+import { FACES, figureEarnedAt, figureName, figureProgress, FIGURES, hoursLeft, MOODS, moodOf, tierName, type FigureDef } from '../lib/shelf'
 import { DotText } from './DotText'
 import { Cover } from './Tile'
 import { TiviArt } from './Tivi'
@@ -270,25 +270,61 @@ export function YearRecap({ year, games, onClose }: { year: number; games: Game[
 
 // ───────────── Фигурка крупно ─────────────
 
+/**
+ * Фигурка крупно. Открытая появляется сценкой: загорается свет, фигурка падает на подставку и пружинит, на экране
+ * строка за строкой загорается картинка, уши наливаются, разлетаются искры цвета её редкости; дальше по корпусу
+ * время от времени пробегает блик. Закрытая — силуэт, который покачивается, как запертая; под ним — сколько осталось
+ */
+const BURST = Array.from({ length: 14 }, (_, i) => {
+  const a = (i / 14) * Math.PI * 2 + (i % 2 ? 0.2 : -0.1)
+  const r = 13 + (i % 3) * 3.2
+  return { x: Math.cos(a) * r, y: Math.sin(a) * r * 0.82 - 3, d: (i % 5) * 28, s: 0.7 + (i % 4) * 0.2 }
+})
+
 export function FigureDialog({ figure, shelfGames, onClose }: { figure: FigureDef; shelfGames: Game[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useSpatialNav(ref, { priority: 40, onBack: onClose, autoFocus: '.btn-primary' })
   const at = figureEarnedAt(figure, shelfGames)
   const no = FIGURES.indexOf(figure) + 1
+  const [have, need] = figureProgress(figure, shelfGames)
+  // Звук — когда фигурка встала на подставку
+  useEffect(() => {
+    if (at === null) return
+    const timer = window.setTimeout(() => play('figure'), 520)
+    return () => clearTimeout(timer)
+  }, [at])
   return (
     <AppPortal>
       <motion.div className="modal-backdrop" {...backdrop}>
-        <motion.div className="dialog figd" ref={ref} {...panel}>
+        <motion.div className={`dialog figd figd-tier${figure.tier} ${at === null ? 'is-locked' : 'is-earned'}`} ref={ref} {...panel}>
           <div className="figd-stage">
+            <span className="figd-rays" />
             <span className="figd-light" />
-            <TiviFigure id={figure.id} locked={at === null} className="figd-art" />
+            <TiviFigure id={figure.id} locked={at === null} live className="figd-art" />
+            {at !== null && (
+              <span className="figd-burst" aria-hidden>
+                {BURST.map((b, i) => (
+                  <i key={i} style={{ '--x': `${b.x}rem`, '--y': `${b.y}rem`, '--d': `${b.d}ms`, '--s': b.s } as CSSProperties} />
+                ))}
+              </span>
+            )}
           </div>
           <div className="figd-body">
-            <span className="recap-kicker">{t('Фигурка Тиви № {no} из {n}', { no, n: FIGURES.length })}</span>
+            <span className="recap-kicker">
+              <b className="figd-tier">{tierName(figure.tier)}</b> · {t('Фигурка Тиви № {no} из {n}', { no, n: FIGURES.length })}
+            </span>
             <h2 className="dialog-title">{at === null ? t('Закрытая фигурка') : figureName(figure.id)}</h2>
             <p className="dialog-text">
               {at === null ? t('Откроется: {goal}', { goal: figureGoal(figure) }) : t('Получена {date} — {goal}', { date: longDate.format(at), goal: figureGoal(figure) })}
             </p>
+            {at === null && need > 1 && (
+              <div className="figd-progress">
+                <span className="figd-bar">
+                  <i style={{ width: `${(have / need) * 100}%` }} />
+                </span>
+                <DotText text={`${have}`} /> {t('из {n}', { n: need })}
+              </div>
+            )}
             <div className="dialog-actions">
               <button data-nav className="btn btn-primary" onClick={onClose}>
                 {t('Закрыть')}

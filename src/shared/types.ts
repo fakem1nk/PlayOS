@@ -325,6 +325,8 @@ export interface Settings {
   language?: 'ru' | 'en'
   /** Тема интерфейса; по умолчанию тёмная */
   theme?: ThemeMode
+  /** Праздничное оформление (снег, гирлянда, шапка Тиви); по умолчанию — само по календарю */
+  festive?: FestiveMode
   /** Свои подборки игр в библиотеке («плейлисты»); у каждого ПК свои — id игр на разных ПК не совпадают */
   collections?: GameCollection[]
   /** Сортировка библиотеки; по умолчанию — недавние */
@@ -349,6 +351,7 @@ export type LibrarySort = 'recent' | 'name' | 'time' | 'added' | 'manual'
 
 /** dark — тёмная, light — светлая, system — как в Windows */
 export type ThemeMode = 'dark' | 'light' | 'system'
+export type FestiveMode = 'auto' | 'off' | 'newyear' | 'halloween' | 'valentine'
 
 /** Состояние обновлений PlayOS */
 export interface UpdateState {

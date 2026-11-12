@@ -63,8 +63,8 @@ export interface Kit {
   air: (start: number, dur: number, gain: number, from: number, to: number, space?: number, pan?: number) => void
 }
 
-export type SetName = 'main' | 'glass' | 'crt' | 'soft' | 'chip' | 'drop'
-export const SET_NAMES: SetName[] = ['main', 'glass', 'crt', 'soft', 'chip', 'drop']
+export type SetName = 'main' | 'glass' | 'crt' | 'soft' | 'chip' | 'drop' | 'newyear' | 'halloween' | 'valentine'
+export const SET_NAMES: SetName[] = ['main', 'glass', 'crt', 'soft', 'chip', 'drop', 'newyear', 'halloween', 'valentine']
 type Sound = (k: Kit) => void
 type SoundSet = Partial<Record<string, Sound>>
 
@@ -185,7 +185,7 @@ const crt: SoundSet = {
   // Тиви собрался в углу: искры слетаются (ноты вверх, слева направо), потом его «привет»
   arrive: (k) => {
     for (let i = 0; i < 9; i++) k.tone('triangle', 700 * Math.pow(1.13, i), i * 0.07, { gain: 0.022, dur: 0.06, lp: 4500, pan: -0.2 + i * 0.1, room: 0.3 })
-    chirp(k, 1.55, k.n(7), k.n(14), 0.028, 0.6)
+    chirp(k, 2.2, k.n(7), k.n(14), 0.028, 0.6)
   },
   // Тиви зевает перед выключением
   yawn: (k) => {
@@ -200,7 +200,8 @@ const soft1 = (k: Kit, freq: number, start: number, gain: number, dur = 0.14, pa
   k.tone('sine', freq, start, { gain, dur, attack: 0.006, lp: 1800, pan, room: 0.3, space })
 
 const soft: SoundSet = {
-  move: (k) => soft1(k, byDir(k, 587, 523, 466) * (0.995 + Math.random() * 0.01), 0, 0.06, 0.1, k.pan),
+  // Ре, до и ля: вместе с остальными звуками меню — до мажор, как и фоновая музыка
+  move: (k) => soft1(k, byDir(k, 587, 523, 440) * (0.995 + Math.random() * 0.01), 0, 0.06, 0.1, k.pan),
   bump: (k) => k.tone('sine', 130, 0, { gain: 0.08, dur: 0.2, to: 80, pan: k.pan * 1.6, room: 0.2, attack: 0.004 }),
   tab: (k) => {
     const right = k.dir !== 'left'
@@ -244,11 +245,26 @@ const soft: SoundSet = {
     k.bell(k.n(15), 0.36, { gain: 0.04, dur: 1.8, space: 0.7, ratio: 2, index: 0.4 })
   },
   boot: (k) => {
-    k.pad([k.n(-33), k.n(-26), k.n(-21), k.n(-17), k.n(-14)], 0, 3.8, 0.048, 900, 0.9, 1.3)
-    k.air(0.2, 1.0, 0.02, 200, 1800, 0.9)
-    k.bell(k.n(-33), 1.1, { gain: 0.07, dur: 2.0, space: 0.5, ratio: 1, index: 0.2 })
-    ;[-2, 3, 7, 10].forEach((s, i) => soft1(k, k.n(s), 1.12 + i * 0.09, 0.045, 1.8, i * 0.3 - 0.45, 0.7))
-    soft1(k, k.n(15), 2.95, 0.035, 2.0, 0.2, 0.8)
+    // Идёт по заставке (времена — из CrtScreen и Intro). 0,08 с — экран раскрывается из линии: низкий вздох и аккорд,
+    // который растёт всё интро. 0,68–1,20 с — название проявляется дождём: мягкие ноты сыплются сверху вниз по
+    // до-мажорной пентатонике, каждая в своей точке стерео, как столбцы на экране. 1,25 с — название встало и от
+    // центра идёт волна: низкая тоника, шумовой выдох, рой тихих высоких нот и аккорд слева направо — всё в одну долю.
+    // 2,95 с — название уезжает вверх: тихий выдох; 3,37 с — показалось приветствие: две ноты вверх
+    k.tone('sine', 98, 0.08, { gain: 0.05, dur: 0.6, to: 65, room: 0.2, attack: 0.02 })
+    k.pad([k.n(-33), k.n(-26), k.n(-21), k.n(-17), k.n(-14)], 0, 3.9, 0.046, 900, 0.9, 1.3)
+    k.air(0.15, 0.8, 0.018, 200, 1600, 0.9)
+    const RAIN = [19, 15, 17, 12, 15, 10, 12, 7, 10, 5, 7, 3, 5, 3]
+    RAIN.forEach((n, i) => {
+      const p = i / (RAIN.length - 1)
+      soft1(k, k.n(n), 0.68 + p * 0.52 + rnd(i + 40) * 0.02, 0.02 + rnd(i + 9) * 0.012, 0.5, rnd(i + 20) * 1.5 - 0.75, 0.55)
+    })
+    k.air(1.23, 0.6, 0.022, 500, 2800, 0.8)
+    for (let i = 0; i < 9; i++) soft1(k, k.n([22, 27, 24, 31, 29, 22, 27, 24, 31][i]), 1.27 + rnd(i + 80) * 0.5, 0.008, 0.2, rnd(i + 90) * 1.6 - 0.8, 0.7)
+    k.bell(k.n(-33), 1.25, { gain: 0.065, dur: 2.0, space: 0.5, ratio: 1, index: 0.2 })
+    ;[-2, 3, 7, 10].forEach((n, i) => soft1(k, k.n(n), 1.25 + i * 0.08, 0.042, 1.7, i * 0.3 - 0.45, 0.7))
+    k.air(2.95, 0.45, 0.012, 400, 1500, 0.8)
+    soft1(k, k.n(10), 3.37, 0.032, 1.6, -0.15, 0.8)
+    soft1(k, k.n(15), 3.55, 0.034, 2.0, 0.2, 0.8)
   },
   farewell: (k) => {
     k.pad([k.n(-26), k.n(-21), k.n(-17), k.n(-14)], 0, 2.2, 0.038, 900, 0.85, 0.25)
@@ -264,9 +280,14 @@ const soft: SoundSet = {
     k.pad([k.n(-21), k.n(-14), k.n(-9), k.n(-5)], 0, 1.9, 0.032, 1300, 0.8, 0.25)
     ;[-2, 3, 7, 10].forEach((s, i) => soft1(k, k.n(s), 0.02 + i * 0.09, 0.05, 1.2, i * 0.25 - 0.35, 0.6))
   },
+  // Фигурка встала на подставку: глухой стук и три ноты вверх
+  figure: (k) => {
+    k.tone('sine', 150, 0, { gain: 0.06, dur: 0.14, to: 90, room: 0.2 })
+    ;[3, 7, 10, 15].forEach((s, i) => soft1(k, k.n(s), 0.05 + i * 0.075, 0.04, 0.9, i * 0.2 - 0.3, 0.55))
+  },
   arrive: (k) => {
     ;[3, 7, 10].forEach((s, i) => soft1(k, k.n(s), i * 0.16, 0.03, 0.5, 0.1 + i * 0.2, 0.5))
-    soft1(k, k.n(15), 1.55, 0.04, 0.6, 0.6, 0.5)
+    soft1(k, k.n(15), 2.2, 0.04, 0.6, 0.6, 0.5)
   },
   yawn: (k) => k.tone('sine', 520, 0.15, { gain: 0.035, dur: 0.55, to: 300, lp: 1400, pan: 0.6, room: 0.3, attack: 0.1 })
 }
@@ -346,8 +367,10 @@ const chip: SoundSet = {
     sq(k, k.n(27), 0.55, 0.5, 0.022, 0, 0.4)
   },
   arrive: (k) => {
-    tune(k, [3, 5, 7, 10, 12, 15, 17, 19, 22], 0, 0.07, 0.04, 0.014, 0.8)
-    tune(k, [15, 22], 1.55, 0.08, 0.12, 0.022)
+    // Символы слетаются — дорожка нот вверх; строка развёртки (1,0 с) — свип; сжался до своего размера (2,2 с) — две ноты
+    tune(k, [3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29], 0, 0.075, 0.04, 0.014, 0.8)
+    k.tone('square', 330, 1.0, { gain: 0.012, dur: 0.32, to: 1320, lp: 2600, pan: 0.6, room: 0.2 })
+    tune(k, [15, 22], 2.2, 0.08, 0.12, 0.022)
   },
   yawn: (k) => k.tone('square', 700, 0.15, { gain: 0.018, dur: 0.5, to: 330, lp: 1800, pan: 0.6, attack: 0.06 })
 }
@@ -515,7 +538,7 @@ const drop: SoundSet = {
   // Искры слетаются в угол — мелкие капли всё выше и правее; Тиви собрался и сказал «буль-буль»
   arrive: (k) => {
     for (let i = 0; i < 10; i++) bloop(k, deg(k, i % 8) * (i > 7 ? 2 : 1) * 1.5, i * 0.065, 0.016, 1.3, 0.05, -0.3 + i * 0.1, 0.5)
-    blub(k, 1.55, 560, 0.05, 0.6)
+    blub(k, 2.2, 560, 0.05, 0.6)
   },
   // Зевок: один долгий бульк вниз
   yawn: (k) => {
@@ -532,4 +555,238 @@ const drop: SoundSet = {
 const { bump: _softBump, ...softRest } = soft
 const main: SoundSet = { ...softRest, adjust: chip.adjust, arrive: chip.arrive, trophy: drop.trophy, yawn: crt.yawn }
 
-export const SETS: Record<SetName, SoundSet> = { main, glass: {}, crt, soft, chip, drop }
+// ───────────────────────── Праздничные ─────────────────────────
+// Поверх основного набора: в праздник (lib/festive) часть звуков меняется, остальные остаются как были.
+
+/** Глокеншпиль: короткий светлый звон */
+const glock = (k: Kit, f: number, start: number, gain = 0.03, dur = 0.5, pan = 0, space = 0.35) => k.bell(f, start, { gain: gain * 1.8, dur, space, pan, ratio: 3.5, index: 0.35 })
+/** Бубенцы: несколько совсем коротких высоких щелчков подряд */
+const jingle = (k: Kit, start: number, n = 3, gain = 0.012, pan = 0) => {
+  for (let i = 0; i < n; i++) k.burst(start + i * 0.055, { gain: gain * (1 - i * 0.18), dur: 0.05, type: 'bandpass', freq: 6200 + i * 500, q: 6, pan, space: 0.3 })
+}
+
+/** Новый год: глокеншпиль и бубенцы */
+const newyear: SoundSet = {
+  move: (k) => glock(k, byDir(k, 1568, 1319, 1047) * (0.995 + Math.random() * 0.01), 0, 0.022, 0.22, k.pan, 0.2),
+  tab: (k) => {
+    const right = k.dir !== 'left'
+    jingle(k, 0, 3, 0.011, right ? 0.4 : -0.4)
+    glock(k, right ? 1319 : 1175, 0.05, 0.024, 0.3, right ? 0.3 : -0.3)
+  },
+  adjust: (k) => glock(k, k.dir === 'left' ? 1175 : 1397, 0, 0.022, 0.2, k.pan, 0.2),
+  toggle: (k) => newyear.toggleOn!(k),
+  toggleOn: (k) => {
+    glock(k, 784, 0, 0.024, 0.25, 0.1)
+    glock(k, 1175, 0.07, 0.024, 0.4, 0.15)
+  },
+  toggleOff: (k) => {
+    glock(k, 1047, 0, 0.022, 0.25, -0.1)
+    glock(k, 698, 0.07, 0.022, 0.4, -0.15)
+  },
+  select: (k) => {
+    glock(k, 1319, 0, 0.028, 0.45, -0.08)
+    glock(k, 1976, 0.06, 0.02, 0.7, 0.1, 0.45)
+    jingle(k, 0.03, 2, 0.008, 0.2)
+  },
+  back: (k) => {
+    glock(k, 988, 0, 0.024, 0.35, 0.06)
+    glock(k, 659, 0.06, 0.024, 0.5, -0.06)
+  },
+  shuffle: (k) => {
+    ;[0, 0.07, 0.13, 0.18, 0.22].forEach((t, i) => glock(k, 784 + i * 132, t, 0.02, 0.2, (i % 2 ? 0.3 : -0.3) * (1 - i / 5)))
+    jingle(k, 0.26, 4, 0.012)
+    glock(k, 1568, 0.34, 0.026, 0.9, 0, 0.5)
+  },
+  trophy: (k) => {
+    ;[3, 7, 10, 15, 19].forEach((s, i) => glock(k, k.n(s + 12), i * 0.08, 0.026, 0.9, i * 0.2 - 0.4, 0.5))
+    jingle(k, 0, 4, 0.012, -0.3)
+    jingle(k, 0.42, 5, 0.013, 0.3)
+    k.bell(k.n(15), 0.46, { gain: 0.035, dur: 1.8, space: 0.7, ratio: 2, index: 0.4 })
+  },
+  launch: (k) => {
+    soft.launch!(k)
+    ;[0.2, 0.42, 0.64, 0.86].forEach((t, i) => jingle(k, t, 2, 0.01, i % 2 ? 0.4 : -0.4))
+    glock(k, k.n(27), 0.66, 0.02, 1.2, 0.2, 0.6)
+  },
+  boot: (k) => {
+    soft.boot!(k)
+    // Бубенцы идут под «дождь» названия, глокеншпиль подхватывает аккорд и приветствие
+    ;[0.68, 0.85, 1.02, 1.19].forEach((t, i) => jingle(k, t, 2, 0.009, i % 2 ? 0.5 : -0.5))
+    jingle(k, 1.25, 5, 0.012)
+    ;[15, 19, 22].forEach((n, i) => glock(k, k.n(n + 12), 1.3 + i * 0.08, 0.016, 1.2, i * 0.3 - 0.3, 0.6))
+    glock(k, k.n(27), 3.55, 0.02, 1.8, 0.2, 0.7)
+    jingle(k, 3.37, 3, 0.009, -0.2)
+  },
+  farewell: (k) => {
+    soft.farewell!(k)
+    jingle(k, 0.05, 3, 0.01, 0.3)
+    glock(k, k.n(15), 0.62, 0.02, 1.4, -0.2, 0.6)
+  },
+  installed: (k) => {
+    soft.installed!(k)
+    jingle(k, 0.02, 4, 0.011)
+    glock(k, k.n(22), 0.3, 0.022, 1.2, 0.2, 0.6)
+  }
+}
+
+/** Жутковатая нота: треугольник, сползающий вниз, с расстроенным двойником */
+const eerie = (k: Kit, f: number, start: number, gain: number, dur = 0.2, pan = 0, space = 0.3) => {
+  k.tone('triangle', f, start, { gain, dur, attack: 0.01, lp: 1500, pan, room: 0.35, space, to: f * 0.965 })
+  k.tone('sine', f * 1.012, start, { gain: gain * 0.45, dur, attack: 0.01, lp: 1500, pan: -pan, room: 0.35, space })
+}
+/** Писк летучей мыши */
+const squeak = (k: Kit, start: number, pan: number) => k.tone('sine', 5200, start, { gain: 0.006, dur: 0.06, to: 6800, pan, space: 0.5 })
+/** Скрип: пила под срезом едет вверх или вниз */
+const creak = (k: Kit, from: number, to: number) => k.tone('sawtooth', from, 0, { gain: 0.016, dur: 0.16, to, lp: 900, room: 0.3 })
+/** Терменвокс: синус, плавно уезжающий к другой ноте */
+const theremin = (k: Kit, from: number, to: number, start: number, dur: number, gain = 0.024, pan = 0) =>
+  k.tone('sine', from, start, { gain, dur, to, attack: 0.18, lp: 2400, pan, room: 0.3, space: 0.75 })
+
+/** Хэллоуин: ре минор, расстроенные ноты, скрипы, терменвокс и писк летучих мышей */
+const halloween: SoundSet = {
+  move: (k) => eerie(k, byDir(k, 587, 466, 392) * (0.995 + Math.random() * 0.01), 0, 0.048, 0.12, k.pan, 0.15),
+  tab: (k) => {
+    const right = k.dir !== 'left'
+    k.air(0, 0.3, 0.016, right ? 300 : 900, right ? 900 : 300, 0.4, right ? 0.4 : -0.4)
+    eerie(k, right ? 523 : 466, 0.05, 0.042, 0.18, right ? 0.3 : -0.3)
+  },
+  adjust: (k) => eerie(k, k.dir === 'left' ? 466 : 554, 0, 0.022, 0.11, k.pan, 0.15),
+  toggle: (k) => halloween.toggleOn!(k),
+  toggleOn: (k) => {
+    creak(k, 150, 240)
+    eerie(k, 587, 0.09, 0.042, 0.22, 0.15)
+  },
+  toggleOff: (k) => {
+    creak(k, 240, 140)
+    eerie(k, 392, 0.09, 0.04, 0.24, -0.15)
+  },
+  select: (k) => {
+    eerie(k, 440, 0, 0.048, 0.26, -0.08, 0.3)
+    eerie(k, 622, 0.07, 0.032, 0.5, 0.1, 0.5)
+  },
+  back: (k) => {
+    eerie(k, 415, 0, 0.042, 0.22, 0.06, 0.25)
+    eerie(k, 294, 0.07, 0.042, 0.34, -0.06, 0.25)
+  },
+  error: (k) => {
+    k.tone('triangle', 147, 0, { gain: 0.06, dur: 0.3, lp: 900, room: 0.3, attack: 0.01 })
+    k.tone('triangle', 155.5, 0, { gain: 0.04, dur: 0.3, lp: 900, room: 0.3, attack: 0.01 })
+    k.tone('triangle', 110, 0.17, { gain: 0.06, dur: 0.4, lp: 800, room: 0.3, attack: 0.01 })
+  },
+  shuffle: (k) => {
+    ;[0, 0.07, 0.13, 0.18, 0.22].forEach((t, i) => eerie(k, 587 / 1.0595 ** i, t, 0.034, 0.1, (i % 2 ? 0.3 : -0.3) * (1 - i / 5)))
+    eerie(k, 294, 0.32, 0.046, 0.7, 0, 0.5)
+    squeak(k, 0.3, 0.5)
+  },
+  trophy: (k) => {
+    ;[587, 698, 880, 1175].forEach((f, i) => eerie(k, f, i * 0.09, 0.04, 0.7, i * 0.2 - 0.3, 0.5))
+    theremin(k, 1175, 1568, 0.38, 1.2, 0.02, 0.2)
+    k.bell(k.n(-31), 0.4, { gain: 0.05, dur: 1.8, space: 0.6, ratio: 1, index: 0.3 })
+    squeak(k, 0.5, -0.6)
+    squeak(k, 0.62, 0.6)
+  },
+  launch: (k) => {
+    k.air(0, 1.4, 0.03, 2400, 200, 0.5)
+    k.pad([k.n(-19), k.n(-12), k.n(-7), k.n(-4)], 0.05, 2.8, 0.036, 1000, 0.85, 0.6)
+    theremin(k, 294, 587, 0.2, 1.7, 0.024)
+    ;[0.5, 0.72, 1.0].forEach((t, i) => squeak(k, t, i % 2 ? 0.6 : -0.6))
+  },
+  boot: (k) => {
+    // Та же раскладка по заставке, что у основного интро, но в ре миноре: гул, ноты сыплются вниз, на волне
+    // мельтешения — писк летучих мышей и низкий колокол, в конце терменвокс уезжает вверх
+    k.tone('sine', 98, 0.08, { gain: 0.05, dur: 0.6, to: 65, room: 0.2, attack: 0.02 })
+    k.pad([k.n(-31), k.n(-24), k.n(-19), k.n(-16), k.n(-12)], 0, 3.9, 0.038, 800, 0.9, 1.3)
+    k.air(0.15, 0.8, 0.018, 1600, 200, 0.9)
+    const FALL = [17, 13, 12, 8, 10, 5, 8, 4, 5, 1, 0, -4, -2, -7]
+    FALL.forEach((n, i) => {
+      const p = i / (FALL.length - 1)
+      soft1(k, k.n(n), 0.68 + p * 0.52 + rnd(i + 40) * 0.02, 0.02 + rnd(i + 9) * 0.012, 0.5, rnd(i + 20) * 1.5 - 0.75, 0.55)
+    })
+    k.air(1.23, 0.6, 0.022, 500, 2800, 0.8)
+    for (let i = 0; i < 6; i++) squeak(k, 1.27 + rnd(i + 80) * 0.5, rnd(i + 90) * 1.6 - 0.8)
+    k.bell(k.n(-31), 1.25, { gain: 0.048, dur: 2.0, space: 0.5, ratio: 1, index: 0.3 })
+    ;[-7, -4, 0, 5].forEach((n, i) => soft1(k, k.n(n), 1.25 + i * 0.08, 0.042, 1.7, i * 0.3 - 0.45, 0.7))
+    soft1(k, k.n(12), 3.37, 0.03, 1.2, -0.15, 0.8)
+    theremin(k, k.n(12), k.n(17), 3.55, 1.7, 0.026, 0.2)
+  },
+  farewell: (k) => {
+    k.pad([k.n(-31), k.n(-24), k.n(-19), k.n(-16)], 0, 2.2, 0.038, 800, 0.85, 0.25)
+    ;[5, 0, -4, -7].forEach((s, i) => soft1(k, k.n(s), 0.05 + i * 0.15, 0.045, 1.5, 0.4 - i * 0.25, 0.7))
+    k.bell(k.n(-31), 1.25, { gain: 0.038, dur: 1.4, space: 0.5, ratio: 1, index: 0.3 })
+  },
+  shutdown: (k) => {
+    k.pad([k.n(-31), k.n(-24), k.n(-19), k.n(-16)], 0, 2.6, 0.042, 700, 0.85, 0.3)
+    ;[0, -4, -7, -12].forEach((s, i) => soft1(k, k.n(s), 0.1 + i * 0.24, 0.045, 1.8, 0.3 - i * 0.2, 0.75))
+    k.bell(k.n(-43), 1.75, { gain: 0.08, dur: 1.6, space: 0.4, ratio: 1, index: 0.2 })
+  }
+}
+
+/** Музыкальная шкатулка */
+const box = (k: Kit, f: number, start: number, gain = 0.03, dur = 0.6, pan = 0, space = 0.4) => k.bell(f, start, { gain: gain * 1.8, dur, space, pan, ratio: 2, index: 0.25 })
+/** Сердце: два глухих удара */
+const thump = (k: Kit, start: number, gain = 0.07) => {
+  k.tone('sine', 82, start, { gain, dur: 0.12, to: 55, room: 0.2, attack: 0.004 })
+  k.tone('sine', 76, start + 0.16, { gain: gain * 0.7, dur: 0.14, to: 50, room: 0.2, attack: 0.004 })
+}
+
+/** 14 февраля: музыкальная шкатулка и стук сердца */
+const valentine: SoundSet = {
+  move: (k) => box(k, byDir(k, 784, 659, 523) * (0.995 + Math.random() * 0.01), 0, 0.024, 0.3, k.pan, 0.25),
+  tab: (k) => {
+    const right = k.dir !== 'left'
+    k.air(0, 0.25, 0.012, right ? 500 : 1400, right ? 1400 : 500, 0.3, right ? 0.4 : -0.4)
+    box(k, right ? 880 : 784, 0.04, 0.026, 0.4, right ? 0.3 : -0.3)
+  },
+  adjust: (k) => box(k, k.dir === 'left' ? 587 : 698, 0, 0.024, 0.25, k.pan, 0.25),
+  toggle: (k) => valentine.toggleOn!(k),
+  toggleOn: (k) => {
+    box(k, 523, 0, 0.026, 0.3, 0.1)
+    box(k, 784, 0.07, 0.026, 0.5, 0.15)
+  },
+  toggleOff: (k) => {
+    box(k, 659, 0, 0.024, 0.3, -0.1)
+    box(k, 440, 0.07, 0.024, 0.5, -0.15)
+  },
+  select: (k) => {
+    box(k, 659, 0, 0.03, 0.5, -0.08)
+    box(k, 1047, 0.07, 0.024, 0.8, 0.1, 0.5)
+  },
+  back: (k) => {
+    box(k, 587, 0, 0.026, 0.4, 0.06)
+    box(k, 440, 0.06, 0.026, 0.55, -0.06)
+  },
+  shuffle: (k) => {
+    ;[3, 5, 7, 10, 12, 15].forEach((s, i) => box(k, k.n(s), i * 0.05, 0.02, 0.4, i * 0.2 - 0.5))
+    box(k, k.n(19), 0.34, 0.028, 1.0, 0, 0.5)
+  },
+  trophy: (k) => {
+    thump(k, 0)
+    ;[3, 7, 10, 14, 15].forEach((s, i) => box(k, k.n(s), 0.3 + i * 0.09, 0.028, 1.0, i * 0.2 - 0.4, 0.5))
+    box(k, k.n(27), 0.8, 0.02, 1.8, 0.2, 0.7)
+  },
+  launch: (k) => {
+    soft.launch!(k)
+    thump(k, 0.1, 0.06)
+    thump(k, 0.95, 0.05)
+  },
+  boot: (k) => {
+    soft.boot!(k)
+    // Сердце стучит на волне мельтешения, шкатулка доигрывает приветствие
+    thump(k, 1.25, 0.06)
+    ;[15, 19, 22].forEach((n, i) => box(k, k.n(n), 3.37 + i * 0.12, 0.018, 1.4, i * 0.3 - 0.3, 0.7))
+  }
+}
+
+export const HOLIDAY_SETS = ['newyear', 'halloween', 'valentine'] as const
+
+export const SETS: Record<SetName, SoundSet> = {
+  main,
+  glass: {},
+  crt,
+  soft,
+  chip,
+  drop,
+  newyear: { ...main, ...newyear },
+  halloween: { ...main, ...halloween },
+  valentine: { ...main, ...valentine }
+}

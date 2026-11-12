@@ -79,7 +79,14 @@ export const COLORS: Record<string, [string, number]> = {
   b: ['#5aa9ff', 1],
   r: ['#ff4b5c', 1],
   y: ['#ffd35c', 1],
-  v: ['#a891ff', 1]
+  v: ['#a891ff', 1],
+  // Цвета заставок и сезонных сценок
+  o: ['#ffa23a', 1],
+  n: ['#4be3a0', 1],
+  N: ['#4be3a0', 0.4],
+  c: ['#5ee6ff', 1],
+  k: ['#a8693a', 1],
+  B: ['#5aa9ff', 0.38]
 }
 
 export const COLS = 15
@@ -360,7 +367,10 @@ export const SPRITES = {
   gearA: ['..g..', '.ggg.', 'gg.gg', '.ggg.', '..g..'],
   gearB: ['g...g', '.ggg.', '.g.g.', '.ggg.', 'g...g'],
   // Ночной колпак между антеннами: кончик с помпоном свисает вправо
-  cap: ['......##', '.....v##', '....vv..', '...vvv..', '..vvvv..', '..vvvv..', '.######.']
+  cap: ['......##', '.....v##', '....vv..', '...vvv..', '..vvvv..', '..vvvv..', '.######.'],
+  // Праздничные шапки на том же месте: новогодний колпак и шляпа ведьмы
+  santa: ['......##', '.....r##', '....rr..', '...rrr..', '..rrrr..', '..rrrr..', '.######.'],
+  witch: ['....v...', '...vv...', '...vvv..', '..vvvv..', '..oooo..', 'vvvvvvvv']
 } satisfies Record<string, string[]>
 export type Sprite = keyof typeof SPRITES
 
@@ -403,7 +413,270 @@ const ask = (face: Grid): Frame[] => [
   f(face, 1100, { fx: [fx('ask', 230, 26)] })
 ]
 
+// ---------- Заставки, мемы и времена года ----------
+const rep = <T>(list: T[], n: number): T[] => Array.from({ length: n }, () => list).flat()
+/** Сдвиг лица по вертикали (плюс — вниз) */
+const vshift = (face: Grid, dy: number): Grid => face.map((_, y) => face[y - dy] ?? BLANK[0])
+/** Точки только там, где у лица пусто: снег и огонь не закрывают глаза и рот */
+const under = (face: Grid, list: [number, number, string][]): Grid => dots(face, list.filter(([x, y]) => face[y]?.[x] === '.'))
+/** «Случай», одинаковый при каждом запуске */
+const rnd = (seed: number) => {
+  let s = seed
+  return () => (s = (s * 16807) % 2147483647) / 2147483647
+}
+type Dot = [number, number, string]
+
+/** Камин: кирпичная арка, поленья и пламя, которое пляшет; иногда вылетает искра */
+const FIRE = (() => {
+  const r = rnd(77)
+  const base = [1, 2, 3, 4, 3, 4, 3, 2, 1]
+  return Array.from({ length: 8 }, () => {
+    const list: Dot[] = []
+    for (let x = 1; x <= 13; x++) list.push([x, 0, 'd'])
+    for (let y = 1; y < ROWS; y++) list.push([1, y, 'd'], [13, y, 'd'])
+    base.forEach((b, i) => {
+      list.push([3 + i, 6, 'k'])
+      const h = Math.max(1, Math.min(4, b + Math.round(r() * 2 - 1)))
+      for (let j = 0; j < h; j++) list.push([3 + i, 5 - j, j === h - 1 ? (h > 1 ? 'r' : 'o') : j === h - 2 ? 'o' : 'y'])
+    })
+    if (r() < 0.6) list.push([3 + Math.floor(r() * 9), 1, 'o'])
+    return dots(BLANK, list)
+  })
+})()
+/** «Всё нормально»: улыбается, а вокруг горит */
+const FINE = (() => {
+  const r = rnd(5)
+  return Array.from({ length: 6 }, () => {
+    const list: Dot[] = []
+    for (let x = 0; x < COLS; x++) {
+      const h = (x < 2 || x > 12 ? 3 : 1) + Math.round(r() * 1.4)
+      for (let j = 0; j < h; j++) list.push([x, 7 - j, j === h - 1 ? 'r' : j === h - 2 ? 'o' : 'y'])
+    }
+    return under(happy, list)
+  })
+})()
+/** Заставка с прыгающим квадратиком: меняет цвет у стенок и в конце попадает точно в угол */
+const DVD = (() => {
+  const colors = ['#', 'v', 'p', 'y', 'b', 'n']
+  const out: Grid[] = []
+  let x = 4
+  let y = 1
+  let vx = 1
+  let vy = 1
+  let c = 0
+  for (let k = 0; k < 80; k++) {
+    const ch = colors[c]
+    out.push(dots(BLANK, [[x, y, ch], [x + 1, y, ch], [x, y + 1, ch], [x + 1, y + 1, ch]]))
+    if (k > 0 && (x === 0 || x === 13) && (y === 0 || y === 6)) break
+    const hx = x + vx < 0 || x + vx > 13
+    const hy = y + vy < 0 || y + vy > 6
+    if (hx) vx = -vx
+    if (hy) vy = -vy
+    if (hx || hy) c = (c + 1) % colors.length
+    x += vx
+    y += vy
+  }
+  return out
+})()
+/** Зелёный дождь из символов */
+const MATRIX = Array.from({ length: 30 }, (_, k) => {
+  const list: Dot[] = []
+  for (let x = 0; x < COLS; x++) {
+    const head = (k * (x % 3 === 0 ? 2 : 1) + x * 5) % 13
+    for (let j = 0; j < 4; j++) if (head - j >= 0 && head - j < ROWS) list.push([x, head - j, j === 0 ? '#' : j === 1 ? 'n' : 'N'])
+  }
+  return dots(BLANK, list)
+})
+/** Синий экран с грустным смайликом */
+const BSOD = dots(Array(ROWS).fill('B'.repeat(COLS)) as Grid, [[4, 2, '#'], [4, 4, '#'], [8, 1, '#'], [7, 2, '#'], [7, 3, '#'], [7, 4, '#'], [8, 5, '#'], ...[2, 3, 4, 5, 6, 7, 8, 9].map((x): Dot => [x, 7, 'h'])])
+const E404: Grid = ['...............', '..#.#.###.#.#..', '..#.#.#.#.#.#..', '..###.#.#.###..', '....#.#.#...#..', '....#.###...#..', '...............', '...............']
+/** Змейка ползёт змейкой, ест яблоки и растёт */
+const SNAKE = (() => {
+  const path: [number, number][] = []
+  for (let x = 1; x <= 13; x++) path.push([x, 1])
+  path.push([13, 2])
+  for (let x = 13; x >= 1; x--) path.push([x, 3])
+  path.push([1, 4])
+  for (let x = 1; x <= 13; x++) path.push([x, 5])
+  const apples: [number, number][] = [[6, 1], [9, 3], [4, 5]]
+  const when = apples.map((a) => path.findIndex((q) => q[0] === a[0] && q[1] === a[1]))
+  return path.map((_, i) => {
+    const len = 3 + when.filter((w) => w <= i).length * 2
+    const body = path.slice(Math.max(0, i - len + 1), i + 1)
+    return dots(BLANK, [...apples.filter((_a, n) => when[n] > i).map((a): Dot => [a[0], a[1], 'r']), ...body.map((q, j): Dot => [q[0], q[1], j === body.length - 1 ? '#' : 'n'])])
+  })
+})()
+/** Аквариум: большая рыба плывёт направо, маленькая навстречу, водоросли качаются, пузырьки всплывают */
+const AQUA = Array.from({ length: 26 }, (_, k) => {
+  const list: Dot[] = []
+  for (const x of [2, 12]) list.push([x, 7, 'n'], [x, 6, 'n'], [x + (Math.floor(k / 3) % 2), 5, 'n'])
+  list.push([9, 7 - (k % 8), 'c'], [5, 7 - ((k + 4) % 8), 'c'])
+  ;['o..oo.', 'ooooo#', 'o..oo.'].forEach((r, j) => [...r].forEach((ch, i) => ch !== '.' && list.push([k - 6 + i, 1 + j, ch])))
+  ;[...'#pp.p'].forEach((ch, i) => ch !== '.' && list.push([15 - Math.floor(k * 0.75) + i, 5, ch]))
+  return dots(BLANK, list)
+})
+/** Очки медленно опускаются сверху на глаза */
+const GLASSES = ['.#############.', '..#d##...#d##..', '...##.....##...']
+const dealAt = (top: number) => rows(idle, Object.fromEntries(GLASSES.map((g, i) => [top + i, g]).filter(([y]) => (y as number) >= 0)))
+/** Снег и листья падают поверх лица */
+const falling = (face: Grid, k: number, colors: string[], zig: boolean): Grid =>
+  under(
+    face,
+    Array.from({ length: 7 }, (_, i): Dot => [(i * 4 + 1 + (zig ? Math.floor((k + i) / 2) % 2 : 0)) % COLS, (k + i * 3) % 11, colors[i % colors.length]]).filter(([, y]) => y < ROWS)
+  )
+const cold: Grid = [...SQUINT_EYES, '...............', '....#.#.#.#....', '.....#.#.#.....', '...............']
+/** Ёлка с гирляндой: огоньки горят через один */
+const TREE = [0, 1].map((n) =>
+  dots(
+    ['.......y.......', '.......n.......', '......nnn......', '.....nnnnn.....', '....nnnnnnn....', '...nnnnnnnnn...', '......kkk......', '...rr.....bb...'],
+    n
+      ? [[7, 0, '#'], [6, 2, 'y'], [9, 3, 'b'], [5, 4, 'r'], [7, 5, 'y'], [11, 5, 'b'], [7, 3, 'p']]
+      : [[7, 2, 'r'], [5, 3, 'y'], [8, 4, 'b'], [4, 5, 'p'], [10, 5, 'r'], [6, 4, 'p']]
+  )
+)
+/** Салют: ракета взлетает и рассыпается кольцом */
+const FIREWORK = (() => {
+  const shot = (cx: number, cy: number, c: string): Grid[] => {
+    const ring = (r: number, ch: string): Dot[] => [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]].map(([dx, dy]): Dot => [cx + dx * r, cy + dy * r, ch])
+    const up = Array.from({ length: 7 - cy }, (_, i) => dots(BLANK, [[cx, 7 - i, 'h']]))
+    return [...up, dots(BLANK, [[cx, cy, '#']]), dots(BLANK, [[cx, cy, '#'], ...ring(1, c)]), dots(BLANK, ring(2, c)), dots(BLANK, [...ring(3, c), ...ring(1, 'd')]), dots(BLANK, ring(3, 'd'))]
+  }
+  return [...shot(4, 3, 'y'), ...shot(10, 2, 'p'), ...shot(7, 3, 'c')]
+})()
+/** Росток тянется вверх и распускается */
+const FLOWER: Grid[] = [
+  rows(BLANK, { 7: '.......n.......' }),
+  rows(BLANK, { 6: '.......n.......', 7: '.......n.......' }),
+  rows(BLANK, { 5: '.......n.......', 6: '.....nnn.......', 7: '.......n.......' }),
+  rows(BLANK, { 4: '.......n.......', 5: '.......nnn.....', 6: '.....nnn.......', 7: '.......n.......' }),
+  rows(BLANK, { 3: '.......p.......', 4: '.......n.......', 5: '.......nnn.....', 6: '.....nnn.......', 7: '.......n.......' }),
+  rows(BLANK, { 1: '.......p.......', 2: '......pyp......', 3: '.......p.......', 4: '.......n.......', 5: '.......nnn.....', 6: '.....nnn.......', 7: '.......n.......' }),
+  rows(BLANK, { 0: '......p.p......', 1: '.....ppppp.....', 2: '.....ppypp.....', 3: '......ppp......', 4: '.......n.......', 5: '.......nnn.....', 6: '.....nnn.......', 7: '.......n.......' })
+]
+const puddle = rows(BLANK, { 5: '....##...##....', 6: '....##...##....', 7: '.#############.' })
+/** Тыква со свечкой внутри */
+const pumpkin: Grid = ['...............', '...o.......o...', '..ooo.....ooo..', '...............', '.o...........o.', '.oo.o.o.o.o.oo.', '..ooooooooooo..', '...o.o.o.o.o...']
+const pumpkinLit = pumpkin.map((r) => r.replaceAll('o', 'y'))
+/** Привидение проплывает справа налево */
+const GHOST = Array.from({ length: 21 }, (_, k) => {
+  const list: Dot[] = []
+  ;['.###.', '#####', '#.#.#', '#####', '#####', '#.#.#'].forEach((r, j) => [...r].forEach((ch, i) => ch !== '.' && list.push([15 - k + i, 1 + (Math.floor(k / 3) % 2) + j, j === 5 && k % 2 ? 'h' : ch])))
+  return dots(BLANK, list)
+})
+
+const heartBig: Grid = ['....pp...pp....', '...pppp.pppp...', '...ppppppppp...', '....ppppppp....', '.....ppppp.....', '......ppp......', '.......p.......', '...............']
+const heartSmall: Grid = ['...............', '.....pp.pp.....', '.....ppppp.....', '......ppp......', '.......p.......', '...............', '...............', '...............']
+/** Письмо: конверт, который открывается, и из него поднимается сердце */
+const envelope: Grid = ['...............', '..###########..', '..##.......##..', '..#.##...##.#..', '..#...###...#..', '..#.........#..', '..###########..', '...............']
+const envelopeOpen: Grid = ['......###......', '....##...##....', '..##.......##..', '..#.........#..', '..#.........#..', '..#.........#..', '..###########..', '...............']
+const envelopeHeart = dots(envelopeOpen, [[6, 3, 'p'], [8, 3, 'p'], [6, 4, 'p'], [7, 4, 'p'], [8, 4, 'p'], [7, 5, 'p']])
+/** Стрела летит слева и попадает в сердце */
+const target = shift(heartSmall, 4)
+const arrowAt = (tip: number): Grid => dots(target, [[tip - 3, 2, 'd'], [tip - 2, 2, 'h'], [tip - 1, 2, 'h'], [tip, 2, '#'], [tip - 1, 1, '#'], [tip - 1, 3, '#']])
+/** Кардиограмма бежит по экрану */
+const PULSE = (() => {
+  const line = [4, 4, 4, 4, 3, 4, 1, 6, 4, 4, 4, 4, 4, 4]
+  return Array.from({ length: 28 }, (_, k) => {
+    const list: Dot[] = []
+    for (let x = 0; x < COLS; x++) {
+      const y = line[(x + k) % line.length]
+      const prev = line[(x + k + line.length - 1) % line.length]
+      for (let j = Math.min(y, prev + Math.sign(y - prev)); j <= Math.max(y, prev + Math.sign(y - prev)); j++) list.push([x, j, x > 11 ? '#' : 'p'])
+    }
+    return dots(BLANK, list)
+  })
+})()
+
+/** Свои сценки: заставки на экране, мемы и сезонные */
+const FUN = {
+  // ── 14 февраля ──
+  // Получил письмо: конверт открывается, из него поднимается сердце и бьётся
+  letter: {
+    intro: [f(envelope, 700), f(envelopeOpen, 300), f(envelopeHeart, 400), f(heartSmall, 240), f(heartBig, 260), f(heartSmall, 200), f(heartBig, 260), f(heartSmall, 200), f(heartBig, 500), ...hearts(lovePink)]
+  },
+  // Стрела амура попадает в сердце
+  cupid: {
+    intro: [f(target, 500), ...[0, 2, 4, 6, 8].map((x) => f(arrowAt(x), 70)), f(arrowAt(11), 120, { move: 'shake' }), f(arrowAt(11), 700), f(shift(heartBig, 2), 200), f(arrowAt(11), 200), f(shift(heartBig, 2), 300), f(blush, 500), ...hearts(blush)]
+  },
+  // Сердце стучит: кардиограмма, потом влюблённые глаза
+  pulse: { intro: [...PULSE.map((g) => f(g, 80)), ...PULSE.slice(0, 14).map((g) => f(g, 80)), f(lovePink, 300), ...hearts(lovePink)] },
+  // Включил у себя камин и греется
+  fireplace: { intro: [f(idle, 400, { gaze: { x: 0, y: 1 } }), f(STATIC[1], 50), ...rep(FIRE.map((g) => f(g, 120)), 5), f(STATIC[2], 50), f(blush, 1100)] },
+  // «Всё нормально»: вокруг пожар, а он улыбается
+  fine: { intro: [f(happy, 500), ...rep(FINE.map((g) => f(g, 130)), 5), f(STATIC[0], 50), f(wow, 450, { move: 'shake' })] },
+  // Заставка: квадратик прыгает по экрану и попадает ровно в угол
+  dvd: {
+    intro: [f(STATIC[1], 50), ...DVD.map((g) => f(g, 90)), f(BLANK, 90), f(DVD[DVD.length - 1], 120), f(BLANK, 90), f(DVD[DVD.length - 1], 200), f(wow, 500, { move: 'hop' }), ...SPARKLE]
+  },
+  // Зелёный дождь из символов — и тёмные очки
+  matrix: { intro: [f(STATIC[0], 50), ...MATRIX.map((g) => f(g, 90)), f(coolHalf, 80), f(cool, 1700), f(coolHalf, 80)] },
+  // Синий экран; сам не понял, что это было
+  bsod: { intro: [f(shift(idle, 2), 70), f(STATIC[2], 50), f(BSOD, 2200), f(STATIC[0], 50), f(BLANK, 320), f(STATIC[1], 50), ...ask(confused)] },
+  // Завис: застыл с полузакрытыми глазами, крутится колёсико
+  buffer: { intro: [f(idle, 500), f(rows(idle, { 1: BLANK[0] }), 900), ...rep(SPIN.map((s) => f(s, SPIN_MS)), 2), f(shift(idle, 1), 60), f(wow, 420), f(idle, 120)] },
+  e404: { intro: [f(STATIC[1], 50), f(E404, 500), ...ask(E404), f(STATIC[2], 50)] },
+  // Загрузка встала на 99 %: ждёт, злится, досчитывает
+  stuck: {
+    intro: [
+      ...[0, 18, 36, 55, 73, 91].map((p) => f(loadFace(p, true), 120)),
+      ...rep([f(loadFace(91, false), 400), f(loadFace(91, true), 400)], 4),
+      f(angry, 240, { move: 'shake', fx: [fx('anger', 226, 48)] }),
+      f(angry, 240, { fx: [fx('angerS', 229, 51)] }),
+      f(angry, 240, { fx: [fx('anger', 226, 48)] }),
+      f(loadFace(100, false), 360),
+      f(happy, 800, { move: 'hop' })
+    ]
+  },
+  // Прятки: уехал вниз, выглянул — и выскочил
+  peek: {
+    intro: [f(vshift(idle, 2), 60), f(vshift(idle, 4), 60), f(vshift(idle, 6), 60), f(BLANK, 900), f(vshift(idle, 5), 700), f(BLANK, 500), f(vshift(idle, 5), 300), f(wow, 380, { move: 'hop' }), f(laugh, 200), f(laughShut, 160), f(laugh, 300)]
+  },
+  // Чихнул так, что экран зарябил
+  sneeze: {
+    intro: [f(neutral, 300), f(yawn1, 380), f(neutral, 260), f(yawn2, 520), f(STATIC[1], 60, { move: 'shake' }), f(shift(xx, 2), 90), f(STATIC[2], 50), f(xx, 380), f(wow, 380), f(blush, 900)]
+  },
+  snake: { intro: [f(STATIC[0], 50), ...SNAKE.map((g) => f(g, 70)), f(STATIC[1], 60), f(laugh, 220, { move: 'hop' }), f(laughShut, 180), f(laugh, 320)] },
+  aquarium: { intro: [f(STATIC[2], 50), ...AQUA.map((g) => f(g, 130)), ...AQUA.slice(0, 8).map((g) => f(g, 130)), f(STATIC[0], 50), f(happy, 600)] },
+  // Танцует под свою музыку
+  dance: {
+    intro: rep(
+      [
+        f(shift(laugh, 1), 280, { fx: [fx('note', 226, 40)] }),
+        f(shift(laughShut, -1), 280, { fx: [fx('note', 230, 30)] }),
+        f(shift(laugh, -1), 280, { fx: [fx('note', 222, 44)] }),
+        f(shift(laughShut, 1), 280, { fx: [fx('note', 228, 34)] })
+      ],
+      3
+    )
+  },
+  // Очки опускаются сверху, как в меме
+  deal: { intro: [f(idle, 400), f(dealAt(-2), 240), f(dealAt(-1), 240), f(dealAt(0), 240), f(cool, 500, { fx: [fx('sparkS', 226, 60)] }), f(cool, 1800), f(coolHalf, 80)] },
+  // ── Сезонные ──
+  // Зима: ловит снежинки языком; мёрзнет
+  snow: { intro: [...Array.from({ length: 26 }, (_, k) => f(falling(idle, k, ['h', '#', 'h'], false), 160)), f(tongue, 600), f(happy, 500)] },
+  shiver: { intro: [f(cold, 90, { move: 'shake' }), ...rep([f(shift(cold, 1), 90), f(cold, 90)], 9), f(sad, 500)] },
+  // Новый год: ёлка с гирляндой и салют
+  tree: { intro: [f(STATIC[1], 50), ...rep([f(TREE[0], 360), f(TREE[1], 360)], 5), f(STATIC[2], 50), f(happyOpen, 700, { move: 'hop' })] },
+  fireworks: { intro: [...FIREWORK.map((g) => f(g, 80)), ...FIREWORK.slice(0, 9).map((g) => f(g, 80)), f(wow, 500, { move: 'hop' }), f(happy, 500)] },
+  // Весна: на экране вырастает цветок
+  flower: { intro: [...FLOWER.map((g) => f(g, 340)), f(FLOWER[6], 900), f(blush, 900)] },
+  // Лето: жарко — растёкся лужей
+  melt: {
+    intro: [f(drowsy, 500), f(vshift(drowsy, 1), 260), f(vshift(drowsy, 2), 260), f(vshift(drowsy, 3), 260), f(puddle, 1500), f(dots(puddle, [[2, 6, 'b']]), 300), f(puddle, 500), f(STATIC[0], 50), f(wow, 380)]
+  },
+  // Осень: листопад
+  leaf: { intro: [...Array.from({ length: 22 }, (_, k) => f(falling(idle, k, ['o', 'y', 'r'], true), 180)), f(idle, 500, { gaze: { x: 0, y: 1 } })] },
+  // Хэллоуин: тыква с огоньком внутри; мимо проплывает привидение
+  pumpkin: {
+    intro: [f(STATIC[1], 50), ...rep([f(pumpkin, 520), f(pumpkinLit, 90), f(pumpkin, 200), f(pumpkinLit, 90), f(pumpkin, 700)], 2), f(STATIC[2], 50), f(laugh, 220, { move: 'hop' }), f(laughShut, 180), f(laugh, 300)]
+  },
+  ghost: { intro: [f(idle, 400, { gaze: { x: 2, y: 0 } }), ...GHOST.map((g) => f(g, 110)), f(wow, 500, { move: 'shake' }), f(idle, 500, { gaze: { x: -2, y: 0 } })] },
+  // Первое апреля: лицо вверх ногами
+  flip: { intro: [f(STATIC[0], 50), f([...idle].reverse(), 2600), f(STATIC[2], 50), f(wow, 380)] }
+} satisfies Record<string, Script>
+
 export const SCRIPTS = {
+  ...FUN,
   // Ответы на клик
   wink: { intro: [f(winkHalf, 40), f(wink, 320), f(winkHalf, 40)] },
   laugh: { intro: [f(laugh, 140, { move: 'hop' }), f(laughShut, 110), f(laugh, 140), f(laughShut, 110), f(laugh, 180)] },
@@ -509,7 +782,22 @@ export const IDLE_ACTS: [ScriptName, number][] = [
   ['pong', 2],
   ['glitch', 1],
   ['pour', 2],
-  ['fizz', 2]
+  ['fizz', 2],
+  // Заставки и мемы — пореже, чтобы оставались сюрпризом
+  ['fireplace', 2],
+  ['aquarium', 2],
+  ['dvd', 2],
+  ['peek', 2],
+  ['sneeze', 2],
+  ['dance', 2],
+  ['deal', 2],
+  ['fine', 1],
+  ['matrix', 1],
+  ['snake', 1],
+  ['bsod', 1],
+  ['buffer', 1],
+  ['e404', 1],
+  ['stuck', 1]
 ]
 /** Утром к своим делам добавляется потягивание */
 export const MORNING_ACTS: [ScriptName, number][] = [['stretch', 3]]
@@ -521,6 +809,30 @@ export const DROWSY_ACTS: [ScriptName, number][] = [
 /** На клик: каждый раз другое, без повторов подряд */
 export const CLICK_ACTS: ScriptName[] = ['wink', 'laugh', 'tongue', 'blush', 'heart', 'cool', 'wow', 'sparkle']
 
+/** Времена года и праздники: у каждого свои дела в покое, у праздников ещё и шапка */
+export type Season = 'winter' | 'spring' | 'summer' | 'autumn' | 'newyear' | 'halloween' | 'valentine' | 'fools'
+export function seasonsOf(d: Date): Season[] {
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  const out: Season[] = [m === 12 || m <= 2 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'autumn']
+  if ((m === 12 && day >= 10) || (m === 1 && day <= 8)) out.push('newyear')
+  if ((m === 10 && day >= 16) || (m === 11 && day === 1)) out.push('halloween')
+  if (m === 2 && day === 14) out.push('valentine')
+  if (m === 4 && day === 1) out.push('fools')
+  return out
+}
+export const SEASON_ACTS: Record<Season, [ScriptName, number][]> = {
+  winter: [['snow', 4], ['shiver', 3], ['fireplace', 3]],
+  spring: [['flower', 4]],
+  summer: [['melt', 3], ['deal', 3]],
+  autumn: [['leaf', 4], ['fireplace', 2]],
+  newyear: [['tree', 6], ['fireworks', 5]],
+  halloween: [['pumpkin', 6], ['ghost', 5]],
+  valentine: [['letter', 7], ['cupid', 7], ['pulse', 5], ['heart', 3]],
+  fools: [['flip', 8], ['glitch', 5], ['bsod', 4]]
+}
+export const SEASON_HATS: Partial<Record<Season, Sprite>> = { newyear: 'santa', halloween: 'witch' }
+
 // ---------- Уши: программы по сценкам ----------
 const W = '#ffffff'
 const V = '#a891ff'
@@ -528,6 +840,9 @@ const PINK = '#ff8ac6'
 const BLUE = '#5aa9ff'
 const RED = '#ff4b5c'
 const YEL = '#ffd35c'
+const ORANGE = '#ffa23a'
+const GREEN = '#4be3a0'
+const CYAN = '#5ee6ff'
 /** Такт ушей; плеск после рывка тела длится столько тактов */
 export const EAR_TICK_MS = 80
 export const SLOSH_TICKS = 9
@@ -666,7 +981,39 @@ const EAR_PROGRAMS: Partial<Record<ScriptName | 'idle' | 'sleepy' | 'sleep' | 'l
   notice: (t) => lr(1, { o: 0.3, bands: t < 16 && t % 8 < 3 ? [band(0.78, 0.22, W)] : [] }),
   twitch: () => EARS_IDLE,
   perk: () => EARS_IDLE,
-  shuffle: () => EARS_IDLE
+  shuffle: () => EARS_IDLE,
+  // Заставки и мемы
+  fireplace: (t) => both(E(0.72 + 0.16 * Math.sin(t * 1.3), ORANGE, { wave: ripple(t, 2) })),
+  fine: (t) => both(E(clamp01(0.3 + t / 60), RED, { wave: ripple(t, 2.5), bubbles: bubbles(t, 5, 0.08) })),
+  dvd: () => EARS_IDLE,
+  matrix: (t) => both(E(1, GREEN, { o: 0.4, bands: [band(1 - (t % 12) / 12, 0.2, W)] })),
+  bsod: (t) => both(E(0.5, BLUE, { o: t % 8 < 4 ? 1 : 0.4 })),
+  buffer: () => lr(1, { o: 0.4 }),
+  e404: () => EARS_IDLE,
+  stuck: (t) => progress(Math.min(95, t * 2.2), t),
+  peek: () => EARS_IDLE,
+  sneeze: (t) => lr(1, { wave: t > 18 && t < 32 ? ripple(t, 3) : 0 }),
+  snake: (t) => both(E(clamp01(0.3 + t / 50), GREEN)),
+  aquarium: (t) => both(E(1, BLUE, { bubbles: bubbles(t, 6, 0.04) })),
+  dance: (t) => sway(t),
+  deal: glint,
+  // Сезонные
+  snow: () => lr(0.8, { o: 0.8 }),
+  shiver: (t) => both(E(0.4, BLUE, { wave: ripple(t, 3) })),
+  tree: (t) => {
+    const c = [RED, YEL, BLUE, PINK]
+    return { l: E(1, c[Math.floor(t / 4) % 4]), r: E(1, c[(Math.floor(t / 4) + 2) % 4]) }
+  },
+  fireworks: (t) => both(E(1, [YEL, PINK, CYAN][Math.floor(t / 12) % 3], { wave: ripple(t, 1.5) })),
+  flower: (t) => both(E(clamp01(t / 34), t > 30 ? PINK : GREEN)),
+  melt: (t) => lr(Math.max(0.1, 1 - t / 45), { wave: 1 }),
+  leaf: () => ({ l: E(1, ORANGE), r: E(1, YEL) }),
+  pumpkin: (t) => both(E(0.8, ORANGE, { o: t % 7 < 5 ? 1 : 0.5 })),
+  ghost: () => lr(1, { o: 0.5 }),
+  flip: () => EARS_IDLE,
+  letter: beat,
+  cupid: beat,
+  pulse: beat
 }
 export type EarProgramName = keyof typeof EAR_PROGRAMS
 /** Программы, которым такт не нужен — уши стоят */
@@ -750,7 +1097,35 @@ const MOTIONS: Partial<Record<EarProgramName, (t: number) => Motion>> = {
   // Свои маленькие дела: дёрнул ухом, навострил оба, потоптался
   twitch: (t) => ({ r: hold([0, 0, 0, -14, 4, -10, 0, 0, 0, 0, -12, 0], t, 2, false) }),
   perk: (t) => ears2(hold([-6, -12, -14, -14, -14, -14, -8, 0], t, 3, false)),
-  shuffle: (t) => ({ ...stomp(t, 5, 3), ...ears2(hold([3, 0, -3, 0], t, 3)) })
+  shuffle: (t) => ({ ...stomp(t, 5, 3), ...ears2(hold([3, 0, -3, 0], t, 3)) }),
+  // Заставки и мемы
+  fireplace: (t) => ears2(hold([8, 10], t, 6)),
+  fine: (t) => ({ ...ears2(hold([-4, -7], t, 2)), ...tap(t, 4, 2) }),
+  dvd: (t) => ears2(hold([0, -4], t, 6)),
+  matrix: () => ears2(-8),
+  bsod: () => ears2(20),
+  e404: (t) => ears2(hold([-12, 6], t, 8), hold([6, -12], t, 8)),
+  stuck: (t) => tap(t, 4, 3),
+  peek: (t) => ears2(hold([0, 10, 20, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 10, -12, -8, 0], t, 3, false)),
+  sneeze: (t) => ears2(hold([0, -4, -8, -4, -10, -14, 22, 10, 0], t, 4, false)),
+  snake: (t) => tap(t, 3, 4),
+  aquarium: (t) => ears2(hold([3, 0, -3, 0], t, 4)),
+  dance: (t) => ({ ...ears2(hold([-8, 4], t, 3), hold([4, -8], t, 3)), ...stomp(t, 6, 3) }),
+  deal: (t) => ears2(hold([0, 0, 0, 0, 0, -10, -6], t, 3, false)),
+  // Сезонные
+  snow: (t) => ears2(hold([-4, 0], t, 10)),
+  shiver: (t) => ({ ...ears2(hold([14, 12], t, 1)), fl: hold([2, 0], t, 1), fr: hold([0, 2], t, 1) }),
+  tree: (t) => ears2(hold([-4, 0], t, 4), hold([0, -4], t, 4)),
+  fireworks: () => ears2(-10),
+  flower: (t) => ears2(hold([6, 2, -2, -6], t, 10, false)),
+  melt: (t) => ears2(hold([4, 10, 16, 22, 26], t, 6, false)),
+  leaf: (t) => ({ r: hold([0, -10, 0, 0, 0, 0], t, 4) }),
+  pumpkin: (t) => ears2(hold([-10, -8], t, 3)),
+  ghost: (t) => ears2(hold([0, 0, 0, 0, -12, -14], t, 8, false)),
+  flip: () => ears2(24),
+  letter: (t) => ears2(hold([-12, -12, -8, 0, -5, 3, 0, 0], t, 4)),
+  cupid: (t) => ears2(hold([-5, 3, 0, 0], t, 3), hold([0, 0, -5, 3], t, 3)),
+  pulse: (t) => ears2(hold([-6, 0, 0, 0, 0, 0, 0], t, 2))
 }
 const moved = (e: Ears, m?: Motion): Ears =>
   m ? { l: m.l ? { ...e.l, a: m.l } : e.l, r: m.r ? { ...e.r, a: m.r } : e.r, ...(m.fl || m.fr ? { feet: { l: m.fl ?? 0, r: m.fr ?? 0 } } : {}) } : e
@@ -935,6 +1310,8 @@ export const INSTALLED_AT = INSTALLED.findIndex((fr) => fr.face === happy)
  * слетаются символы названия, — уши наливаются, Тиви моргает и подпрыгивает. Последний кадр держится, пока под ним
  * не покажется настоящий Тиви
  */
+/** Сколько длится сбор Тиви из символов до начала развёртки (TiviCameo), мс */
+export const ARRIVE_SCAN_MS = 1000
 export const ARRIVE: Frame[] = (() => {
   const lit: [number, number, string][] = []
   idle.forEach((row, y) => [...row].forEach((ch, x) => ch !== '.' && lit.push([x, y, ch])))
@@ -942,7 +1319,8 @@ export const ARRIVE: Frame[] = (() => {
   lit.sort((a, b) => ((a[0] * 7 + a[1] * 13) % 11) - ((b[0] * 7 + b[1] * 13) % 11))
   const STEPS = 6
   return [
-    f(BLANK, 480, { ears: lr(0) }),
+    // Пока символы слетаются и идёт развёртка (8 тактов), экран тёмный
+    f(BLANK, ARRIVE_SCAN_MS + 320, { ears: lr(0) }),
     ...Array.from({ length: STEPS }, (_, k) => f(dots(BLANK, lit.slice(0, Math.ceil((lit.length * (k + 1)) / STEPS))), 80, { ears: lr(0) })),
     ...[0.25, 0.5, 0.75, 1].map((v) => f(idle, 80, { ears: posed(lr(v, { wave: 1.2 }), { l: -8, r: -8 }) })),
     f(idle, 160, { ears: EARS_IDLE }),

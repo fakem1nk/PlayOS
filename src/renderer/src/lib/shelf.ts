@@ -82,9 +82,7 @@ export const shelf = {
   },
   /** Пройдено: на полку, из всех стопок */
   complete(game: Game, mood: GameMood, full: boolean) {
-    const first = game.sessions.length ? Math.min(...game.sessions.map((s) => s.start)) : game.lastPlayed ?? Date.now()
-    const done: GameDone = { at: Date.now(), mood, full: full || undefined, playtime: game.playtime, days: Math.max(1, Math.round((Date.now() - first) / 86_400_000)) }
-    return api.shelfPatch([{ id: game.id, done, pile: null }])
+    return api.shelfPatch([{ id: game.id, done: doneNow(game, mood, full), pile: null }])
   },
   /** Снять с полки; replay — сразу текущей в открытой сборке, пройти заново */
   uncomplete(game: Game, replay?: { list: Game[]; build: string }) {
@@ -155,24 +153,55 @@ export function pileEta(list: Game[], all: Game[], hltb: (g: Game) => number | n
 
 // ───────────── Фигурки Тиви ─────────────
 
-export type FigureId = 'finisher' | 'perfect' | 'explorer' | 'astro' | 'knight' | 'collector' | 'legend'
+export type FigureId =
+  | 'finisher'
+  | 'explorer'
+  | 'astro'
+  | 'knight'
+  | 'collector'
+  | 'legend'
+  | 'titan'
+  | 'perfect'
+  | 'master'
+  | 'sprinter'
+  | 'marathon'
+  | 'retro'
+  | 'owl'
+  | 'hattrick'
 
-/** Коллекционные фигурки Тиви: за число игр на полке или за первую игру на 100 % */
+/**
+ * За что даётся фигурка: count — столько игр на полке; full — столько игр на 100 %; fast — игра, пройденная за 3 дня
+ * от первого запуска; long — игра, в которую наиграно 100 часов; retro — игры для PS2 и PS3; night — игра, отмеченная
+ * пройденной ночью (0–5 ч); month — столько игр за любые 30 дней подряд
+ */
+export type FigureRule = 'count' | 'full' | 'fast' | 'long' | 'retro' | 'night' | 'month'
+
+/** Коллекционные фигурки Тиви. tier — редкость: 1 обычная, 2 редкая, 3 эпическая, 4 легендарная */
 export interface FigureDef {
   id: FigureId
+  rule: FigureRule
   n: number
-  full?: boolean
+  tier: 1 | 2 | 3 | 4
 }
 
+/** Первые семь — за число игр на полке (верхний ряд), остальные — за особые прохождения (нижний ряд) */
 export const FIGURES: FigureDef[] = [
-  { id: 'finisher', n: 1 },
-  { id: 'perfect', n: 1, full: true },
-  { id: 'explorer', n: 5 },
-  { id: 'astro', n: 10 },
-  { id: 'knight', n: 15 },
-  { id: 'collector', n: 25 },
-  { id: 'legend', n: 50 }
+  { id: 'finisher', rule: 'count', n: 1, tier: 1 },
+  { id: 'explorer', rule: 'count', n: 5, tier: 1 },
+  { id: 'astro', rule: 'count', n: 10, tier: 2 },
+  { id: 'knight', rule: 'count', n: 15, tier: 2 },
+  { id: 'collector', rule: 'count', n: 25, tier: 3 },
+  { id: 'legend', rule: 'count', n: 50, tier: 4 },
+  { id: 'titan', rule: 'count', n: 100, tier: 4 },
+  { id: 'perfect', rule: 'full', n: 1, tier: 2 },
+  { id: 'master', rule: 'full', n: 5, tier: 3 },
+  { id: 'sprinter', rule: 'fast', n: 1, tier: 2 },
+  { id: 'marathon', rule: 'long', n: 1, tier: 3 },
+  { id: 'retro', rule: 'retro', n: 3, tier: 2 },
+  { id: 'owl', rule: 'night', n: 1, tier: 1 },
+  { id: 'hattrick', rule: 'month', n: 3, tier: 2 }
 ]
+export const FIGURE_ROW = 7
 
 export const figureName = (id: FigureId) =>
   ({
@@ -182,20 +211,66 @@ export const figureName = (id: FigureId) =>
     astro: t('Космонавт'),
     knight: t('Рыцарь'),
     collector: t('Коллекционер'),
-    legend: t('Легенда')
+    legend: t('Легенда'),
+    titan: t('Титан'),
+    master: t('Мастер'),
+    sprinter: t('Спринтер'),
+    marathon: t('Марафонец'),
+    retro: t('Ретро'),
+    owl: t('Сова'),
+    hattrick: t('Хет-трик')
   })[id]
+
+export const tierName = (tier: FigureDef['tier']) => [t('Обычная'), t('Редкая'), t('Эпическая'), t('Легендарная')][tier - 1]
+
+export const FAST_DAYS = 3
+export const LONG_HOURS = 100
+const MONTH_MS = 30 * 86_400_000
+
+/** Игры с полки (по порядку попадания на неё), которые идут в счёт фигурки */
+function counted(f: FigureDef, shelfGames: Game[]) {
+  switch (f.rule) {
+    case 'full':
+      return shelfGames.filter((g) => g.done?.full)
+    case 'fast':
+      return shelfGames.filter((g) => (g.done?.days ?? 99) <= FAST_DAYS)
+    case 'long':
+      return shelfGames.filter((g) => (g.done?.playtime ?? 0) >= LONG_HOURS * 3600)
+    case 'retro':
+      return shelfGames.filter((g) => g.platform === 'ps2' || g.platform === 'ps3')
+    case 'night':
+      return shelfGames.filter((g) => g.done && new Date(g.done.at).getHours() < 5)
+    default:
+      return shelfGames
+  }
+}
 
 /** Когда фигурка заработана: время той игры на полке, что её принесла; null — ещё нет */
 export function figureEarnedAt(f: FigureDef, shelfGames: Game[]) {
-  const list = f.full ? shelfGames.filter((g) => g.done?.full) : shelfGames
-  return list[f.n - 1]?.done?.at ?? null
+  if (f.rule === 'month') {
+    // Первая игра, с которой в любые 30 дней подряд набралось n
+    for (let i = f.n - 1; i < shelfGames.length; i++) if (shelfGames[i].done!.at - shelfGames[i - f.n + 1].done!.at <= MONTH_MS) return shelfGames[i].done!.at
+    return null
+  }
+  return counted(f, shelfGames)[f.n - 1]?.done?.at ?? null
 }
 
-/** Какие фигурки появятся, если поставить на полку ещё одну игру (full — на 100 %) */
-export function newFigures(shelfGames: Game[], full: boolean): FigureDef[] {
-  const n = shelfGames.length + 1
-  const fulls = shelfGames.filter((g) => g.done?.full).length + (full ? 1 : 0)
-  return FIGURES.filter((f) => (f.full ? full && fulls === f.n : f.n === n))
+/** Сколько уже набрано к фигурке из нужного */
+export function figureProgress(f: FigureDef, shelfGames: Game[]): [number, number] {
+  const have = f.rule === 'month' ? shelfGames.filter((g) => Date.now() - g.done!.at <= MONTH_MS).length : counted(f, shelfGames).length
+  return [Math.min(f.n, have), f.n]
+}
+
+/** Отметка «пройдено» для игры прямо сейчас */
+export function doneNow(game: Game, mood: GameMood | undefined, full: boolean): GameDone {
+  const first = game.sessions.length ? Math.min(...game.sessions.map((s) => s.start)) : game.lastPlayed ?? Date.now()
+  return { at: Date.now(), mood, full: full || undefined, playtime: game.playtime, days: Math.max(1, Math.round((Date.now() - first) / 86_400_000)) }
+}
+
+/** Какие фигурки появятся, если поставить на полку эту игру (full — на 100 %) */
+export function newFigures(shelfGames: Game[], game: Game, full: boolean): FigureDef[] {
+  const after = [...shelfGames.filter((g) => g.id !== game.id), { ...game, done: doneNow(game, undefined, full) }]
+  return FIGURES.filter((f) => figureEarnedAt(f, shelfGames) === null && figureEarnedAt(f, after) !== null)
 }
 
 // ───────────── Оценки лицами Тиви ─────────────

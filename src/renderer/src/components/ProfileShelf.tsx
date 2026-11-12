@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import type { Game } from '@shared/types'
 import { locale, plural, t } from '@shared/i18n'
-import { figureEarnedAt, figureName, FIGURES, moodOf, type FigureDef } from '../lib/shelf'
+import { FAST_DAYS, FIGURE_ROW, figureEarnedAt, figureName, FIGURES, LONG_HOURS, moodOf, type FigureDef } from '../lib/shelf'
 import { DotText } from './DotText'
 import { Cover } from './Tile'
 import { IconTrophy } from './Icons'
@@ -214,12 +214,34 @@ function GameInfo({ g }: { g: Game }) {
 
 // ───────────── Фигурки Тиви — своя полка ─────────────
 
-/** Чем заработать фигурку */
-export const figureGoal = (f: FigureDef) => (f.full ? t('первая игра на 100%') : t('{games} на полке', { games: gamesW(f.n) }))
+/** Чем заработать фигурку — полной фразой, для окна фигурки */
+export const figureGoal = (f: FigureDef) =>
+  ({
+    count: t('{games} на полке', { games: gamesW(f.n) }),
+    full: f.n === 1 ? t('первая игра на 100%') : t('{games} на 100%', { games: gamesW(f.n) }),
+    fast: t('игра, пройденная за {days}', { days: daysW(FAST_DAYS) }),
+    long: t('игра, в которую наиграно {n} часов', { n: LONG_HOURS }),
+    retro: t('{games} для PS2 или PS3 на полке', { games: gamesW(f.n) }),
+    night: t('игра, пройденная ночью'),
+    month: t('{games} за 30 дней', { games: gamesW(f.n) })
+  })[f.rule]
+
+/** То же коротко — подпись под закрытой фигуркой на полке */
+const figureHint = (f: FigureDef) =>
+  ({
+    count: t('{games} на полке', { games: gamesW(f.n) }),
+    full: f.n === 1 ? t('первая на 100%') : t('{n} на 100%', { n: f.n }),
+    fast: t('игра за {days}', { days: daysW(FAST_DAYS) }),
+    long: t('{n} часов в игре', { n: LONG_HOURS }),
+    retro: t('{n} ретро-игры', { n: f.n }),
+    night: t('пройти ночью'),
+    month: t('{n} за месяц', { n: f.n })
+  })[f.rule]
 
 export function FigureShelf({ shelfGames, fresh, onOpen }: { shelfGames: Game[]; fresh: string | null; onOpen: (f: FigureDef) => void }) {
   const earned = FIGURES.filter((f) => figureEarnedAt(f, shelfGames) !== null)
-  const next = FIGURES.find((f) => !f.full && figureEarnedAt(f, shelfGames) === null)
+  const next = FIGURES.find((f) => f.rule === 'count' && figureEarnedAt(f, shelfGames) === null)
+  const rows = Array.from({ length: Math.ceil(FIGURES.length / FIGURE_ROW) }, (_, i) => FIGURES.slice(i * FIGURE_ROW, (i + 1) * FIGURE_ROW))
   return (
     <section className="figs">
       <header className="shelf-head">
@@ -228,34 +250,39 @@ export function FigureShelf({ shelfGames, fresh, onOpen }: { shelfGames: Game[];
           <DotText text={String(earned.length)} /> {t('из {n}', { n: FIGURES.length })}
         </span>
       </header>
-      <div className="figs-grid">
-        {FIGURES.map((f) => {
-          const got = earned.includes(f)
-          return (
-            <button
-              key={f.id}
-              data-nav
-              data-figure={f.id}
-              className={`fig pp-ring ${got ? '' : 'is-locked'} ${next === f ? 'is-next' : ''} ${fresh === f.id ? 'is-new' : ''}`}
-              onClick={() => onOpen(f)}
-              aria-label={got ? figureName(f.id) : t('Закрытая фигурка')}
-            >
-              <TiviFigure id={f.id} locked={!got} className="fig-art" />
-            </button>
-          )
-        })}
-      </div>
-      <span className="shelf-line" />
-      <div className="figs-grid figs-labels">
-        {FIGURES.map((f) => {
-          const got = earned.includes(f)
-          return (
-            <span key={f.id} className={`fig-label ${got ? 'is-earned' : ''}`}>
-              {got ? figureName(f.id) : next === f ? t('ещё {games}', { games: gamesW(f.n - shelfGames.length) }) : figureGoal(f)}
-            </span>
-          )
-        })}
-      </div>
+      {/* Верхняя полка — за число игр, нижняя — за особые прохождения */}
+      {rows.map((row, r) => (
+        <div key={r} className="figs-row">
+          <div className="figs-grid">
+            {row.map((f) => {
+              const got = earned.includes(f)
+              return (
+                <button
+                  key={f.id}
+                  data-nav
+                  data-figure={f.id}
+                  className={`fig pp-ring ${got ? '' : 'is-locked'} ${next === f ? 'is-next' : ''} ${fresh === f.id ? 'is-new' : ''}`}
+                  onClick={() => onOpen(f)}
+                  aria-label={got ? figureName(f.id) : t('Закрытая фигурка')}
+                >
+                  <TiviFigure id={f.id} locked={!got} className="fig-art" />
+                </button>
+              )
+            })}
+          </div>
+          <span className="shelf-line" />
+          <div className="figs-grid figs-labels">
+            {row.map((f) => {
+              const got = earned.includes(f)
+              return (
+                <span key={f.id} className={`fig-label ${got ? 'is-earned' : ''}`}>
+                  {got ? figureName(f.id) : next === f ? t('ещё {games}', { games: gamesW(f.n - shelfGames.length) }) : figureHint(f)}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </section>
   )
 }

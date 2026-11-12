@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { idleFor, onActivity, usePadInfo } from '../lib/input'
 import { play } from '../lib/sound'
 import { usePadStatus, useVrQuest } from '../lib/state'
@@ -14,6 +14,9 @@ import {
   FREE,
   IDLE_ACTS,
   MORNING_ACTS,
+  SEASON_ACTS,
+  SEASON_HATS,
+  type Season,
   ROWS,
   SCRIPTS,
   SLOSH_TICKS,
@@ -37,6 +40,7 @@ import {
   type TiviMove
 } from '../lib/tivi-faces'
 import { useUpdate } from '../lib/update'
+import { seasonsFor } from '../lib/festive'
 import type { Settings } from '@shared/types'
 import { t } from '@shared/i18n'
 import '../styles-tivi.css'
@@ -103,6 +107,15 @@ type Part = 'intro' | 'loop' | 'outro'
 /** Ночь — с полуночи до пяти, утро — с пяти до одиннадцати */
 const isNight = (h: number) => h < 5
 const isMorning = (h: number) => h >= 5 && h < 11
+/**
+ * Какое сейчас время года и праздник: по календарю или праздник, выбранный в настройках (lib/festive);
+ * в демо можно задать: ?season=newyear или ?season=winter,newyear
+ */
+const seasonsNow = (): Season[] => {
+  const q = new URLSearchParams(location.search).get('season')
+  const asked = q?.split(',').filter((x): x is Season => x in SEASON_ACTS)
+  return asked?.length ? asked : seasonsFor()
+}
 
 const readSeen = () => {
   try {
@@ -544,7 +557,9 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
       if (!p || document.hidden || stage === 'sleep' || p.busy() || quiet < CALM_MS || loadingRef.current !== null) return plan()
       // Утром ещё и потягивается, ночью зевает втрое чаще и не ждёт для этого полминуты тишины
       const h = hourRef.current
-      const base = stage === 'drowsy' ? DROWSY_ACTS : isMorning(h) ? [...IDLE_ACTS, ...MORNING_ACTS] : IDLE_ACTS
+      // К обычным делам добавляются сезонные: зимой снег и камин, под Новый год ёлка и салют и так далее
+      const mine = [...IDLE_ACTS, ...seasonsNow().flatMap((x) => SEASON_ACTS[x])]
+      const base = stage === 'drowsy' ? DROWSY_ACTS : isMorning(h) ? [...mine, ...MORNING_ACTS] : mine
       const pool = base
         .map(([name, w]): [ScriptName, number] => [name, name === 'yawn' && isNight(h) ? w * 3 : w])
         .filter(([name]) => name !== last && (name !== 'yawn' || isNight(h) || quiet >= 30_000))
@@ -584,12 +599,14 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
     const timer = window.setInterval(() => setHour(new Date().getHours()), 60_000)
     return () => clearInterval(timer)
   }, [])
+  // В праздники вместо ночного колпака — праздничная шапка, и носит он её весь день (hour в зависимостях — чтобы день сменился)
+  const hat = useMemo(() => seasonsNow().map((x) => SEASON_HATS[x]).find(Boolean) ?? (night ? 'cap' : null), [night, hour])
   useEffect(() => {
-    if (!night) return setCap('off')
+    if (!hat) return setCap('off')
     setCap('drop')
     const timer = window.setTimeout(() => setCap('on'), 160)
     return () => clearTimeout(timer)
-  }, [night])
+  }, [hat])
 
   // Приветствие: когда интро закончилось и когда окно снова показали (из трея, после игры).
   // Смотрит, когда его видели до этого показа; пока окно на виду, время «видели» обновляется
@@ -726,6 +743,7 @@ export const Tivi = memo(function Tivi({ playing, greet, size = 'small' }: Props
         blink={free || face !== frame.face ? blink : 0}
         fx={face === frame.face ? frame.fx : undefined}
         cap={cap}
+        hat={hat ?? 'cap'}
         ears={ears}
         strips={strips}
         className={move.kind ? `is-${move.kind}` : ''}
@@ -808,6 +826,7 @@ export function TiviArt({
   blink = 0,
   fx,
   cap = 'off',
+  hat = 'cap',
   pose,
   ears = EARS_IDLE,
   strips,
@@ -818,6 +837,8 @@ export function TiviArt({
   blink?: number
   fx?: Fx[]
   cap?: 'off' | 'drop' | 'on'
+  /** Что надето: ночной колпак или праздничная шапка */
+  hat?: Sprite
   pose?: Pose
   ears?: Ears
   /** Сколько точек горит в полосах над и под матрицей */
@@ -870,7 +891,7 @@ export function TiviArt({
         <rect x="22.75" y="76.75" width="210.5" height="146.5" rx="37.25" fill="none" stroke="url(#tivi-rim)" strokeWidth="1.5" />
         {cap !== 'off' && (
           <g className="tivi-cap" shapeRendering="crispEdges">
-            {sprite('cap', 128, cap === 'drop' ? 40 : 51.5, 'cap')}
+            {sprite(hat, 128, (cap === 'drop' ? 40 : 51.5) + ((7 - SPRITES[hat].length) / 2) * PX, 'cap')}
           </g>
         )}
         <rect x="34" y="88" width="188" height="124" rx="26" fill={INSET} />
