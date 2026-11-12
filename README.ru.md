@@ -1,200 +1,143 @@
 <p align="center">
-  <b>PlayOS</b>
-  &emsp;
-  <a href="#обзор">Обзор</a>
+  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/hero.svg" width="100%" alt="PlayOS: название проявляется точками, как в интро приложения, а в углу моргает Тиви, его маскот."></a>
+</p>
+
+<h1 align="center">Ваш ПК. Теперь приставка.</h1>
+
+<p align="center">
+  Главный экран приставки для Windows с полным управлением геймпадом.<br>Игры PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR в одном месте. Бесплатно и с открытым кодом.
+</p>
+
+<p align="center">
+  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Скачать для Windows&nbsp;›</b></a>
+</p>
+
+<p align="center">
+  <a href="#что-умеет">Что умеет</a>
+  &nbsp;·&nbsp;
+  <a href="#экраны">Экраны</a>
   &nbsp;·&nbsp;
   <a href="#с-чего-начать">С чего начать</a>
   &nbsp;·&nbsp;
   <a href="docs/FAQ.md">F.A.Q</a>
   &nbsp;·&nbsp;
   <a href="docs/DEVELOPMENT.ru.md">Разработчикам</a>
-  &emsp;
-  <a href="README.md">English</a> | <b>Русский</b>
+  &emsp;|&emsp;
+  <a href="README.md">English</a> · <b>Русский</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/ru/hero.webp" width="100%" alt="PlayOS. Ваш ПК. Теперь приставка. Главный экран PlayOS и Тиви, его маскот, в углу."></a>
+  <img src="docs/assets/readme/ru/home.webp" width="100%" alt="Главный экран PlayOS: ряд недавних игр, выбранная игра со временем и трофеями, Тиви в углу.">
 </p>
 
-<p align="center">
-  Все ваши игры — PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR — в одном месте<br>
-  и с полным управлением геймпадом. Бесплатно и с открытым кодом, для Windows&nbsp;10 и&nbsp;11.
-</p>
-
-<p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Скачать для Windows&nbsp;›</b></a>
-  &emsp;&emsp;
-  <a href="#обзор"><b>Подробнее&nbsp;›</b></a>
-</p>
-
-<br>
-
-<a name="обзор"></a>
-<p align="center">
-  <img src="docs/assets/readme/ru/stats.webp" width="100%" alt="Главное. Один лаунчер. Всё, во что вы играете. 5 видов игр в одной библиотеке: PC, Steam, PS2, PS3 и VR. До 30 версий каждого сохранения в вашем облаке. 3 способа синхронизации: Яндекс Диск, Google Диск или папка. 14 фигурок Тиви в коллекции за пройденные игры.">
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/controls.webp" width="100%" alt="Геймпады. Любой геймпад. Без Big Picture. DualSense, DualShock 4, Xbox, 8BitDo, Nintendo, DirectInput, клавиатура и мышь.">
-</p>
-
-<p align="center">
-  <b>Любой геймпад работает во всём PlayOS и в оверлее — без Steam Big Picture.</b> DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo и старые геймпады DirectInput — для необычных есть настройка кнопок. Подсказки подстраиваются под геймпад в руках, а экранная клавиатура, вибрация в меню и прокрутка правым стиком уже на месте. Мышь и клавиатура делят один фокус с геймпадом.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#управление">Всё управление&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/cloud.webp" width="100%" alt="Облачные сохранения. Ваши сохранения. Только в вашем облаке. Этот ПК и другой ПК синхронизируются через ваше собственное облако: Яндекс Диск, Google Drive или папку синхронизации. Без серверов PlayOS.">
-</p>
-
-<p align="center">
-  Сохранения игр PS2, PS3 и PC, а вместе с ними библиотека, время в играх и профиль хранятся <b>на вашем собственном Яндекс Диске, Google Drive или в папке синхронизации</b>. У PlayOS нет своих серверов, а на Яндекс Диске и Google Drive он видит только свою папку. Сохранения игр PC находятся по базе Ludusavi, хранится <b>до 30 версий</b> каждого, а если два ПК не согласны — выбираете вы. Игры Steam остаются в Steam Cloud.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#облачные-сохранения">Подробнее об облаке&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/library.webp" width="100%" alt="Библиотека. Все игры с компьютера. В одном месте. Библиотека PlayOS с играми PC, PlayStation 2 и PlayStation 3.">
-</p>
-
-<p align="center">
-  Игры PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR рядом друг с другом в одном лаунчере. <b>Игры Steam, образы дисков и список RPCS3 импортируются разом</b>, а для любой другой игры достаточно выбрать папку — PlayOS сам найдёт EXE. Обложки, фоны и логотипы загружаются сами, а <b>поиск, подборки и сортировка</b> — в одном движении стика. Даже удалить игру можно, не вставая с дивана.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#игры">Подробнее об играх&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/store.webp" width="100%" alt="Магазин. Найдите игру. Оставьте её в библиотеке. Магазин PlayOS: игра на витрине и лидеры продаж.">
-</p>
-
-<p align="center">
-  Встроенный <b>магазин с каталогами Steam и GOG</b>: листайте по жанрам, фильтруйте по тегам, годам и отзывам и добавляйте любую игру в библиотеку одной кнопкой. Подключите свои источники загрузок — и PlayOS сам <b>скачает, распакует и установит</b> игру: с очередью, ограничением скорости и паузой на время игры.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/overlay.webp" width="100%" alt="Собственный оверлей. Нажмите PS. Игра подождёт. Оверлей PlayOS поверх игры PlayStation 2 на паузе с быстрыми сохранениями и пунктом управления.">
-</p>
-
-<p align="center">
-  <b>Кнопка PS или Guide</b>, Select&nbsp;+&nbsp;Start или Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H ставят игру на паузу и открывают <b>быстрые сохранения со скриншотами</b>, время сессии, громкость, вывод звука, яркость и заряд геймпада. В PCSX2 сохранения попадают точно в нужный слот через PINE. Мешает в какой-то игре? Выключите оверлей только для неё.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#геймпад-и-оверлей">Подробнее об оверлее&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/vr.webp" width="100%" alt="Встроенный VR. Наденьте шлем. И играйте. Meta Quest по Link и Air Link, заряд шлема и контроллеров в верхней панели.">
-</p>
-
-<p align="center">
-  VR встроен прямо в PlayOS: отметьте любую игру для PC как VR-игру и играйте на <b>Meta&nbsp;Quest по Link или Air&nbsp;Link</b>. PlayOS сам скачает открытый рантайм OpenComposite и подготовит его перед каждым запуском, запомнит <b>чёткость, руки, вибрацию и режим совместимости</b> для каждой игры, а заряд шлема и контроллеров покажет прямо в верхней панели.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/profile.webp" width="100%" alt="Профиль. Пройдите игру. Поставьте на полку. Профиль PlayOS с полкой пройденных игр и коллекцией фигурок Тиви.">
-</p>
-
-<p align="center">
-  Прошли игру? <b>Поставьте её на полку</b>, оцените одним из лиц Тиви и соберите <b>14 фигурок Тиви</b> — за первую игру, за сотую, за игру, пройденную за три дня или ночью. Охотитесь за платиной? <b>RetroAchievements приносят трофеи в классику PlayStation&nbsp;2</b>, а <b>достижения Steam — в игры для PC</b>, в том числе через эмуляторы Steam. Соберите все трофеи игры — и платина ваша. Трофеи появляются в момент получения, в списке остаётся скриншот этого момента, а каждая сессия идёт в общее время игры — с HowLongToBeat на странице игры.
-</p>
-
-<p align="center"><a href="docs/FAQ.md#трофеи">Подробнее о трофеях&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/tivi.webp" width="100%" alt="Тиви. Знакомьтесь, Тиви. Он живёт в углу экрана. Пять Тиви: подмигивает, в тёмных очках, влюблён в ваши трофеи, показывает камин на экране и в праздничном колпаке.">
-</p>
-
-<p align="center">
-  Тиви — маленький телевизор, который живёт в углу PlayOS. <b>Он следит за тем, что вы делаете</b>, радуется трофеям, дремлет, когда вас нет, и сам находит себе занятие: включает на экране камин, играет в понг, зимой ловит снежинки. К <b>Новому году, Хэллоуину и 14 февраля</b> он наряжается, а интерфейс получает украшения и свои звуки. Не ваше? Он выключается одним переключателем.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/ru/community.webp" width="100%" alt="Сообщество. PlayOS строите вы. Предложите идею. Ваша идея, обсуждаем, выходит в обновлении.">
-</p>
-
-<p align="center">
-  PlayOS — открытый проект, который растёт из пожеланий игроков. <b>Предложите идею в <a href="https://github.com/fakem1nk/PlayOS/discussions">Discussions</a></b> или сообщите об ошибке в <a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Issues</a> — она может появиться уже в следующем обновлении.
-</p>
-
-<p align="center"><a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Предложить идею&nbsp;›</a></p>
-
-<br>
-
-<h3 align="center">И это ещё не всё.</h3>
+## Что умеет
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/art.svg" width="48" height="48" alt=""><br>
-      <b>Живой главный экран</b><br>
-      Фон оживает беззвучным трейлером, а меню и подсветка DualSense берут цвет игры.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/tv.svg" width="48" height="48" alt=""><br>
-      <b>Готов к телевизору</b><br>
-      Выбор экрана для PlayOS и эмуляторов, масштаб интерфейса, тёмная, светлая или системная тема. Запускается вместе с Windows и дружит с Moonlight.
+    <td width="46%"><img src="docs/assets/readme/library.svg" width="100%" alt="Ряд обложек игр, рамка фокуса шагает от одной к другой."></td>
+    <td valign="middle">
+      <h3>Одна библиотека</h3>
+      <b>Все игры вашего ПК — рядом.</b><br><br>
+      Игры PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 и VR в одном лаунчере. Игры Steam, образы дисков и список RPCS3 добавляются разом; для остального выберите папку — PlayOS сам найдёт EXE. Обложки, фоны и логотипы подтянутся сами. Поиск, подборки и сортировка — одним движением стика.<br><br>
+      <a href="docs/FAQ.md#игры">Подробнее&nbsp;›</a>
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/bell.svg" width="48" height="48" alt=""><br>
-      <b>Центр уведомлений</b><br>
-      Ошибки, трофеи и обновления ждут вас там. Размер и время показа всплывающих уведомлений настраиваются, их можно и выключить.
+    <td valign="middle">
+      <h3>Любой геймпад</h3>
+      <b>Big Picture не нужен.</b><br><br>
+      DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo и старые DirectInput-геймпады, а для необычных — назначение кнопок. Подсказки показывают кнопки того геймпада, что у вас в руках; экранная клавиатура, вибрация в меню и прокрутка правым стиком встроены. Мышь и клавиатура делят один фокус с геймпадом.<br><br>
+      <a href="docs/FAQ.md#управление">Подробнее&nbsp;›</a>
     </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/moon.svg" width="48" height="48" alt=""><br>
-      <b>Не мешает играть</b><br>
-      Пока идёт игра, PlayOS выгружает свой интерфейс и работает в режиме эффективности Windows. Закрытое окно остаётся в трее, а кнопка PS возвращает его.
+    <td width="46%"><img src="docs/assets/readme/controls.svg" width="100%" alt="Четыре кнопки геймпада загораются по очереди, заряд показан точками."></td>
+  </tr>
+  <tr>
+    <td width="46%"><img src="docs/assets/readme/overlay.svg" width="100%" alt="Игра на экране; нажимают кнопку PS, и поверх открывается меню с быстрыми сохранениями."></td>
+    <td valign="middle">
+      <h3>Свой оверлей</h3>
+      <b>Нажмите PS. Игра подождёт.</b><br><br>
+      Кнопка PS или Guide ставит игру на паузу и открывает быстрые сохранения со скриншотами, время сессии, громкость, выбор звукового выхода, яркость и заряд геймпада. Сохранения PCSX2 попадают в нужный слот. Не нужен оверлей в какой-то игре? Выключите его только там.<br><br>
+      <a href="docs/FAQ.md#геймпад-и-оверлей">Подробнее&nbsp;›</a>
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/download.svg" width="48" height="48" alt=""><br>
-      <b>Обновляется сам</b><br>
-      Новые версии скачиваются в фоне с коротким списком изменений на вашем языке. Бета-версии — по желанию, и всегда можно вернуться на стабильную.
+    <td valign="middle">
+      <h3>Облачные сохранения</h3>
+      <b>Ваши сохранения. Только в вашем облаке.</b><br><br>
+      Сохранения игр PS2, PS3 и PC, библиотека, время в играх и профиль уходят на ваш Яндекс Диск, Google Диск или в папку синхронизации. Своих серверов у PlayOS нет. Хранится до <b>30</b> версий каждого сохранения, а если два ПК расходятся — выбираете вы.<br><br>
+      <a href="docs/FAQ.md#облачные-сохранения">Подробнее&nbsp;›</a>
     </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/globe.svg" width="48" height="48" alt=""><br>
-      <b>Русский и английский</b><br>
-      Весь интерфейс и описания игр из Steam и Википедии на вашем языке.
+    <td width="46%"><img src="docs/assets/readme/cloud.svg" width="100%" alt="Точки бегут от одного ПК в облако и дальше к другому ПК; число 30 точками."></td>
+  </tr>
+  <tr>
+    <td width="46%"><img src="docs/assets/readme/store.svg" width="100%" alt="Страница игры с кнопкой загрузки и полоской из клеток, которая наполняется до 100%."></td>
+    <td valign="middle">
+      <h3>Магазин и загрузки</h3>
+      <b>Найдите игру. Оставьте себе.</b><br><br>
+      Встроенный магазин с каталогами Steam и GOG: листайте по жанрам, фильтруйте по тегам, годам и отзывам, добавляйте игру в библиотеку одной кнопкой. Подключите свои источники загрузок — и PlayOS сам скачает, распакует и установит игру: с очередью, ограничением скорости и паузой на время игры.
     </td>
+  </tr>
+  <tr>
+    <td valign="middle">
+      <h3>Профиль и трофеи</h3>
+      <b>Пройдите игру. Поставьте на полку.</b><br><br>
+      Пройденные игры встают на полку с оценкой — одним из лиц Тиви. Соберите <b>14</b> фигурок Тиви: за первую игру, за сотую, за игру, пройденную за три дня или ночью. RetroAchievements дают трофеи классике PS2, достижения Steam — играм PC, а за полный набор полагается платина.<br><br>
+      <a href="docs/FAQ.md#трофеи">Подробнее&nbsp;›</a>
+    </td>
+    <td width="46%"><img src="docs/assets/readme/profile.svg" width="100%" alt="Полка корешков игр, которые по очереди выдвигаются, число 14 и календарь активности."></td>
+  </tr>
+  <tr>
+    <td width="46%"><img src="docs/assets/readme/vr.svg" width="100%" alt="Шлем и два контроллера с зарядом точками; у одного заряд на исходе, он мигает."></td>
+    <td valign="middle">
+      <h3>Встроенный VR</h3>
+      <b>Наденьте. Нажмите «Играть».</b><br><br>
+      Отметьте любую игру PC как VR-игру и играйте на Meta&nbsp;Quest через Link или Air&nbsp;Link. PlayOS сам готовит открытый компонент OpenComposite перед каждым запуском, помнит чёткость, руки и вибрацию для каждой игры и показывает заряд шлема и контроллеров в верхней панели.
+    </td>
+  </tr>
+  <tr>
+    <td valign="middle">
+      <h3>Праздники</h3>
+      <b>В декабре идёт снег.</b><br><br>
+      К Новому году, Хэллоуину и 14 февраля интерфейс получает украшения из тех же светящихся точек — снег и гирлянду, летучих мышей и тыквы, сердечки — и свои звуки. Включается по календарю, выключается одной настройкой.
+    </td>
+    <td width="46%"><img src="docs/assets/readme/holidays.svg" width="100%" alt="Падает снег, мигает гирлянда, Тиви в праздничном колпаке."></td>
   </tr>
 </table>
 
-<br>
+## Знакомьтесь, Тиви
 
 <p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/ru/cta.webp" width="100%" alt="Готов, когда готовы вы. Скачать для Windows."></a>
+  <img src="docs/assets/readme/tivi.svg" width="100%" alt="Пять Тиви: подмигивает, надевает тёмные очки, влюблён, показывает камин на экране и спит.">
 </p>
 
-<p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Скачать для Windows&nbsp;›</b></a>
-</p>
+Тиви — маленький телевизор, который живёт в углу PlayOS. Он следит за тем, что вы делаете, радуется трофеям, дремлет, когда вас нет, и сам находит себе занятие: включает на экране камин, играет в понг, чихает, танцует. Зимой ловит снежинки, летом тает от жары. Выключается одним переключателем — но никто не выключает.
 
-<br>
+## Экраны
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/ru/library.webp" width="100%" alt="Библиотека"><br><p align="center"><b>Библиотека</b></p></td>
+    <td width="50%"><img src="docs/assets/readme/ru/store.webp" width="100%" alt="Магазин"><br><p align="center"><b>Магазин</b></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/ru/profile.webp" width="100%" alt="Профиль"><br><p align="center"><b>Профиль</b></p></td>
+    <td width="50%"><img src="docs/assets/readme/ru/overlay.webp" width="100%" alt="Оверлей"><br><p align="center"><b>Оверлей</b></p></td>
+  </tr>
+</table>
+
+## Ещё
+
+- **Живёт на телевизоре** — выбор экрана для PlayOS и эмуляторов, масштаб интерфейса, тёмная, светлая или системная тема.
+- **Не мешает играть** — выгружает интерфейс на время игры, сидит в трее, возвращается по кнопке PS.
+- **Живой главный экран** — фоны превращаются в беззвучные трейлеры, меню и подсветка DualSense принимают цвет игры.
+- **Центр уведомлений** — ошибки, трофеи и обновления ждут там; размер и время всплывающих окон настраиваются.
+- **Обновляется сам** — новые версии приходят в фоне с коротким списком изменений.
+- **Русский и английский** — весь интерфейс и описания игр из Steam и Википедии.
 
 ## С чего начать
 
 1. Скачайте `PlayOS-Setup-<версия>.exe` из [последнего релиза](https://github.com/fakem1nk/PlayOS/releases/latest) и запустите. Если SmartScreen остановит установку, нажмите «Подробнее» → «Выполнить в любом случае» ([почему так](docs/FAQ.md#windows-пишет-система-windows-защитила-ваш-компьютер)).
-2. Короткая первая настройка спросит имя и язык, подключит облако, найдёт игры, подскажет путь к эмуляторам и поможет выбрать экран и громкость. Любой шаг можно пропустить и поменять потом в настройках.
+2. Короткая первая настройка спросит имя и язык, подключит облако, найдёт игры, подскажет путь к эмуляторам и поможет выбрать экран и громкость. Любой шаг можно пропустить.
 3. Готово: дальше PlayOS обновляется сам.
 
 | Чтобы играть | Что нужно |
@@ -214,13 +157,15 @@
   <img src="https://contrib.rocks/image?repo=fakem1nk/PlayOS" alt="Участники">
 </a>
 
-Хотите помочь? Начните с [руководства для разработчиков](docs/DEVELOPMENT.ru.md). Идеи и сообщения об ошибках ждём в [Issues](https://github.com/fakem1nk/PlayOS/issues/new/choose).
+PlayOS — проект с открытым кодом и растёт из того, о чём просят игроки. Предложите идею в [Discussions](https://github.com/fakem1nk/PlayOS/discussions), сообщите об ошибке в [Issues](https://github.com/fakem1nk/PlayOS/issues/new/choose) или начните с [руководства для разработчиков](docs/DEVELOPMENT.ru.md).
 
 ## Лицензия
 
 PlayOS распространяется по лицензии [GPL-3.0](LICENSE).
 
-<br>
+<p align="center">
+  <img src="docs/assets/readme/footer.svg" width="100%" alt="Тиви спит.">
+</p>
 
 <p align="center">
   <a href="https://github.com/fakem1nk/PlayOS/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fakem1nk/PlayOS/ci.yml?branch=main&style=for-the-badge&label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0&labelColor=1B2030&color=5EA1FF&logo=data:image%2Fsvg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNSAxMi41bDQuNSA0LjVMMTkgNy41Ii8%2BPC9zdmc%2B" alt="Build"></a>

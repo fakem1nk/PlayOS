@@ -1,201 +1,144 @@
 <p align="center">
-  <b>PlayOS</b>
-  &emsp;
-  <a href="#overview">Overview</a>
+  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/hero.svg" width="100%" alt="PlayOS: the name appears dot by dot like in the app intro, and Tivi, the mascot, blinks in the corner."></a>
+</p>
+
+<h1 align="center">Your PC. Now a console.</h1>
+
+<p align="center">
+  A console home screen for Windows, driven entirely by a controller.<br>PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR games in one place. Free and open source.
+</p>
+
+<p align="center">
+  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Download for Windows&nbsp;›</b></a>
+</p>
+
+<p align="center">
+  <a href="#what-it-does">What it does</a>
+  &nbsp;·&nbsp;
+  <a href="#screens">Screens</a>
   &nbsp;·&nbsp;
   <a href="#get-started">Get started</a>
   &nbsp;·&nbsp;
   <a href="docs/FAQ.en.md">F.A.Q</a>
   &nbsp;·&nbsp;
   <a href="docs/DEVELOPMENT.md">Developers</a>
-  &emsp;
-  <b>English</b> | <a href="README.ru.md">Русский</a>
+  &emsp;|&emsp;
+  <b>English</b> · <a href="README.ru.md">Русский</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/en/hero.webp" width="100%" alt="PlayOS. Your PC. Now a console. The PlayOS home screen with Tivi, its mascot, in the corner."></a>
+  <img src="docs/assets/readme/en/home.webp" width="100%" alt="The PlayOS home screen: recent games in a row, the selected game with its play time and trophies, Tivi in the corner.">
 </p>
 
-<p align="center">
-  Every game you own — PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR — in one place,<br>
-  driven entirely by a controller. Free and open source, for Windows&nbsp;10 and&nbsp;11.
-</p>
-
-<p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Download for Windows&nbsp;›</b></a>
-  &emsp;&emsp;
-  <a href="#overview"><b>Learn more&nbsp;›</b></a>
-</p>
-
-<br>
-
-<a name="overview"></a>
-<p align="center">
-  <img src="docs/assets/readme/en/stats.webp" width="100%" alt="The highlights. One launcher. Everything you play. 5 kinds of games in one library: PC, Steam, PS2, PS3 and VR. Up to 30 versions of every save, kept in your own cloud. 3 ways to sync: Yandex Disk, Google Drive or a folder. 14 Tivi figures to collect for the games you finish.">
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/controls.webp" width="100%" alt="Controllers. Any controller. No Big Picture. DualSense, DualShock 4, Xbox, 8BitDo, Nintendo, DirectInput, keyboard and mouse.">
-</p>
-
-<p align="center">
-  <b>Every controller works across PlayOS and its overlay — no Steam Big Picture needed.</b> DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo and older DirectInput pads, with a button mapper for the unusual ones. Button hints follow the pad in your hands, and an on-screen keyboard, menu vibration and right-stick scrolling are built in. The mouse and keyboard share one focus with the controller.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#controls">See the controls&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/cloud.webp" width="100%" alt="Cloud saves. Your saves. Only in your cloud. This PC and another PC sync through your own cloud: Yandex Disk, Google Drive or a sync folder. No PlayOS servers.">
-</p>
-
-<p align="center">
-  Saves of PS2, PS3 and PC games, along with your library, play time and profile, go to <b>your own Yandex Disk, Google Drive or sync folder</b>. PlayOS has no servers of its own, and on Yandex Disk and Google Drive it can only see its own folder. PC saves are found through the Ludusavi database, <b>up to 30 versions</b> of each are kept, and when two PCs disagree, you choose. Steam games stay with Steam Cloud.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#cloud-saves">Learn more about cloud saves&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/library.webp" width="100%" alt="Library. Every game on your PC. In one place. The PlayOS library with PC, PlayStation 2 and PlayStation 3 games.">
-</p>
-
-<p align="center">
-  PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR games side by side in one launcher. <b>Steam games, disc images and the RPCS3 list import in one go</b>; for anything else, pick a folder and PlayOS finds the EXE. Covers, backgrounds and logos arrive on their own, and <b>search, collections and sorting</b> are a stick flick away. You can even uninstall a game without leaving the couch.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#games">Learn more about games&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/store.webp" width="100%" alt="Store. Find a game. Keep it in your library. The PlayOS store with a featured game and top sellers.">
-</p>
-
-<p align="center">
-  A built-in <b>store with the Steam and GOG catalogues</b>: browse by genre, filter by tags, years and reviews, and add any game to your library with one button. Connect your own download sources and PlayOS <b>downloads, unpacks and installs</b> the game for you — with a queue, speed limits and a pause while you play.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/overlay.webp" width="100%" alt="Its own overlay. Press PS. The game waits. The PlayOS overlay over a paused PlayStation 2 game with quick saves and the control center.">
-</p>
-
-<p align="center">
-  The <b>PS or Guide button</b>, Select&nbsp;+&nbsp;Start or Ctrl&nbsp;+&nbsp;Alt&nbsp;+&nbsp;H pauses the game and opens <b>quick saves with screenshots</b>, session time, volume, audio output, brightness and controller battery. PCSX2 saves land in the right slot over PINE. Don't want the overlay in a particular game? Turn it off just there.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#controller-and-overlay">Learn more about the overlay&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/vr.webp" width="100%" alt="Built-in VR. Put it on. Press play. Meta Quest over Link and Air Link, with headset and controller battery in the top bar.">
-</p>
-
-<p align="center">
-  VR is built into PlayOS: mark any PC game as a VR game and play it on <b>Meta&nbsp;Quest over Link or Air&nbsp;Link</b>. PlayOS downloads the open-source OpenComposite runtime and prepares it before every launch, remembers <b>sharpness, hands, vibration and compatibility mode</b> for each game, and shows the headset and controller battery right in the top bar.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/profile.webp" width="100%" alt="Profile. Finish a game. Put it on the shelf. The PlayOS profile with the shelf of finished games and the collection of Tivi figures.">
-</p>
-
-<p align="center">
-  Finished a game? <b>Put it on your shelf</b>, rate it with one of Tivi’s faces and collect <b>14 Tivi figures</b> — for the first game, for a hundred, for a game beaten in three days or at night. Chasing a platinum? <b>RetroAchievements bring trophies to PlayStation&nbsp;2 classics</b>, and <b>Steam achievements cover PC games</b>, including games running on Steam emulators. Collect every trophy in a game and its platinum is yours. Trophies pop up the moment they unlock, the trophy list keeps a screenshot of that moment, and every session counts toward your play time, with HowLongToBeat on the game page.
-</p>
-
-<p align="center"><a href="docs/FAQ.en.md#trophies">Learn more about trophies&nbsp;›</a></p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/tivi.webp" width="100%" alt="Tivi. Meet Tivi. He lives in the corner. Five Tivis: winking, wearing shades, in love with your trophies, showing a fireplace on his screen, and in a holiday hat.">
-</p>
-
-<p align="center">
-  Tivi is the little TV that lives in the corner of PlayOS. <b>He follows what you do</b>, cheers for trophies, naps when you are away and keeps himself busy: lights a fireplace on his screen, plays a round of pong, catches snowflakes in winter. For <b>New Year, Halloween and Valentine’s Day</b> he dresses up and the whole interface gets decorations and its own sounds. Not your thing? One switch turns him off.
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/assets/readme/en/community.webp" width="100%" alt="Community. Built by players. Share your idea. Your idea, we talk it over, it ships.">
-</p>
-
-<p align="center">
-  PlayOS is open source and grows from what players ask for. <b>Share an idea in <a href="https://github.com/fakem1nk/PlayOS/discussions">Discussions</a></b> or report a bug in <a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Issues</a> — it might land in the very next update.
-</p>
-
-<p align="center"><a href="https://github.com/fakem1nk/PlayOS/issues/new/choose">Suggest an idea&nbsp;›</a></p>
-
-<br>
-
-<h3 align="center">And so much more.</h3>
+## What it does
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/art.svg" width="48" height="48" alt=""><br>
-      <b>A living home screen</b><br>
-      Backgrounds turn into silent trailers, and the menu and the DualSense light bar take the color of the game.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/tv.svg" width="48" height="48" alt=""><br>
-      <b>Ready for the TV</b><br>
-      Choose the display for PlayOS and emulators, scale the interface, pick a dark, light or system theme. Starts with Windows and plays well with Moonlight.
+    <td width="46%"><img src="docs/assets/readme/library.svg" width="100%" alt="A row of game covers with a focus frame stepping from one to the next."></td>
+    <td valign="middle">
+      <h3>One library</h3>
+      <b>Every game on your PC, side by side.</b><br><br>
+      PC, Steam, PlayStation&nbsp;2, PlayStation&nbsp;3 and VR games in one launcher. Steam games, disc images and the RPCS3 list import in one go; for anything else, pick a folder and PlayOS finds the EXE. Covers, backgrounds and logos arrive on their own. Search, collections and sorting are a stick flick away.<br><br>
+      <a href="docs/FAQ.en.md#games">Learn more&nbsp;›</a>
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/bell.svg" width="48" height="48" alt=""><br>
-      <b>Notification Center</b><br>
-      Errors, trophies and updates wait for you there. Set the pop-up size and time on screen, or turn pop-ups off.
+    <td valign="middle">
+      <h3>Any controller</h3>
+      <b>No Big Picture needed.</b><br><br>
+      DualSense, DualShock&nbsp;4, Xbox, 8BitDo, Nintendo and older DirectInput pads, with a button mapper for the unusual ones. Button hints follow the pad in your hands; an on-screen keyboard, menu vibration and right-stick scrolling are built in. Mouse and keyboard share one focus with the controller.<br><br>
+      <a href="docs/FAQ.en.md#controls">Learn more&nbsp;›</a>
     </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/moon.svg" width="48" height="48" alt=""><br>
-      <b>Stays out of the way</b><br>
-      While you play, PlayOS unloads its interface and runs in Windows efficiency mode. Closing the window keeps it in the tray, and the PS button brings it back.
+    <td width="46%"><img src="docs/assets/readme/controls.svg" width="100%" alt="Four controller buttons lighting up one after another, and a battery level in dots."></td>
+  </tr>
+  <tr>
+    <td width="46%"><img src="docs/assets/readme/overlay.svg" width="100%" alt="A game on screen; the PS button is pressed and a menu with quick saves opens over it."></td>
+    <td valign="middle">
+      <h3>Its own overlay</h3>
+      <b>Press PS. The game waits.</b><br><br>
+      The PS or Guide button pauses the game and opens quick saves with screenshots, session time, volume, audio output, brightness and controller battery. PCSX2 saves land in the right slot. Don’t want the overlay in a particular game? Turn it off just there.<br><br>
+      <a href="docs/FAQ.en.md#controller-and-overlay">Learn more&nbsp;›</a>
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/download.svg" width="48" height="48" alt=""><br>
-      <b>Updates itself</b><br>
-      New versions download in the background with a short list of changes in your language. Beta versions are opt-in, and you can always go back to stable.
+    <td valign="middle">
+      <h3>Cloud saves</h3>
+      <b>Your saves. Only in your cloud.</b><br><br>
+      Saves of PS2, PS3 and PC games, your library, play time and profile go to your own Yandex Disk, Google Drive or sync folder. PlayOS has no servers of its own. Up to <b>30</b> versions of every save are kept, and when two PCs disagree, you choose.<br><br>
+      <a href="docs/FAQ.en.md#cloud-saves">Learn more&nbsp;›</a>
     </td>
-    <td width="50%" valign="top">
-      <img src="docs/assets/icons/globe.svg" width="48" height="48" alt=""><br>
-      <b>English and Russian</b><br>
-      The whole interface, and game descriptions from Steam and Wikipedia, in your language.
+    <td width="46%"><img src="docs/assets/readme/cloud.svg" width="100%" alt="Dots travel from one PC to a cloud and on to another PC; the number 30 in dots."></td>
+  </tr>
+  <tr>
+    <td width="46%"><img src="docs/assets/readme/store.svg" width="100%" alt="A game page with a download button and a progress bar of cells filling up to 100%."></td>
+    <td valign="middle">
+      <h3>Store and downloads</h3>
+      <b>Find a game. Keep it.</b><br><br>
+      A built-in store with the Steam and GOG catalogues: browse by genre, filter by tags, years and reviews, add a game to the library with one button. Connect your own download sources and PlayOS downloads, unpacks and installs the game — with a queue, speed limits and a pause while you play.
     </td>
+  </tr>
+  <tr>
+    <td valign="middle">
+      <h3>Profile and trophies</h3>
+      <b>Finish a game. Put it on the shelf.</b><br><br>
+      Finished games go on your shelf, rated with one of Tivi’s faces. Collect <b>14</b> Tivi figures — for the first game, for the hundredth, for a game beaten in three days or at night. RetroAchievements bring trophies to PS2 classics and Steam achievements cover PC games, with platinum for a full set.<br><br>
+      <a href="docs/FAQ.en.md#trophies">Learn more&nbsp;›</a>
+    </td>
+    <td width="46%"><img src="docs/assets/readme/profile.svg" width="100%" alt="A shelf of game spines popping up one by one, the number 14, and an activity calendar."></td>
+  </tr>
+  <tr>
+    <td width="46%"><img src="docs/assets/readme/vr.svg" width="100%" alt="A headset and two controllers with battery levels in dots; one is low and blinks."></td>
+    <td valign="middle">
+      <h3>Built-in VR</h3>
+      <b>Put it on. Press play.</b><br><br>
+      Mark any PC game as a VR game and play it on Meta&nbsp;Quest over Link or Air&nbsp;Link. PlayOS prepares the open-source OpenComposite runtime before every launch, remembers sharpness, hands and vibration for each game, and shows the headset and controller battery in the top bar.
+    </td>
+  </tr>
+  <tr>
+    <td valign="middle">
+      <h3>Holidays</h3>
+      <b>It snows in December.</b><br><br>
+      For New Year, Halloween and Valentine’s Day the interface gets decorations made of the same glowing dots — snow and a string of lights, bats and pumpkins, floating hearts — and its own sounds. It follows the calendar, and one setting turns it off.
+    </td>
+    <td width="46%"><img src="docs/assets/readme/holidays.svg" width="100%" alt="Snow falling, a string of blinking lights, and Tivi in a holiday hat."></td>
   </tr>
 </table>
 
-<br>
+## Meet Tivi
 
 <p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><img src="docs/assets/readme/en/cta.webp" width="100%" alt="Ready when you are. Download for Windows."></a>
+  <img src="docs/assets/readme/tivi.svg" width="100%" alt="Five Tivis: winking, putting on shades, in love, showing a fireplace on his screen, and asleep.">
 </p>
 
-<p align="center">
-  <a href="https://github.com/fakem1nk/PlayOS/releases/latest"><b>Download for Windows&nbsp;›</b></a>
-</p>
+Tivi is the little TV that lives in the corner of PlayOS. He follows what you do, cheers for trophies, naps when you are away and keeps himself busy: lights a fireplace on his screen, plays pong, sneezes, dances. In winter he catches snowflakes, in summer he melts. One switch turns him off — but nobody does.
 
-<br>
+## Screens
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/en/library.webp" width="100%" alt="Library"><br><p align="center"><b>Library</b></p></td>
+    <td width="50%"><img src="docs/assets/readme/en/store.webp" width="100%" alt="Store"><br><p align="center"><b>Store</b></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/en/profile.webp" width="100%" alt="Profile"><br><p align="center"><b>Profile</b></p></td>
+    <td width="50%"><img src="docs/assets/readme/en/overlay.webp" width="100%" alt="Overlay"><br><p align="center"><b>Overlay</b></p></td>
+  </tr>
+</table>
+
+## Also
+
+- **Lives on the TV** — pick the display for PlayOS and emulators, scale the interface, dark, light or system theme.
+- **Stays out of the way** — unloads its interface while you play, sits in the tray, comes back on the PS button.
+- **A living home screen** — backgrounds turn into silent trailers; the menu and the DualSense light bar take the game’s color.
+- **Notification center** — errors, trophies and updates wait there; pop-up size and time are yours to set.
+- **Updates itself** — new versions arrive in the background with a short list of changes.
+- **English and Russian** — the whole interface, and game descriptions from Steam and Wikipedia.
 
 ## Get started
 
 1. Download `PlayOS-Setup-<version>.exe` from the [latest release](https://github.com/fakem1nk/PlayOS/releases/latest) and run it. If Windows SmartScreen stops it, click “More info” → “Run anyway” ([why](docs/FAQ.en.md#windows-says-windows-protected-your-pc)).
-2. A short first setup asks for your name and language, connects the cloud, finds your games, points to the emulators and picks the display and volume. Any step can be skipped and changed later in Settings.
-3. That's it: from now on PlayOS updates itself.
+2. A short first setup asks for your name and language, connects the cloud, finds your games, points to the emulators and picks the display and volume. Any step can be skipped.
+3. That’s it: from now on PlayOS updates itself.
 
 | To play | You need |
 | --- | --- |
@@ -206,7 +149,7 @@
 | With the DualSense light bar | [DSX](https://store.steampowered.com/app/1812620/DSX/) |
 | With trophies and art for almost any game | Free RetroAchievements, Steam Web API and SteamGridDB keys (optional) |
 
-Controls, emulator settings and common problems are in the [F.A.Q](docs/FAQ.en.md). Found a bug? Here's [how to report it](docs/BUG_REPORT.md).
+Controls, emulator settings and common problems are in the [F.A.Q](docs/FAQ.en.md). Found a bug? Here’s [how to report it](docs/BUG_REPORT.md).
 
 ## Contributors
 
@@ -214,13 +157,15 @@ Controls, emulator settings and common problems are in the [F.A.Q](docs/FAQ.en.m
   <img src="https://contrib.rocks/image?repo=fakem1nk/PlayOS" alt="Contributors">
 </a>
 
-Want to help? Start with the [developer guide](docs/DEVELOPMENT.md). Ideas and bug reports are welcome in [Issues](https://github.com/fakem1nk/PlayOS/issues/new/choose).
+PlayOS is open source and grows from what players ask for. Share an idea in [Discussions](https://github.com/fakem1nk/PlayOS/discussions), report a bug in [Issues](https://github.com/fakem1nk/PlayOS/issues/new/choose), or start with the [developer guide](docs/DEVELOPMENT.md).
 
 ## License
 
 PlayOS is licensed under the [GPL-3.0](LICENSE) license.
 
-<br>
+<p align="center">
+  <img src="docs/assets/readme/footer.svg" width="100%" alt="Tivi is asleep.">
+</p>
 
 <p align="center">
   <a href="https://github.com/fakem1nk/PlayOS/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fakem1nk/PlayOS/ci.yml?branch=main&style=for-the-badge&label=build&labelColor=1B2030&color=5EA1FF&logo=data:image%2Fsvg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNSAxMi41bDQuNSA0LjVMMTkgNy41Ii8%2BPC9zdmc%2B" alt="Build"></a>
